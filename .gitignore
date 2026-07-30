@@ -1,0 +1,9 @@
+.bmad-loop
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+.zed
+.qwen
+.claude
+.opencode
+!README.md
