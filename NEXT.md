@@ -1,59 +1,91 @@
 # Next Steps — HPDC Project
 
-**Last session:** 2026-07-21
-**PRD status:** Finalized (48 FRs, 5 UJs, 55 glossary terms, 15 open questions, 13 assumptions)
+**Last session:** 2026-07-30
+**PRD status:** Finalized (48 FRs, 5 UJs)
+**Architecture spine status:** Finalized (13 ADs, 48 FRs mapped, reviewer gate passed)
 
 ---
 
 ## BMAD Workflow — What Comes Next
 
-### 1. Architecture Spine
+### 1. ✅ Architecture Spine (DONE)
 **Command:** `bmad-architecture`
-**What it does:** Produces the architecture — a lean spine of invariants that keeps everything built from it consistent. Projects the PRD into a technical architecture.
-**Why next:** Architecture feeds directly into UX design and story creation.
+**Output:** 13 ADs, 6 data-flow paths, C4 diagrams, interactive HTML deck, solution design doc, ADR decision log, work-split view.
 
-### 2. UX Specifications
-**Command:** `bmad-ux`
-**What it does:** Plans UX patterns and design specifications for the central hub SPA and Backstage dashboards.
-**Depends on:** Architecture (§3 of BMAD workflow)
-
-### 3. Epics & Stories
+### 2. Epics & Stories (RECOMMENDED NEXT)
 **Command:** `bmad-create-epics-and-stories`
-**What it does:** Breaks requirements into epics and user stories for sprint planning.
-**Depends on:** Architecture + UX
+**What it does:** Breaks the 13 architecture work slices into epics and user stories for sprint planning.
+**Depends on:** Architecture ✅
+**Why first:** Architecture has enough detail (13 ADs, work-split) to drive story creation directly. UX can proceed in parallel.
+
+### 3. UX Specifications (PARALLEL OPTION)
+**Command:** `bmad-ux`
+**What it does:** UX patterns and design specifications for Backstage dashboards and the v2 central hub SPA.
+**Depends on:** Architecture ✅ (minimal — MVP UX is Backstage + Grafana, detailed UX deferred to v2)
+**Note:** MVP UX scope is small (Backstage plugins, Grafana dashboards). Full SPA UX is v2 deferred.
 
 ---
 
 ## Key Decisions to Remember
 
-- **Clean-sheet design** — uses with-gsd/ patterns as reference/examples only, NOT extending
-- **v1 MVP = POC on local dev machine** — all components running, 100K+ RPS
-- **Dual-engine messaging** — Pulsar (primary: MQTT/gRPC) + Kafka (secondary: alerts, Spin WASM)
-- **Triple database** — CouchDB (docs) + ArcadeDB (graph) + YugabyteDB (relational)
-- **GitOps delivery** — Kargo + Argo (CD, Rollouts, Events, Workflows) + Backstage
-- **Dev provisioning** — `talosctl cluster create` with QEMU backend (cross-platform)
-- **Air-gapped** — Harbor + Spegel P2P + local Git mirrors, always GitOps-mediated
+- **Paradigm:** Gateway-Mediated Domain Segregation — Envoy routes as hard domain boundaries
+- **Compute:** Serverless-first — KNative (scale-to-zero + Restate SAGAs), SpinKube WASM, Pulsar Functions. No always-on microservices
+- **Messaging:** Pulsar primary (MQTT/gRPC, 100K+ RPS) + Kafka secondary (alerts, Spin WASM). Protobuf CommonEnvelope with origin + idempotency_key fields
+- **Databases:** CouchDB (docs/CRM/ERP), YugabyteDB 2026.1.0.1 (transactions), ArcadeDB (graph), ClickHouse (telemetry), KeyDB (cache/pubsub/dedup), PostgreSQL (auth only). All functions R/W all DBs
+- **Auth:** Casdoor JWT/API-Key at EG, Casbin ext_authz Go gRPC. Three models (RBAC/ReBAC/ABAC), DENY-wins conflict resolution
+- **GitOps:** Monorepo + Kustomize overlays (base/dev/prod) + Kargo Freight promotion + Argo CD ApplicationSet sync
+- **Air-gapped:** Harbor (local registry + Trivy + Cosign) + Spegel (P2P distribution) + local Git mirrors
+- **Observability:** Structured JSON logs, OpenTelemetry auto-instrumentation, VictoriaMetrics cluster, Hubble network observability. Retention: 7d raw / 30d agg / 1y monthly
+- **Secrets:** Infisical K8s Operator CSI Driver injection, 90d auto-rotation, per-function service accounts
+- **Operations:** Talos Linux 1.13.7 (k8s v1.36.2, containerd 2.2.6), Cilium 1.19.6 (eBPF CNI, kube-proxy replacement, ClusterMesh), Rook-Ceph v1.20.3 (Ceph v20.2.2)
+- **SPA:** Backstage MVP (deployed as Backstage plugin), full SPA on CDN deferred to v2
+- **Source tree:** `backend/functions/{knative,spin,pulsar}/` for serverless code, `frontend/` for SPA
 
 ---
 
-## Open Items (deferred to Architecture)
+## Open Items (resolved by Architecture)
 
-1. **Delivery phasing** — FRs don't map to build order yet (reviewer high finding #1)
-2. **15 Open Questions** — several block story creation (reviewer high finding #2)
-   - **Decisions needed:** Payload format (Q1), Pulsar/Kafka split (Q6), SPA framework (Q9)
-   - **Implementation (defer to arch):** ClickHouse DDL (Q2), KeyDB topology (Q3), CouchDB size (Q4), YugabyteDB RF (Q5), Harbor backend (Q7), Spin language (Q8), Talos version (Q12)
-   - **Must resolve before sprint 1:** Backup/DR (Q10), Resource sizing (Q11), Region configs (Q13), Canary thresholds (Q14), Casbin policy schema (Q15)
+### Resolved PRD questions
+- ✅ Payload format (Q1) → **Protobuf** (AD-5)
+- ✅ Pulsar/Kafka split (Q6) → **Dual: Pulsar primary, Kafka secondary** (AD-4)
+- ✅ Spin language (Q8) → **Rust primary, JS/Go secondary**
+- ✅ Talos version (Q12) → **1.13.7**
+- ✅ Delivery phasing → **Work-split: 3 waves, 13 slices** (see WORK-SPLIT.md)
+- ✅ Casbin policy schema (Q15) → **Deferred to Sprint 1 story creation** (per-story design)
+- ✅ SPA framework (Q9) → **Backstage MVP, full SPA deferred to v2**
+
+### Remaining open (deferred, revisit triggers defined in spine)
+
+| Item | Revisit trigger |
+|------|----------------|
+| Backup/DR strategy (etcd, Ceph, DBs) | Before production deployment |
+| Production region-specific configs (compliance, data locality) | Before production deployment |
+| Resource sizing per environment | After MVP baseline established |
+| Canary analysis thresholds (error rate, latency p99) | Before production deployment |
+| Casbin policy schema format (PERM model, relationship tuples) | Sprint 1 story creation |
+| Observability storage backend (Ceph vs local vs S3) | When VictoriaMetrics performance tuning begins |
+| Pulsar topic partition counts | Per-deployment configuration |
+| Central hub SPA framework (React/Vue/Angular) | v2 planning starts |
+| Full AI Agent Engine (MCP/A2A) | v2 planning starts |
 
 ---
 
 ## Artifact Paths
 
 ```
-output/planning-artifacts/prds/prd-HPDC-2026-07-21/
-├── prd.md                  # Finalized PRD
-├── .memlog.md              # Decision audit trail (32 entries)
-├── review-rubric.md        # Quality rubric review
-├── review-structure.md     # Structural editorial review
-├── reconcile-source-docs.md # Source document reconciliation
-└── reconcile-with-gsd.md   # with-gsd/ pattern reconciliation
+output/planning-artifacts/
+├── prds/prd-HPDC-2026-07-21/
+│   ├── prd.md                       # Finalized PRD (48 FRs, 5 UJs)
+│   ├── .memlog.md                   # Decision audit trail (32 entries)
+│   └── reviews/                     # PRD review reports
+│
+└── architecture/architecture-HPDC-2026-07-30/
+    ├── ARCHITECTURE-SPINE.md        # Spine (13 ADs, 48 FRs mapped)
+    ├── ARCHITECTURE-C4.md           # C4 model (System Context + Container + Component)
+    ├── ARCHITECTURE-DECK.html       # Interactive HTML slide deck (12 slides)
+    ├── SOLUTION-DESIGN.md           # Full narrative solution design
+    ├── ADR-LOG.md                   # ADR decision log (13 ADRs with rationale)
+    ├── WORK-SPLIT.md                # Work breakdown (13 slices, 3 waves)
+    ├── .memlog.md                   # Decision audit trail (28 entries)
+    └── reviews/                     # Reviewer gate reports (3 reports)
 ```

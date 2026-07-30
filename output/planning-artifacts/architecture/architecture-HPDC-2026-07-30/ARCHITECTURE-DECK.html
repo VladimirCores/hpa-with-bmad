@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HPDC Architecture Deck</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2333;--surface:#21262d;--border:#30363d;--accent:#58a6ff;--accent2:#3fb950;--accent3:#d29922;--accent4:#f85149;--accent5:#bc8cff;--text:#e6edf3;--text2:#8b949e;--text3:#484f58;--radius:8px;--pad:40px}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+.slides{width:100%;height:100%;position:relative}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;padding:var(--pad);overflow-y:auto;opacity:0;visibility:hidden;transition:opacity .4s ease,visibility .4s ease}
+.slide.active{opacity:1;visibility:visible;z-index:1}
+.slide-inner{max-width:1200px;width:100%;margin:0 auto;flex:1}
+/* footer */
+.footer{text-align:center;padding:12px 0 4px;font-size:13px;color:var(--text3);border-top:1px solid var(--border);margin-top:auto;flex-shrink:0}
+/* nav arrows */
+.nav{position:fixed;bottom:50%;transform:translateY(50%);z-index:10;background:var(--surface);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .3s,background .2s}
+.nav:hover{background:var(--bg3);color:var(--accent)}
+.nav.show{opacity:.7}
+.nav.prev{left:10px}
+.nav.next{right:10px}
+/* progress bar */
+.progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);z-index:20;transition:width .4s ease}
+/* slide counter */
+.slide-counter{position:fixed;bottom:16px;right:20px;z-index:10;font-size:13px;color:var(--text3);background:var(--surface);padding:4px 12px;border-radius:12px;border:1px solid var(--border)}
+/* headings */
+h1{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;margin-bottom:16px}
+h1 .sub{display:block;font-size:1.1rem;font-weight:400;color:var(--text2);margin-top:8px;letter-spacing:0}
+h2{font-size:1.6rem;font-weight:600;margin-bottom:20px;color:var(--accent);letter-spacing:-.01em}
+h3{font-size:1.15rem;font-weight:600;margin-bottom:10px;color:var(--text)}
+/* title slide */
+.title-slide{justify-content:center;align-items:center;text-align:center}
+.title-slide .slide-inner{display:flex;flex-direction:column;justify-content:center;align-items:center}
+.title-slide h1{font-size:3.4rem;color:var(--accent)}
+.title-slide .tagline{font-size:1.2rem;color:var(--text2);max-width:700px;margin:16px 0 32px;line-height:1.6}
+.title-slide .meta{font-size:.9rem;color:var(--text3)}
+.title-slide .badge{display:inline-block;padding:4px 16px;border:1px solid var(--accent);border-radius:20px;color:var(--accent);font-size:.85rem;margin-bottom:24px}
+/* cards */
+.card-grid{display:grid;gap:12px}
+.card-grid.cols2{grid-template-columns:1fr 1fr}
+.card-grid.cols3{grid-template-columns:1fr 1fr 1fr}
+.card-grid.cols4{grid-template-columns:1fr 1fr 1fr 1fr}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h4{font-size:.95rem;font-weight:600;margin-bottom:6px;color:var(--accent)}
+.card p,.card .card-meta{font-size:.82rem;color:var(--text2);line-height:1.5}
+.card .card-code{font-family:"SF Mono","Fira Code","Cascadia Code",monospace;font-size:.75rem;color:var(--accent3);margin-top:4px}
+.card .tag{display:inline-block;font-size:.68rem;padding:2px 8px;border-radius:10px;margin:4px 4px 0 0;background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+/* tables */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{background:var(--bg3);color:var(--text2);font-weight:600;text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+td{padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+/* code blocks */
+pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;font-family:"SF Mono","Fira Code","Cascadia Code",monospace;font-size:.78rem;line-height:1.5;color:var(--text)}
+code{font-family:"SF Mono","Fira Code","Cascadia Code",monospace}
+/* lists */
+ul,ol{padding-left:20px;font-size:.92rem;color:var(--text2);line-height:1.7}
+li{margin-bottom:4px}
+strong{color:var(--text)}
+/* SVG diagram container */
+.diagram-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;display:flex;justify-content:center}
+.diagram-box svg{max-width:100%;height:auto}
+/* AD cards specific */
+.ad-card{border-left:3px solid var(--accent)}
+.ad-card .ad-id{font-family:"SF Mono","Fira Code","Cascadia Code",monospace;font-size:.75rem;color:var(--accent3);margin-bottom:4px}
+/* testing pyramid */
+.pyramid-wrap{display:flex;justify-content:center;align-items:center;flex-direction:column;margin:20px 0}
+.pyramid{display:flex;flex-direction:column;align-items:center;width:100%;max-width:600px}
+.pyramid-level{width:100%;text-align:center;padding:14px 0;border:1px solid var(--border);margin-top:-1px;font-weight:600;font-size:.85rem;position:relative;display:flex;justify-content:center;align-items:center;flex-direction:column}
+.pyramid-level.e2e{width:30%;background:rgba(248,81,73,.15);border-color:var(--accent4);color:var(--accent4);border-radius:0 0 var(--radius) var(--radius)}
+.pyramid-level.int{width:55%;background:rgba(210,153,34,.12);border-color:var(--accent3);color:var(--accent3)}
+.pyramid-level.unit{width:85%;background:rgba(63,185,80,.1);border-color:var(--accent2);color:var(--accent2);border-radius:var(--radius) var(--radius) 0 0}
+.pyramid-level .py-sub{font-weight:400;font-size:.72rem;color:var(--text2);margin-top:2px}
+.pyramid-level .py-tools{font-weight:400;font-size:.65rem;color:var(--text3);margin-top:2px}
+/* flow diagrams for data paths */
+.flow-row{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:6px 0;font-size:.82rem}
+.flow-node{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:.78rem;color:var(--text);white-space:nowrap}
+.flow-node.gateway{border-color:var(--accent);color:var(--accent)}
+.flow-node.broker{border-color:var(--accent3);color:var(--accent3)}
+.flow-node.fn{border-color:var(--accent2);color:var(--accent2)}
+.flow-node.db{border-color:var(--accent5);color:var(--accent5)}
+.flow-arrow{color:var(--text3);font-size:1.1rem;flex-shrink:0}
+.flow-path{margin-bottom:18px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)}
+.flow-path .path-label{font-size:.78rem;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+/* deployment layout */
+.deploy-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.deploy-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.deploy-box h3{font-size:1rem;margin-bottom:12px}
+.deploy-box .comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.78rem}
+.deploy-box .comp{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text2);text-align:center}
+.deploy-box .comp.highlight{border-color:var(--accent);color:var(--accent)}
+/* source tree */
+.tree{font-family:"SF Mono","Fira Code","Cascadia Code",monospace;font-size:.78rem;line-height:1.65;color:var(--text);padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto}
+.tree .dir{color:var(--accent)}
+.tree .file{color:var(--text2)}
+.tree .comment{color:var(--text3);font-style:italic}
+.tree .indent{padding-left:24px}
+.tree .indent2{padding-left:48px}
+.tree .indent3{padding-left:72px}
+/* responsive */
+@media(max-width:768px){
+  .slide{padding:20px}
+  h1{font-size:1.8rem}
+  h2{font-size:1.2rem}
+  .title-slide h1{font-size:2.2rem}
+  .card-grid.cols2,.card-grid.cols3,.card-grid.cols4{grid-template-columns:1fr}
+  .deploy-grid{grid-template-columns:1fr}
+  .nav{display:none}
+}
+/* scroll styling */
+.slide::-webkit-scrollbar{width:6px}
+.slide::-webkit-scrollbar-track{background:transparent}
+.slide::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="progress" id="progress" style="width:0%"></div>
+<button class="nav prev" id="prevBtn" aria-label="Previous slide">&#9664;</button>
+<button class="nav next" id="nextBtn" aria-label="Next slide">&#9654;</button>
+<div class="slide-counter" id="counter"></div>
+
+<div class="slides" id="slides">
+
+<!-- ====== SLIDE 1: TITLE ====== -->
+<div class="slide title-slide active" data-index="0">
+  <div class="slide-inner">
+    <div class="badge">Architecture Review &middot; 2026-07-30</div>
+    <h1>HPDC<sub style="display:block;font-size:1.8rem;font-weight:400;color:var(--text2);margin-top:4px">High Performance Distributed Cluster</sub></h1>
+    <p class="tagline">Gateway-Mediated Domain Segregation &mdash; a serverless-first, event-driven<br>enterprise GitOps platform for IoT telemetry, alert management, and deployment</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:8px 0 32px">
+      <span style="padding:4px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text2)">Talos Linux</span>
+      <span style="padding:4px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text2)">Cilium eBPF</span>
+      <span style="padding:4px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text2)">KNative</span>
+      <span style="padding:4px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text2)">Pulsar + Kafka</span>
+      <span style="padding:4px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text2)">Rook-Ceph</span>
+      <span style="padding:4px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text2)">Kargo + Argo CD</span>
+    </div>
+    <div class="meta">Architecture Spine &middot; 48 Functional Requirements &middot; 13 Architecture Decisions</div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 1/12</div>
+</div>
+
+<!-- ====== SLIDE 2: DESIGN PARADIGM ====== -->
+<div class="slide" data-index="1">
+  <div class="slide-inner">
+    <h2>Design Paradigm</h2>
+    <p style="color:var(--text2);margin-bottom:20px;font-size:.92rem">Gateway-Mediated Domain Segregation — Envoy Gateway routes are hard domain boundaries. No always-on microservices.</p>
+
+    <div class="diagram-box">
+      <svg viewBox="0 0 1000 580" style="max-width:100%;height:auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+        <defs>
+          <linearGradient id="gwGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1f6feb"/><stop offset="100%" stop-color="#58a6ff"/></linearGradient>
+          <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#21262d"/><stop offset="100%" stop-color="#30363d"/></linearGradient>
+          <linearGradient id="compGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1c2333"/><stop offset="100%" stop-color="#21262d"/></linearGradient>
+          <linearGradient id="eventGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#d29922"/><stop offset="100%" stop-color="#bb8009"/></linearGradient>
+          <linearGradient id="dataGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#bc8cff"/><stop offset="100%" stop-color="#a371f7"/></linearGradient>
+          <linearGradient id="cephGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#3fb950"/><stop offset="100%" stop-color="#2ea043"/></linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <!-- Layer background -->
+        <rect x="0" y="0" width="1000" height="580" rx="6" fill="#0d1117"/>
+
+        <!-- Envoy Gateway -->
+        <rect x="100" y="20" width="800" height="50" rx="6" fill="url(#gwGrad)" filter="url(#glow)"/>
+        <text x="500" y="51" text-anchor="middle" fill="#fff" font-weight="700" font-size="16">Envoy Gateway — Exclusive Ingress Boundary</text>
+
+        <!-- Routes bar -->
+        <rect x="100" y="80" width="800" height="50" rx="6" fill="url(#routeGrad)" stroke="#30363d" stroke-width="1"/>
+        <text x="170" y="110" text-anchor="middle" fill="#58a6ff" font-size="11">/data</text>
+        <line x1="230" y1="85" x2="230" y2="125" stroke="#30363d" stroke-width="1"/>
+        <text x="280" y="110" text-anchor="middle" fill="#58a6ff" font-size="11">/api</text>
+        <line x1="330" y1="85" x2="330" y2="125" stroke="#30363d" stroke-width="1"/>
+        <text x="390" y="110" text-anchor="middle" fill="#58a6ff" font-size="11">/gql</text>
+        <line x1="440" y1="85" x2="440" y2="125" stroke="#30363d" stroke-width="1"/>
+        <text x="510" y="110" text-anchor="middle" fill="#58a6ff" font-size="11">/telemetry</text>
+        <line x1="600" y1="85" x2="600" y2="125" stroke="#30363d" stroke-width="1"/>
+        <text x="670" y="110" text-anchor="middle" fill="#58a6ff" font-size="11">/events</text>
+        <line x1="730" y1="85" x2="730" y2="125" stroke="#30363d" stroke-width="1"/>
+        <text x="800" y="110" text-anchor="middle" fill="#58a6ff" font-size="11">/auth</text>
+
+        <!-- Domain Labels row -->
+        <text x="170" y="100" text-anchor="middle" fill="#8b949e" font-size="9">DOC-SERVING</text>
+        <text x="390" y="100" text-anchor="middle" fill="#8b949e" font-size="9">FED-GQL</text>
+        <text x="670" y="100" text-anchor="middle" fill="#8b949e" font-size="9">EVENT-PUBSUB</text>
+
+        <!-- Arrows down from routes -->
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#484f58"/></marker></defs>
+        <line x1="170" y1="130" x2="170" y2="155" stroke="#484f58" marker-end="url(#arr)" stroke-width="1.5"/>
+        <line x1="390" y1="130" x2="390" y2="155" stroke="#484f58" marker-end="url(#arr)" stroke-width="1.5"/>
+        <line x1="510" y1="130" x2="510" y2="155" stroke="#484f58" marker-end="url(#arr)" stroke-width="1.5"/>
+        <line x1="670" y1="130" x2="670" y2="155" stroke="#484f58" marker-end="url(#arr)" stroke-width="1.5"/>
+
+        <!-- Compute Layer -->
+        <text x="500" y="172" text-anchor="middle" fill="#3fb950" font-weight="600" font-size="12">Compute Layer — Serverless First</text>
+
+        <rect x="100" y="180" width="180" height="44" rx="4" fill="url(#compGrad)" stroke="#3fb950" stroke-width="1"/>
+        <text x="190" y="205" text-anchor="middle" fill="#e6edf3" font-size="11">CouchDB Native</text>
+
+        <rect x="295" y="180" width="140" height="44" rx="4" fill="url(#compGrad)" stroke="#3fb950" stroke-width="1"/>
+        <text x="365" y="198" text-anchor="middle" fill="#e6edf3" font-size="11">KNative</text>
+        <text x="365" y="212" text-anchor="middle" fill="#8b949e" font-size="9">+ Restate SAGA</text>
+
+        <rect x="450" y="180" width="140" height="44" rx="4" fill="url(#compGrad)" stroke="#3fb950" stroke-width="1"/>
+        <text x="520" y="205" text-anchor="middle" fill="#e6edf3" font-size="11">Hasura GQL</text>
+
+        <rect x="605" y="180" width="120" height="44" rx="4" fill="url(#compGrad)" stroke="#3fb950" stroke-width="1"/>
+        <text x="665" y="198" text-anchor="middle" fill="#e6edf3" font-size="11">Pulsar</text>
+        <text x="665" y="212" text-anchor="middle" fill="#8b949e" font-size="9">Functions</text>
+
+        <rect x="740" y="180" width="130" height="44" rx="4" fill="url(#compGrad)" stroke="#3fb950" stroke-width="1"/>
+        <text x="805" y="198" text-anchor="middle" fill="#e6edf3" font-size="11">SpinKube</text>
+        <text x="805" y="212" text-anchor="middle" fill="#8b949e" font-size="9">WASM Transforms</text>
+
+        <!-- Event Mesh -->
+        <rect x="100" y="245" width="770" height="50" rx="6" fill="url(#eventGrad)" opacity=".9"/>
+        <text x="485" y="268" text-anchor="middle" fill="#fff" font-weight="700" font-size="14">Event Mesh — Pulsar (primary) + Kafka (secondary)</text>
+        <text x="485" y="284" text-anchor="middle" fill="#fff" opacity=".8" font-size="10">Protobuf CommonEnvelope &middot; Schema Registry &middot; Idempotency Key Dedup</text>
+
+        <!-- Arrows from compute down -->
+        <line x1="190" y1="224" x2="190" y2="245" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="365" y1="224" x2="365" y2="245" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="520" y1="224" x2="520" y2="245" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="665" y1="224" x2="665" y2="245" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="805" y1="224" x2="805" y2="245" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+
+        <!-- Data stores -->
+        <text x="500" y="318" text-anchor="middle" fill="#bc8cff" font-weight="600" font-size="12">Data Layer — Polyglot Persistence</text>
+
+        <line x1="485" y1="295" x2="485" y2="325" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+
+        <rect x="100" y="330" width="120" height="38" rx="4" fill="var(--bg3)" stroke="#a371f7" stroke-width="1"/>
+        <text x="160" y="353" text-anchor="middle" fill="#bc8cff" font-size="10">CouchDB 3.5.2</text>
+        <rect x="235" y="330" width="120" height="38" rx="4" fill="var(--bg3)" stroke="#a371f7" stroke-width="1"/>
+        <text x="295" y="353" text-anchor="middle" fill="#bc8cff" font-size="10">YugabyteDB</text>
+        <rect x="370" y="330" width="120" height="38" rx="4" fill="var(--bg3)" stroke="#a371f7" stroke-width="1"/>
+        <text x="430" y="353" text-anchor="middle" fill="#bc8cff" font-size="10">ArcadeDB</text>
+        <rect x="505" y="330" width="120" height="38" rx="4" fill="var(--bg3)" stroke="#a371f7" stroke-width="1"/>
+        <text x="565" y="353" text-anchor="middle" fill="#bc8cff" font-size="10">ClickHouse</text>
+        <rect x="640" y="330" width="110" height="38" rx="4" fill="var(--bg3)" stroke="#a371f7" stroke-width="1"/>
+        <text x="695" y="353" text-anchor="middle" fill="#bc8cff" font-size="10">KeyDB</text>
+        <rect x="765" y="330" width="105" height="38" rx="4" fill="var(--bg3)" stroke="#a371f7" stroke-width="1"/>
+        <text x="817" y="353" text-anchor="middle" fill="#bc8cff" font-size="10">PostgreSQL</text>
+
+        <!-- Arrows down -->
+        <line x1="160" y1="368" x2="160" y2="395" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="295" y1="368" x2="295" y2="395" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="430" y1="368" x2="430" y2="395" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="565" y1="368" x2="565" y2="395" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="695" y1="368" x2="695" y2="395" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+        <line x1="817" y1="368" x2="817" y2="395" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+
+        <!-- Ceph -->
+        <rect x="100" y="400" width="770" height="36" rx="4" fill="url(#cephGrad)" opacity=".85"/>
+        <text x="485" y="423" text-anchor="middle" fill="#fff" font-weight="600" font-size="13">Ceph RBD — Persistent Storage (PVCs for all stateful workloads)</text>
+
+        <line x1="485" y1="436" x2="485" y2="460" stroke="#484f58" marker-end="url(#arr)" stroke-width="1"/>
+
+        <rect x="100" y="465" width="770" height="36" rx="4" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+        <text x="485" y="488" text-anchor="middle" fill="#e6edf3" font-weight="600" font-size="13">Talos Linux 1.13.7 + Cilium 1.19.6 (eBPF) Substrate</text>
+
+        <!-- Side legend -->
+        <rect x="900" y="20" width="90" height="200" rx="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+        <text x="945" y="42" text-anchor="middle" fill="#8b949e" font-size="9">ROUTES</text>
+        <rect x="910" y="52" width="70" height="12" rx="2" fill="#58a6ff"/>
+        <text x="945" y="80" text-anchor="middle" fill="#8b949e" font-size="9">COMPUTE</text>
+        <rect x="910" y="90" width="70" height="12" rx="2" fill="#3fb950"/>
+        <text x="945" y="118" text-anchor="middle" fill="#8b949e" font-size="9">MESSAGING</text>
+        <rect x="910" y="128" width="70" height="12" rx="2" fill="#d29922"/>
+        <text x="945" y="156" text-anchor="middle" fill="#8b949e" font-size="9">DATA</text>
+        <rect x="910" y="166" width="70" height="12" rx="2" fill="#a371f7"/>
+        <text x="945" y="194" text-anchor="middle" fill="#8b949e" font-size="9">STORAGE</text>
+        <rect x="910" y="204" width="70" height="12" rx="2" fill="#3fb950"/>
+      </svg>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 2/12</div>
+</div>
+
+<!-- ====== SLIDE 3: STACK OVERVIEW ====== -->
+<div class="slide" data-index="2">
+  <div class="slide-inner">
+    <h2>Stack Overview</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">25 components across substrate, networking, messaging, compute, data, GitOps, and operations.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Category</th><th>Name</th><th>Version</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Substrate</td><td>Talos Linux</td><td>1.13.7</td><td>Immutable K8s OS, containerd 2.2.6, k8s 1.36.2</td></tr>
+          <tr><td>Substrate</td><td>Rook-Ceph</td><td>1.20.3</td><td>Ceph v20.2.2, RBD + CephFS CSI</td></tr>
+          <tr><td>Networking</td><td>Cilium</td><td>1.19.6</td><td>eBPF CNI, kube-proxy replacement, L2 LB, ClusterMesh, Hubble</td></tr>
+          <tr><td>Gateway</td><td>Envoy Gateway</td><td>1.8.3</td><td>K8s Gateway API, ext_authz, rate limiting</td></tr>
+          <tr><td>Messaging</td><td>Apache Pulsar</td><td>4.2.3</td><td>Primary backbone, MQTT + gRPC handlers, Functions</td></tr>
+          <tr><td>Messaging</td><td>Apache Kafka</td><td>latest</td><td>Secondary event streams, Spin WASM input</td></tr>
+          <tr><td>Compute</td><td>KNative</td><td>latest</td><td>Scale-to-zero Serving + Eventing</td></tr>
+          <tr><td>Compute</td><td>Restate</td><td>latest</td><td>Stateful workflow/SAGA engine</td></tr>
+          <tr><td>Compute</td><td>SpinKube</td><td>shim v0.25.1</td><td>WASM runtime: Spin v4.0.1, Operator v0.6.1</td></tr>
+          <tr><td>Data</td><td>CouchDB</td><td>3.5.2</td><td>Document DB, _changes feed, MapReduce</td></tr>
+          <tr><td>Data</td><td>YugabyteDB</td><td>2026.1.0.1</td><td>Distributed SQL for transactional state</td></tr>
+          <tr><td>Data</td><td>ArcadeDB</td><td>26.7.3</td><td>Multi-model graph DB, entity lineage</td></tr>
+          <tr><td>Data</td><td>ClickHouse</td><td>26.7.1</td><td>Time-series telemetry analytics, MergeTree</td></tr>
+          <tr><td>Data</td><td>KeyDB</td><td>latest</td><td>Clustered cache, pub-sub, alert state, dedup</td></tr>
+          <tr><td>Data</td><td>PostgreSQL</td><td>—</td><td>Casdoor + Casbin auth data only</td></tr>
+          <tr><td>Auth</td><td>Casdoor</td><td>latest</td><td>JWT, SSO, OIDC, SAML, API-Key validation</td></tr>
+          <tr><td>Auth</td><td>Casbin</td><td>latest</td><td>RBAC + ReBAC (Zanzibar) + ABAC, Go gRPC</td></tr>
+          <tr><td>GitOps</td><td>Kargo</td><td>1.11.0</td><td>Freight-based multi-stage promotion</td></tr>
+          <tr><td>GitOps</td><td>Argo CD</td><td>latest</td><td>App sync, ApplicationSet, Sync Waves</td></tr>
+          <tr><td>GitOps</td><td>Argo Rollouts</td><td>latest</td><td>Progressive delivery (canary/blue-green)</td></tr>
+          <tr><td>GitOps</td><td>Argo Events</td><td>latest</td><td>Event-driven automation triggers</td></tr>
+          <tr><td>GitOps</td><td>Argo Workflows</td><td>latest</td><td>DAG CI/build/deploy pipeline engine</td></tr>
+          <tr><td>Operations</td><td>VictoriaMetrics</td><td>1.148.0</td><td>Cluster mode: vmstorage/vminsert/vmselect</td></tr>
+          <tr><td>Operations</td><td>Backstage</td><td>latest</td><td>Developer portal, Software Catalog</td></tr>
+          <tr><td>Operations</td><td>Infisical</td><td>latest</td><td>Secrets, CSI Driver, K8s Operator</td></tr>
+          <tr><td>Operations</td><td>Harbor</td><td>latest</td><td>OCI registry, Trivy scanning, Cosign signing</td></tr>
+          <tr><td>Operations</td><td>Spegel</td><td>latest</td><td>P2P container image distribution</td></tr>
+          <tr><td>Operations</td><td>Hasura</td><td>latest</td><td>GraphQL federation over CouchDB + ClickHouse</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 3/12</div>
+</div>
+
+<!-- ====== SLIDE 4: ARCHITECTURE DECISIONS ====== -->
+<div class="slide" data-index="3">
+  <div class="slide-inner">
+    <h2>Architecture Decisions</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">13 binding decisions governing all implementation.</p>
+    <div class="card-grid cols3">
+      <div class="card ad-card" style="border-left-color:#58a6ff">
+        <div class="ad-id">AD-1</div>
+        <h4>Envoy Gateway as exclusive ingress boundary</h4>
+        <p class="card-meta">Every external route declared as K8s Gateway API resource. No backend exposes ports externally without a matching route. TLS termination at EG via cert-manager.</p>
+        <span class="tag">FR-36</span><span class="tag">FR-37</span><span class="tag">FR-38</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#3fb950">
+        <div class="ad-id">AD-2</div>
+        <h4>Domain-per-route segregation</h4>
+        <p class="card-meta">Each route is its own bounded domain. Domains communicate exclusively through the event-mesh (Pulsar/Kafka) or DB change feeds — never through direct HTTP calls to another domain.</p>
+        <span class="tag">FR-1</span><span class="tag">FR-5</span><span class="tag">FR-36</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#d29922">
+        <div class="ad-id">AD-3</div>
+        <h4>Serverless-first compute</h4>
+        <p class="card-meta">All compute via KNative (scale-to-zero), SpinKube WASM, Pulsar Functions, or Argo Workflows. No Deployment/StatefulSet for application logic.</p>
+        <span class="tag">FR-5</span><span class="tag">FR-6</span><span class="tag">FR-11</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#f85149">
+        <div class="ad-id">AD-4</div>
+        <h4>Event-mesh as the integration fabric</h4>
+        <p class="card-meta">Pulsar = primary backbone (100K+ RPS telemetry). Kafka = secondary (alert signals, external events). DB change feeds trigger KNative Eventing.</p>
+        <span class="tag">FR-1</span><span class="tag">FR-2</span><span class="tag">FR-3</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#bc8cff">
+        <div class="ad-id">AD-5</div>
+        <h4>Protobuf normalized envelope</h4>
+        <p class="card-meta">All messages use Protobuf with Schema Registry. CommonEnvelope: device_id, event_type, timestamp, idempotency_key, origin. Max 64KB, oversized rejected at gateway.</p>
+        <span class="tag">FR-2</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#58a6ff">
+        <div class="ad-id">AD-6</div>
+        <h4>Database ownership boundaries</h4>
+        <p class="card-meta">Each DB owns specific data (CouchDB → docs, YugabyteDB → txn state, ArcadeDB → graph, ClickHouse → analytics, KeyDB → cache, PostgreSQL → auth). Prevents duplication, not access.</p>
+        <span class="tag">FR-13</span><span class="tag">FR-14</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#3fb950">
+        <div class="ad-id">AD-7</div>
+        <h4>Ceph for all persistent state</h4>
+        <p class="card-meta">Every stateful workload uses Ceph RBD PVCs. No hostPath, emptyDir, or local volume for stateful data. CouchDB, YugabyteDB, ClickHouse, KeyDB, ArcadeDB, Pulsar, Kafka, PostgreSQL.</p>
+        <span class="tag">FR-24</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#d29922">
+        <div class="ad-id">AD-8</div>
+        <h4>mTLS for all inter-service communication</h4>
+        <p class="card-meta">All service-to-service traffic uses mTLS enforced by Cilium. SPIFFE/SPIRE certificate lifecycle with auto-rotation.</p>
+        <span class="tag">FR-45</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#f85149">
+        <div class="ad-id">AD-9</div>
+        <h4>GitOps-only delivery</h4>
+        <p class="card-meta">All changes flow through Git → Kargo (Freight) → Argo CD (ApplicationSet with Sync Waves). Direct kubectl forbidden. Monorepo with Kustomize overlays.</p>
+        <span class="tag">FR-17</span><span class="tag">FR-18</span><span class="tag">FR-19</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#bc8cff">
+        <div class="ad-id">AD-10</div>
+        <h4>Air-gapped delivery</h4>
+        <p class="card-meta">Harbor = local OCI registry, Trivy scanning, Cosign signing. Spegel P2P distribution. Git repos mirrored locally. No internet dependency during deployment.</p>
+        <span class="tag">FR-30</span><span class="tag">FR-31</span><span class="tag">FR-32</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#58a6ff">
+        <div class="ad-id">AD-11</div>
+        <h4>Multi-region data sovereignty</h4>
+        <p class="card-meta">Each region has independent DB instances. No automatic cross-region replication. Cilium ClusterMesh over WireGuard VPN for cross-region service discovery.</p>
+        <span class="tag">FR-33</span><span class="tag">FR-34</span><span class="tag">FR-35</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#3fb950">
+        <div class="ad-id">AD-12</div>
+        <h4>Observability</h4>
+        <p class="card-meta">Structured JSON logs to stdout. OpenTelemetry auto-instrumentation. VictoriaMetrics cluster + Grafana. Hubble network observability. Retention: 7d raw, 30d aggregated, 1y monthly.</p>
+        <span class="tag">FR-25</span><span class="tag">FR-26</span><span class="tag">FR-27</span>
+      </div>
+      <div class="card ad-card" style="border-left-color:#d29922">
+        <div class="ad-id">AD-13</div>
+        <h4>Centralized secrets management</h4>
+        <p class="card-meta">Secrets in Infisical, never in git. CSI Driver volume injection. Auto-rotation every 90 days. Per-function service accounts.</p>
+        <span class="tag">FR-44</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 4/12</div>
+</div>
+
+<!-- ====== SLIDE 5: DATA FLOW ====== -->
+<div class="slide" data-index="4">
+  <div class="slide-inner">
+    <h2>Data Flow Paths</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">Six data paths through the gateway — each route owns its internal pattern.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="flow-path">
+        <div class="path-label">Telemetry Path</div>
+        <div class="flow-row">
+          <span class="flow-node">IoT Device</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node gateway">EG(/telemetry)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node broker">Pulsar</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">Pulsar Functions</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">ClickHouse</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">Pulsar Functions</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">CouchDB / YugabyteDB</span>
+        </div>
+        <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">MQTT/gRPC → Pulsar MoP/gRPC handlers → Functions → JDBC Sink</div>
+      </div>
+
+      <div class="flow-path">
+        <div class="path-label">Event Path</div>
+        <div class="flow-row">
+          <span class="flow-node">External APIs</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node gateway">EG(/events)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node broker">Kafka</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">SpinKube WASM</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">ClickHouse / CouchDB</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">KNative+Restate</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">CouchDB / KeyDB</span>
+        </div>
+        <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">Alert signals, external events → WASM transforms → state machines</div>
+      </div>
+
+      <div class="flow-path">
+        <div class="path-label">API Path (with auth)</div>
+        <div class="flow-row">
+          <span class="flow-node">Clients</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node gateway">EG(/api)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node fn">Casbin gRPC</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-arrow">└─ JWT @ Casdoor</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">KNative+Restate</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">DBs</span>
+        </div>
+        <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">RBAC/ReBAC/ABAC via ext_authz SecurityPolicy</div>
+      </div>
+
+      <div class="flow-path">
+        <div class="path-label">Data Path</div>
+        <div class="flow-row">
+          <span class="flow-node">Clients</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node gateway">EG(/data)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node fn">Casbin gRPC</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node db">CouchDB</span>
+          <span class="flow-arrow" style="visibility:hidden">→</span>
+        </div>
+        <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">CRUD, MapReduce, _changes feed — document-serving domain</div>
+      </div>
+
+      <div class="flow-path">
+        <div class="path-label">GQL Path</div>
+        <div class="flow-row">
+          <span class="flow-node">Clients</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node gateway">EG(/gql)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node fn">Casbin gRPC</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">Hasura</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">CouchDB</span>
+          <span class="flow-arrow">/</span>
+          <span class="flow-node db">ClickHouse</span>
+          <span class="flow-arrow">/</span>
+          <span class="flow-node db">YugabyteDB</span>
+        </div>
+        <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">GraphQL federation — MVP direct DB, full federation in v2</div>
+      </div>
+
+      <div class="flow-path">
+        <div class="path-label">Change-Driven Path</div>
+        <div class="flow-row">
+          <span class="flow-node db">CouchDB _changes</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node fn">KNative Eventing</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node db">YugabyteDB CDC</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node fn">KNative Eventing</span>
+        </div>
+        <div class="flow-row">
+          <span class="flow-node fn">KNative+Restate</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node db">SAGA workflows</span>
+        </div>
+        <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">CDC mutation loops prevented by origin field in CommonEnvelope</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 5/12</div>
+</div>
+
+<!-- ====== SLIDE 6: DEPLOYMENT TOPOLOGY ====== -->
+<div class="slide" data-index="5">
+  <div class="slide-inner">
+    <h2>Deployment Topology</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">Dev via talosctl QEMU (single node) → Production bare-metal (3+ nodes per region). Both use identical component set.</p>
+    <div class="deploy-grid">
+      <div class="deploy-box">
+        <h3 style="color:var(--accent2)">Dev (talosctl QEMU)</h3>
+        <div style="font-size:.8rem;color:var(--text2);margin-bottom:10px">Single-node Talos VM on workstation</div>
+        <div class="comp-grid">
+          <span class="comp highlight">Envoy Gateway</span>
+          <span class="comp">Casdoor</span>
+          <span class="comp highlight">Casbin gRPC</span>
+          <span class="comp">Pulsar + Kafka</span>
+          <span class="comp highlight">CouchDB</span>
+          <span class="comp">YugabyteDB</span>
+          <span class="comp">ArcadeDB</span>
+          <span class="comp">KeyDB</span>
+          <span class="comp highlight">ClickHouse</span>
+          <span class="comp">KNative</span>
+          <span class="comp">Restate</span>
+          <span class="comp highlight">SpinKube WASM</span>
+          <span class="comp">Kargo</span>
+          <span class="comp">Argo CD</span>
+          <span class="comp">Argo Rollouts</span>
+          <span class="comp">Argo Events</span>
+          <span class="comp">Backstage</span>
+          <span class="comp highlight">VictoriaMetrics</span>
+          <span class="comp">Grafana</span>
+          <span class="comp">Harbor / Spegel</span>
+          <span class="comp highlight">Cilium + Hubble</span>
+          <span class="comp">Rook-Ceph (single OSD)</span>
+        </div>
+        <div style="margin-top:10px;font-size:.78rem;color:var(--text3);border-top:1px solid var(--border);padding-top:8px">Ceph RBD via loop device or thin-LV. All components in same node.</div>
+      </div>
+      <div class="deploy-box">
+        <h3 style="color:var(--accent3)">Production (bare-metal, 3+ nodes)</h3>
+        <div style="font-size:.8rem;color:var(--text2);margin-bottom:10px">Same component set with HA replicas. One or more regions.</div>
+        <svg viewBox="0 0 400 180" style="width:100%;height:auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+          <rect x="5" y="5" width="120" height="170" rx="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+          <text x="65" y="25" text-anchor="middle" fill="#8b949e" font-size="9">Region A</text>
+          <rect x="12" y="32" width="106" height="18" rx="2" fill="#1c2333" stroke="#3fb950" stroke-width=".5"/><text x="65" y="44" text-anchor="middle" fill="#3fb950" font-size="6.5">Node 1 (ctrl)</text>
+          <rect x="12" y="54" width="106" height="18" rx="2" fill="#1c2333" stroke="#8b949e" stroke-width=".5"/><text x="65" y="66" text-anchor="middle" fill="#8b949e" font-size="6.5">Node 2 (worker)</text>
+          <rect x="12" y="76" width="106" height="18" rx="2" fill="#1c2333" stroke="#8b949e" stroke-width=".5"/><text x="65" y="88" text-anchor="middle" fill="#8b949e" font-size="6.5">Node 3 (worker)</text>
+          <rect x="12" y="100" width="106" height="18" rx="2" fill="#1c2333" stroke="#d29922" stroke-width=".5"/><text x="65" y="112" text-anchor="middle" fill="#d29922" font-size="6.5">Node 4+ (scale)</text>
+          <text x="65" y="145" text-anchor="middle" fill="#484f58" font-size="6.5">Region A has HA replicas</text>
+          <text x="65" y="157" text-anchor="middle" fill="#484f58" font-size="6.5">for all stateful services</text>
+          <text x="65" y="169" text-anchor="middle" fill="#484f58" font-size="6.5">WireGuard VPN between regions</text>
+
+          <rect x="145" y="5" width="100" height="170" rx="4" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="4,2"/>
+          <text x="195" y="90" text-anchor="middle" fill="#484f58" font-size="8">Region B</text>
+          <text x="195" y="105" text-anchor="middle" fill="#484f58" font-size="7">(future)</text>
+
+          <line x1="125" y1="90" x2="145" y2="90" stroke="#d29922" stroke-width="1" stroke-dasharray="3,2"/>
+          <text x="135" y="83" text-anchor="middle" fill="#d29922" font-size="6">ClusterMesh</text>
+
+          <rect x="265" y="5" width="120" height="170" rx="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+          <text x="325" y="25" text-anchor="middle" fill="#8b949e" font-size="9">Central Hub</text>
+          <rect x="272" y="35" width="106" height="18" rx="2" fill="#1c2333" stroke="#58a6ff" stroke-width=".5"/><text x="325" y="47" text-anchor="middle" fill="#58a6ff" font-size="6.5">Aggregator Queries</text>
+          <rect x="272" y="57" width="106" height="18" rx="2" fill="#1c2333" stroke="#58a6ff" stroke-width=".5"/><text x="325" y="69" text-anchor="middle" fill="#58a6ff" font-size="6.5">Global Dashboard</text>
+          <rect x="272" y="79" width="106" height="18" rx="2" fill="#1c2333" stroke="#58a6ff" stroke-width=".5"/><text x="325" y="91" text-anchor="middle" fill="#58a6ff" font-size="6.5">Cross-region Reports</text>
+          <text x="325" y="130" text-anchor="middle" fill="#484f58" font-size="6.5">Queries regional APIs</text>
+          <text x="325" y="142" text-anchor="middle" fill="#484f58" font-size="6.5">w/ region-scoped auth</text>
+          <text x="325" y="154" text-anchor="middle" fill="#484f58" font-size="6.5">Regional data never</text>
+          <text x="325" y="166" text-anchor="middle" fill="#484f58" font-size="6.5">leaves its region</text>
+
+          <line x1="245" y1="90" x2="265" y2="90" stroke="#58a6ff" stroke-width="1"/>
+          <text x="255" y="83" text-anchor="middle" fill="#58a6ff" font-size="6">API</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 6/12</div>
+</div>
+
+<!-- ====== SLIDE 7: SOURCE TREE ====== -->
+<div class="slide" data-index="6">
+  <div class="slide-inner">
+    <h2>Source Tree</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">Monorepo structure — GitOps-driven, Kustomize overlays per environment.</p>
+    <div class="tree">
+      <span class="dir">hpdc/</span>
+      <div class="indent"><span class="dir">gitops/</span><span class="comment">  &lt;-- Kargo + Argo CD config</span></div>
+      <div class="indent2"><span class="dir">kargo/</span><span class="comment">  &lt;-- Warehouse, Stage, Freight defs</span></div>
+      <div class="indent2"><span class="dir">argocd/</span><span class="comment">  &lt;-- App-of-Apps, ApplicationSets, Sync Waves</span></div>
+      <div class="indent2"><span class="dir">overlays/</span></div>
+      <div class="indent3"><span class="dir">base/</span><span class="comment">  &lt;-- Common labels, namespace</span></div>
+      <div class="indent3"><span class="dir">dev/</span></div>
+      <div class="indent3"><span class="dir">prod/</span></div>
+      <div class="indent2"><span class="dir">clusters/</span><span class="comment">  &lt;-- Cluster registration secrets</span></div>
+      <div class="indent"><span class="dir">platform/</span><span class="comment">  &lt;-- Infrastructure Helm values per component</span></div>
+      <div class="indent2">cilium/  rook-ceph/  pulsar/  kafka/  couchdb/  yugabytedb/</div>
+      <div class="indent2">arcadedb/  clickhouse/  keydb/  envoy-gateway/  victoriametrics/</div>
+      <div class="indent2">kargo/  argocd/  backstage/  knative/  restate/  spinkube/</div>
+      <div class="indent2">casdoor/  casbin/  hasura/  harbor/  spegel/</div>
+      <div class="indent"><span class="dir">backend/</span></div>
+      <div class="indent2"><span class="dir">functions/</span></div>
+      <div class="indent3"><span class="dir">knative/</span><span class="comment">  &lt;-- Go/Python KNative services, Restate SAGAs</span></div>
+      <div class="indent3"><span class="dir">spin/</span><span class="comment">  &lt;-- Rust WASM SpinApps (SpinApp CRD)</span></div>
+      <div class="indent3"><span class="dir">pulsar/</span><span class="comment">  &lt;-- Java Pulsar Functions (JAR)</span></div>
+      <div class="indent2"><span class="dir">services/</span><span class="comment">  &lt;-- Persistent microservices (future)</span></div>
+      <div class="indent"><span class="dir">frontend/</span><span class="comment">  &lt;-- SPA, shipped from CDN</span></div>
+      <div class="indent"><span class="dir">specs/</span></div>
+      <div class="indent2">proto/  openapi/  asyncapi/</div>
+      <div class="indent"><span class="dir">charts/</span><span class="comment">  &lt;-- Shared Helm charts</span></div>
+      <div class="indent"><span class="dir">docs/</span><span class="comment">  &lt;-- Architecture docs, operational runbooks</span></div>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 7/12</div>
+</div>
+
+<!-- ====== SLIDE 8: C4 SYSTEM CONTEXT ====== -->
+<div class="slide" data-index="7">
+  <div class="slide-inner">
+    <h2>C4 — System Context</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">External actors and the HPDC platform boundary.</p>
+    <div class="diagram-box">
+      <svg viewBox="0 0 1000 620" style="max-width:100%;height:auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+        <defs>
+          <marker id="arrB" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/></marker>
+          <marker id="arrG" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3fb950"/></marker>
+        </defs>
+        <rect x="0" y="0" width="1000" height="620" rx="6" fill="#0d1117"/>
+
+        <!-- External actors -->
+        <ellipse cx="120" cy="100" rx="60" ry="28" fill="#161b22" stroke="#d29922" stroke-width="2"/>
+        <text x="120" y="105" text-anchor="middle" fill="#d29922" font-size="12" font-weight="600">Platform</text>
+        <text x="120" y="120" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600">Admin</text>
+
+        <ellipse cx="80" cy="220" rx="52" ry="28" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+        <text x="80" y="225" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">Developer</text>
+
+        <ellipse cx="140" cy="340" rx="52" ry="28" fill="#161b22" stroke="#58a6ff" stroke-width="2"/>
+        <text x="140" y="345" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">End User</text>
+
+        <ellipse cx="60" cy="460" rx="55" ry="28" fill="#161b22" stroke="#f85149" stroke-width="2"/>
+        <text x="60" y="460" text-anchor="middle" fill="#f85149" font-size="10" font-weight="600">IoT Device</text>
+        <text x="60" y="475" text-anchor="middle" fill="#f85149" font-size="9">(MQTT/gRPC)</text>
+
+        <ellipse cx="100" cy="570" rx="60" ry="28" fill="#161b22" stroke="#bc8cff" stroke-width="2"/>
+        <text x="100" y="570" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">External</text>
+        <text x="100" y="585" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">APIs</text>
+
+        <!-- HPDC Boundary -->
+        <rect x="260" y="40" width="480" height="540" rx="12" fill="#161b22" stroke="#58a6ff" stroke-width="2" stroke-dasharray="6,3" opacity=".8"/>
+        <text x="500" y="65" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="600">HPDC Platform</text>
+
+        <rect x="290" y="80" width="170" height="50" rx="6" fill="#1c2333" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="375" y="102" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="600">Envoy Gateway</text>
+        <text x="375" y="118" text-anchor="middle" fill="#8b949e" font-size="9">API Gateway, ext_authz</text>
+
+        <rect x="480" y="80" width="180" height="50" rx="6" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="570" y="102" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600">Serverless Backend</text>
+        <text x="570" y="118" text-anchor="middle" fill="#8b949e" font-size="9">KNative + SpinKube + Pulsar Fn</text>
+
+        <rect x="330" y="160" width="220" height="50" rx="6" fill="#1c2333" stroke="#d29922" stroke-width="1.5"/>
+        <text x="440" y="182" text-anchor="middle" fill="#d29922" font-size="12" font-weight="600">Platform Infrastructure</text>
+        <text x="440" y="198" text-anchor="middle" fill="#8b949e" font-size="9">DBs, brokers, observability</text>
+
+        <!-- External systems -->
+        <rect x="770" y="80" width="180" height="50" rx="6" fill="#1c2333" stroke="#d29922" stroke-width="1.5"/>
+        <text x="860" y="102" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600">Git Repositories</text>
+        <text x="860" y="118" text-anchor="middle" fill="#8b949e" font-size="9">Monorepo + Kustomize</text>
+
+        <rect x="770" y="170" width="180" height="50" rx="6" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="860" y="192" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">CDN</text>
+        <text x="860" y="208" text-anchor="middle" fill="#8b949e" font-size="9">SPA frontend serving</text>
+
+        <!-- Relationships -->
+        <!-- Admin → Git -->
+        <line x1="175" y1="95" x2="770" y2="95" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <text x="390" y="85" text-anchor="middle" fill="#484f58" font-size="8">Pushes config &amp; code (HTTPS/Git)</text>
+
+        <!-- Admin → Infra -->
+        <line x1="175" y1="185" x2="330" y2="185" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <text x="200" y="175" text-anchor="middle" fill="#484f58" font-size="8" transform="rotate(-25,200,175)">Operates (kubectl + Argo CD)</text>
+
+        <!-- Dev → Git -->
+        <line x1="130" y1="225" x2="770" y2="95" stroke="#3fb950" stroke-width="1" marker-end="url(#arrG)"/>
+        <text x="500" y="170" text-anchor="middle" fill="#484f58" font-size="8">Monitors deployments (Backstage)</text>
+
+        <!-- User → EG -->
+        <line x1="190" y1="345" x2="290" y2="105" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <text x="225" y="250" text-anchor="middle" fill="#484f58" font-size="8" transform="rotate(-40,225,250)">API requests (HTTPS)</text>
+
+        <!-- User → CDN -->
+        <line x1="190" y1="350" x2="770" y2="195" stroke="#58a6ff" stroke-width="1"/>
+        <text x="475" y="300" text-anchor="middle" fill="#484f58" font-size="8">Loads SPA (HTTPS)</text>
+
+        <!-- IoT → EG -->
+        <line x1="115" y1="465" x2="290" y2="120" stroke="#f85149" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <text x="185" y="320" text-anchor="middle" fill="#484f58" font-size="8" transform="rotate(-55,185,320)">Telemetry (MQTT/gRPC)</text>
+
+        <!-- External API → EG -->
+        <line x1="160" y1="570" x2="290" y2="125" stroke="#bc8cff" stroke-width="1"/>
+        <text x="210" y="400" text-anchor="middle" fill="#484f58" font-size="8" transform="rotate(-55,210,400)">Events &amp; webhooks</text>
+
+        <!-- Git → Infra -->
+        <line x1="770" y1="110" x2="550" y2="165" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <text x="700" y="125" text-anchor="middle" fill="#484f58" font-size="8">GitOps sync (Kargo + Argo CD)</text>
+
+        <!-- EG → Backend -->
+        <line x1="460" y1="105" x2="480" y2="105" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="470" y="135" text-anchor="middle" fill="#484f58" font-size="8">Routes (mTLS)</text>
+
+        <!-- Backend → Infra -->
+        <line x1="480" y1="130" x2="440" y2="160" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="510" y="155" text-anchor="middle" fill="#484f58" font-size="8">R/W (mTLS)</text>
+      </svg>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 8/12</div>
+</div>
+
+<!-- ====== SLIDE 9: C4 CONTAINER ====== -->
+<div class="slide" data-index="8">
+  <div class="slide-inner">
+    <h2>C4 — Container Diagram</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">Containers grouped by layer — Gateway, Compute, Messaging, Data, Operations, GitOps.</p>
+    <div class="diagram-box">
+      <svg viewBox="0 0 1000 680" style="max-width:100%;height:auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+        <defs>
+          <marker id="arrW" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#484f58"/></marker>
+        </defs>
+        <rect x="0" y="0" width="1000" height="680" rx="6" fill="#0d1117"/>
+
+        <!-- Gateway Layer -->
+        <rect x="20" y="10" width="960" height="90" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="500" y="30" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">GATEWAY LAYER</text>
+
+        <rect x="40" y="40" width="200" height="46" rx="5" fill="#1c2333" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="140" y="60" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">Envoy Gateway 1.8.3</text>
+        <text x="140" y="76" text-anchor="middle" fill="#8b949e" font-size="8">K8s Gateway API, ext_authz, rate limit</text>
+
+        <rect x="280" y="40" width="200" height="46" rx="5" fill="#1c2333" stroke="#d29922" stroke-width="1.5"/>
+        <text x="380" y="60" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600">Casdoor</text>
+        <text x="380" y="76" text-anchor="middle" fill="#8b949e" font-size="8">AuthN: JWT, SSO, OIDC, SAML</text>
+
+        <rect x="520" y="40" width="200" height="46" rx="5" fill="#1c2333" stroke="#d29922" stroke-width="1.5"/>
+        <text x="620" y="60" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600">Casbin ext_authz gRPC</text>
+        <text x="620" y="76" text-anchor="middle" fill="#8b949e" font-size="8">RBAC + ReBAC + ABAC, DENY-wins</text>
+
+        <!-- Compute Layer -->
+        <rect x="20" y="110" width="960" height="110" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="500" y="130" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">COMPUTE LAYER</text>
+
+        <rect x="40" y="140" width="220" height="68" rx="5" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="150" y="162" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">KNative Serving + Eventing</text>
+        <text x="150" y="178" text-anchor="middle" fill="#8b949e" font-size="8">Go/Python, scale-to-zero</text>
+        <text x="150" y="192" text-anchor="middle" fill="#8b949e" font-size="8">Restate SAGAs, Eventing</text>
+
+        <rect x="290" y="140" width="200" height="68" rx="5" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="390" y="162" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">SpinKube WASM</text>
+        <text x="390" y="178" text-anchor="middle" fill="#8b949e" font-size="8">Rust/JS/Go, shim v0.25.1</text>
+        <text x="390" y="192" text-anchor="middle" fill="#8b949e" font-size="8">WASM transforms on Kafka</text>
+
+        <rect x="520" y="140" width="200" height="68" rx="5" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="620" y="162" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">Pulsar Functions</text>
+        <text x="620" y="178" text-anchor="middle" fill="#8b949e" font-size="8">Java, stream aggregation</text>
+        <text x="620" y="192" text-anchor="middle" fill="#8b949e" font-size="8">JDBC Sink → ClickHouse</text>
+
+        <rect x="750" y="140" width="200" height="68" rx="5" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="850" y="162" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">Argo Workflows</text>
+        <text x="850" y="178" text-anchor="middle" fill="#8b949e" font-size="8">CI/build/deploy DAGs</text>
+
+        <!-- Messaging Layer -->
+        <rect x="20" y="230" width="960" height="70" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="500" y="250" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">MESSAGING LAYER</text>
+
+        <rect x="40" y="258" width="430" height="32" rx="4" fill="#1c2333" stroke="#d29922" stroke-width="1.5"/>
+        <text x="255" y="278" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600">Apache Pulsar 4.2.3</text>
+        <text x="255" y="278" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600"></text>
+        <text x="400" y="278" text-anchor="middle" fill="#8b949e" font-size="9">Primary backbone, MQTT/gRPC, 100K+ RPS</text>
+
+        <rect x="490" y="258" width="460" height="32" rx="4" fill="#1c2333" stroke="#d29922" stroke-width="1.5"/>
+        <text x="720" y="278" text-anchor="middle" fill="#d29922" font-size="11" font-weight="600">Apache Kafka</text>
+        <text x="860" y="278" text-anchor="middle" fill="#8b949e" font-size="9">Secondary event streams, Spin WASM input</text>
+
+        <!-- Data Layer -->
+        <rect x="20" y="310" width="960" height="110" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="500" y="330" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">DATA LAYER</text>
+
+        <rect x="40" y="340" width="140" height="68" rx="5" fill="#1c2333" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="110" y="358" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">CouchDB 3.5.2</text>
+        <text x="110" y="374" text-anchor="middle" fill="#8b949e" font-size="7">Document DB, _changes</text>
+        <text x="110" y="388" text-anchor="middle" fill="#8b949e" font-size="7">CRM/ERP, MapReduce</text>
+
+        <rect x="195" y="340" width="140" height="68" rx="5" fill="#1c2333" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="265" y="358" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">YugabyteDB</text>
+        <text x="265" y="374" text-anchor="middle" fill="#8b949e" font-size="7">Distributed SQL, CDC</text>
+        <text x="265" y="388" text-anchor="middle" fill="#8b949e" font-size="7">Txn state, workflows</text>
+
+        <rect x="350" y="340" width="130" height="68" rx="5" fill="#1c2333" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="415" y="358" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">ArcadeDB</text>
+        <text x="415" y="374" text-anchor="middle" fill="#8b949e" font-size="7">Multi-model graph</text>
+        <text x="415" y="388" text-anchor="middle" fill="#8b949e" font-size="7">Entity lineage</text>
+
+        <rect x="495" y="340" width="140" height="68" rx="5" fill="#1c2333" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="565" y="358" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">ClickHouse 26.7.1</text>
+        <text x="565" y="374" text-anchor="middle" fill="#8b949e" font-size="7">Time-series analytics</text>
+        <text x="565" y="388" text-anchor="middle" fill="#8b949e" font-size="7">MergeTree engine</text>
+
+        <rect x="650" y="340" width="140" height="68" rx="5" fill="#1c2333" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="720" y="358" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">KeyDB (clustered)</text>
+        <text x="720" y="374" text-anchor="middle" fill="#8b949e" font-size="7">Cache, pub-sub, state</text>
+        <text x="720" y="388" text-anchor="middle" fill="#8b949e" font-size="7">Dedup, alert cache</text>
+
+        <rect x="805" y="340" width="145" height="68" rx="5" fill="#1c2333" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="877" y="358" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="600">PostgreSQL</text>
+        <text x="877" y="374" text-anchor="middle" fill="#8b949e" font-size="7">Casdoor + Casbin</text>
+        <text x="877" y="388" text-anchor="middle" fill="#8b949e" font-size="7">Auth data only</text>
+
+        <!-- Operations Layer -->
+        <rect x="20" y="430" width="620" height="90" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="330" y="450" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">OPERATIONS</text>
+
+        <rect x="40" y="460" width="170" height="46" rx="5" fill="#1c2333" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="125" y="478" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">VictoriaMetrics</text>
+        <text x="125" y="494" text-anchor="middle" fill="#8b949e" font-size="7">Cluster mode, metrics</text>
+
+        <rect x="225" y="460" width="170" height="46" rx="5" fill="#1c2333" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="310" y="478" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">Grafana + AlertManager</text>
+        <text x="310" y="494" text-anchor="middle" fill="#8b949e" font-size="7">Dashboards, alerting</text>
+
+        <rect x="410" y="460" width="190" height="46" rx="5" fill="#1c2333" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="505" y="478" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">Cilium Hubble</text>
+        <text x="505" y="494" text-anchor="middle" fill="#8b949e" font-size="7">Network observability</text>
+
+        <!-- GitOps Layer -->
+        <rect x="660" y="430" width="310" height="90" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="815" y="450" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">GITOPS LAYER</text>
+
+        <rect x="680" y="460" width="120" height="46" rx="5" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="740" y="478" text-anchor="middle" fill="#3fb950" font-size="10" font-weight="600">Kargo 1.11.0</text>
+        <text x="740" y="494" text-anchor="middle" fill="#8b949e" font-size="7">Freight promotion</text>
+
+        <rect x="815" y="460" width="130" height="46" rx="5" fill="#1c2333" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="880" y="478" text-anchor="middle" fill="#3fb950" font-size="10" font-weight="600">Argo CD + Rollouts</text>
+        <text x="880" y="494" text-anchor="middle" fill="#8b949e" font-size="7">Sync + canary/blue-green</text>
+
+        <!-- Arrows: EG → Compute -->
+        <line x1="140" y1="86" x2="150" y2="140" stroke="#484f58" stroke-width="1" marker-end="url(#arrW)"/>
+        <text x="100" y="115" fill="#484f58" font-size="7">/api/*</text>
+        <line x1="140" y1="86" x2="390" y2="140" stroke="#484f58" stroke-width="1"/>
+        <text x="260" y="115" fill="#484f58" font-size="7">/gql → Hasura</text>
+        <line x1="140" y1="86" x2="620" y2="140" stroke="#484f58" stroke-width="1" marker-end="url(#arrW)"/>
+        <text x="380" y="115" fill="#484f58" font-size="7">/telemetry/*</text>
+        <line x1="140" y1="86" x2="850" y2="140" stroke="#484f58" stroke-width="1"/>
+        <text x="520" y="115" fill="#484f58" font-size="7">/events/*</text>
+
+        <!-- EG → Casdoor -->
+        <line x1="340" y1="86" x2="340" y2="110" stroke="#d29922" stroke-width="1"/>
+        <text x="380" y="100" fill="#484f58" font-size="7">JWT validate</text>
+
+        <!-- EG → Casbin -->
+        <line x1="620" y1="86" x2="620" y2="110" stroke="#d29922" stroke-width="1"/>
+        <text x="660" y="100" fill="#484f58" font-size="7">ext_authz</text>
+
+        <!-- Kargo → Argo -->
+        <line x1="800" y1="490" x2="815" y2="483" stroke="#3fb950" stroke-width="1" marker-end="url(#arrW)"/>
+        <text x="808" y="475" fill="#484f58" font-size="6">Promotes freight</text>
+
+        <!-- Git → Kargo -->
+        <line x1="800" y1="460" x2="740" y2="460" stroke="#8b949e" stroke-width="1"/>
+        <text x="770" y="453" fill="#484f58" font-size="6" text-anchor="middle">Git push → Freight</text>
+      </svg>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 9/12</div>
+</div>
+
+<!-- ====== SLIDE 10: TESTING PYRAMID ====== -->
+<div class="slide" data-index="9">
+  <div class="slide-inner">
+    <h2>Testing &amp; Quality</h2>
+    <p style="color:var(--text2);margin-bottom:8px;font-size:.9rem">Three-tier testing pyramid — every layer from deployment to function logic.</p>
+    <div class="pyramid-wrap">
+      <div class="pyramid">
+        <div class="pyramid-level e2e">
+          E2E (few)
+          <span class="py-sub">Playwright + live cluster</span>
+          <span class="py-tools">Deployed-system validation</span>
+        </div>
+        <div class="pyramid-level int">
+          Integration (some)
+          <span class="py-sub">In-memory mocks + concurrency</span>
+          <span class="py-tools">Inter-function contracts</span>
+        </div>
+        <div class="pyramid-level unit">
+          Unit (many)
+          <span class="py-sub">Go httptest &middot; Rust cargo test &middot; Java Pulsar test harness</span>
+          <span class="py-tools">Functions &middot; Routes &middot; Deployment</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px">
+      <div class="card" style="background:rgba(63,185,80,.05);border-color:var(--accent2)">
+        <h4 style="color:var(--accent2)">Unit Tests</h4>
+        <p style="font-size:.78rem;color:var(--text2)">
+          <strong>Go KNative:</strong> go test + httptest — handler logic, error paths<br>
+          <strong>Rust SpinApps:</strong> cargo test (WASM) — biz logic, KeyDB mock<br>
+          <strong>Java Pulsar:</strong> Context test harness — transform, schema, errors<br>
+          <strong>OpenAPI:</strong> Spectral linting — spec validity
+        </p>
+      </div>
+      <div class="card" style="background:rgba(210,153,34,.05);border-color:var(--accent3)">
+        <h4 style="color:var(--accent3)">Integration Tests</h4>
+        <p style="font-size:.78rem;color:var(--text2)">
+          <strong>Stateful counter:</strong> in-memory mutex-guarded int mimics KeyDB INCR; sequential, concurrent, timeout, error<br>
+          <strong>Route auth:</strong> JWT validation + Casbin ext_authz gRPC per role<br>
+          <strong>Pulsar → ClickHouse:</strong> batched JDBC Sink semantics
+        </p>
+      </div>
+      <div class="card" style="background:rgba(248,81,73,.05);border-color:var(--accent4)">
+        <h4 style="color:var(--accent4)">E2E Tests</h4>
+        <p style="font-size:.78rem;color:var(--text2)">
+          <strong>Welcome counter:</strong> GET /api/welcome, verify increment, 502 on down<br>
+          <strong>Telemetry ingestion:</strong> POST → Pulsar → ClickHouse within SLA<br>
+          <strong>Alert lifecycle:</strong> initial → ack → resolve → close<br>
+          <strong>Entity CRUD:</strong> /data → CouchDB, verify via /gql<br>
+          <strong>Auth:</strong> 401/403/200 per role<br>
+          <strong>Air-gapped:</strong> Kargo promotion from Harbor, Spegel P2P
+        </p>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)">
+      <h4 style="font-size:.85rem;color:var(--accent);margin-bottom:6px">Deployment Tests (CI, before Kargo promotion)</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:.75rem;color:var(--text2)">
+        <div><strong>Kustomize build</strong><br>kustomize build + kubectl diff</div>
+        <div><strong>Argo CD app diff</strong><br>No drift between Git ↔ cluster</div>
+        <div><strong>Dry-run apply</strong><br>kubectl apply --dry-run=server</div>
+        <div><strong>Kargo Freight check</strong><br>kargo verify freight</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 10/12</div>
+</div>
+
+<!-- ====== SLIDE 11: WORK SPLIT ====== -->
+<div class="slide" data-index="10">
+  <div class="slide-inner">
+    <h2>Work Split — 13 Slices Across 3 Waves</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">Incremental delivery from core substrate to platform polish.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="deploy-box" style="border-color:var(--accent2)">
+        <h3 style="color:var(--accent2);font-size:1rem">Wave 1: Core Substrate</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="card" style="background:rgba(63,185,80,.06);border-color:var(--accent2);padding:10px">
+            <strong style="color:var(--accent2)">1. Talos + Cilium</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Immutable K8s OS, eBPF CNI, Hubble, ClusterMesh</div>
+          </div>
+          <div class="card" style="background:rgba(63,185,80,.06);border-color:var(--accent2);padding:10px">
+            <strong style="color:var(--accent2)">2. Rook-Ceph</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Persistent storage, RBD PVCs for all stateful workloads</div>
+          </div>
+          <div class="card" style="background:rgba(63,185,80,.06);border-color:var(--accent2);padding:10px">
+            <strong style="color:var(--accent2)">3. Envoy Gateway + Routes</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Gateway API resources, SecurityPolicy, rate limiting</div>
+          </div>
+          <div class="card" style="background:rgba(63,185,80,.06);border-color:var(--accent2);padding:10px">
+            <strong style="color:var(--accent2)">4. Pulsar + Kafka Event Mesh</strong>
+            <div style="font-size:.75rem;color:var(--text2)">MoP/gRPC handlers, topics, Schema Registry</div>
+          </div>
+          <div class="card" style="background:rgba(63,185,80,.06);border-color:var(--accent2);padding:10px">
+            <strong style="color:var(--accent2)">5. KNative + Restate</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Scale-to-zero, Eventing, SAGA engine</div>
+          </div>
+        </div>
+      </div>
+      <div class="deploy-box" style="border-color:var(--accent3)">
+        <h3 style="color:var(--accent3);font-size:1rem">Wave 2: Data &amp; Services</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="card" style="background:rgba(210,153,34,.06);border-color:var(--accent3);padding:10px">
+            <strong style="color:var(--accent3)">6. CouchDB</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Document layer, _changes feed, MapReduce views</div>
+          </div>
+          <div class="card" style="background:rgba(210,153,34,.06);border-color:var(--accent3);padding:10px">
+            <strong style="color:var(--accent3)">7. YugabyteDB + ArcadeDB + ClickHouse</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Distributed SQL, graph, time-series analytics</div>
+          </div>
+          <div class="card" style="background:rgba(210,153,34,.06);border-color:var(--accent3);padding:10px">
+            <strong style="color:var(--accent3)">8. KeyDB</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Clustered cache, pub-sub, alert state, idempotency dedup</div>
+          </div>
+          <div class="card" style="background:rgba(210,153,34,.06);border-color:var(--accent3);padding:10px">
+            <strong style="color:var(--accent3)">9. Casdoor + Casbin Auth</strong>
+            <div style="font-size:.75rem;color:var(--text2)">JWT issuance, RBAC/ReBAC/ABAC, DENY-wins</div>
+          </div>
+          <div class="card" style="background:rgba(210,153,34,.06);border-color:var(--accent3);padding:10px">
+            <strong style="color:var(--accent3)">10. Observability Stack</strong>
+            <div style="font-size:.75rem;color:var(--text2)">VictoriaMetrics, Grafana, OTEL, Hubble</div>
+          </div>
+        </div>
+      </div>
+      <div class="deploy-box" style="border-color:var(--accent5)">
+        <h3 style="color:var(--accent5);font-size:1rem">Wave 3: Platform &amp; Polish</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="card" style="background:rgba(188,140,255,.06);border-color:var(--accent5);padding:10px">
+            <strong style="color:var(--accent5)">11. GitOps Pipeline</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Kargo + Argo CD + Rollouts + Events + Workflows + Backstage</div>
+          </div>
+          <div class="card" style="background:rgba(188,140,255,.06);border-color:var(--accent5);padding:10px">
+            <strong style="color:var(--accent5)">12. Air-Gapped Delivery</strong>
+            <div style="font-size:.75rem;color:var(--text2)">Harbor (Trivy, Cosign), Spegel P2P, local Git mirror</div>
+          </div>
+          <div class="card" style="background:rgba(188,140,255,.06);border-color:var(--accent5);padding:10px">
+            <strong style="color:var(--accent5)">13. Multi-Region + AI Agent</strong>
+            <div style="font-size:.75rem;color:var(--text2)">ClusterMesh WireGuard, Central Hub, MCP/A2A (v2)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 11/12</div>
+</div>
+
+<!-- ====== SLIDE 12: DEFERRED ====== -->
+<div class="slide" data-index="11">
+  <div class="slide-inner">
+    <h2>Deferred Decisions</h2>
+    <p style="color:var(--text2);margin-bottom:16px;font-size:.9rem">Intentional deferrals — non-blocking for MVP, tracked for revisit.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Why Deferred</th><th>Revisit When</th></tr></thead>
+        <tbody>
+          <tr><td>Central hub SPA framework (React/Vue/Angular)</td><td>Out of MVP scope — uses Backstage + Grafana</td><td>v2 planning</td></tr>
+          <tr><td>Full AI Agent Engine (MCP/A2A)</td><td>Non-goal for MVP; basic LLM alert analysis possible</td><td>v2 planning</td></tr>
+          <tr><td>Hasura full federation (YugabyteDB + CouchDB + ClickHouse)</td><td>MVP uses direct DB access; Hasura deployed but not federated</td><td>v2 planning</td></tr>
+          <tr><td>Production region-specific configs</td><td>v1 is single-cluster MVP on dev machine</td><td>Before prod deployment</td></tr>
+          <tr><td>Backup/DR strategy (etcd, Ceph snapshots, DB backup)</td><td>Operational concern, not architecture-invariant</td><td>Before prod deployment</td></tr>
+          <tr><td>Resource sizing per environment</td><td>Depends on actual load testing results</td><td>After MVP baseline</td></tr>
+          <tr><td>Canary analysis thresholds (error rate, latency p99)</td><td>Tuning depends on real workload patterns</td><td>Before prod deployment</td></tr>
+          <tr><td>Casbin policy schema format</td><td>Policy design is implementation detail of story creation</td><td>Sprint 1 stories</td></tr>
+          <tr><td>Argo Workflows vs KNative+Restate split</td><td>Complementary — exact split depends on use case</td><td>Per-story implementation</td></tr>
+          <tr><td>Observability storage backend (Ceph vs local vs S3)</td><td>Default to Ceph; optimization deferred</td><td>VM performance tuning</td></tr>
+          <tr><td>Pulsar topic partition counts</td><td>Configurable per device_type + region_id</td><td>Per-deployment config</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:rgba(210,153,34,.08);border:1px solid var(--accent3);border-radius:var(--radius)">
+      <strong style="color:var(--accent3)">Note:</strong>
+      <span style="font-size:.85rem;color:var(--text2)"> These deferrals are <em>intentional</em> — they do not block MVP delivery. Each is tagged with a clear trigger condition for revisit.</span>
+    </div>
+  </div>
+  <div class="footer">HPDC Architecture &nbsp;|&nbsp; Slide 12/12</div>
+</div>
+
+</div><!-- end .slides -->
+
+<script>
+(function(){
+  const slides = document.querySelectorAll('.slide');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  let current = 0;
+
+  function update(){
+    slides.forEach((s,i)=>{
+      s.classList.toggle('active', i===current);
+    });
+    counter.textContent = 'HPDC Architecture | Slide '+(current+1)+'/'+slides.length;
+    progress.style.width = ((current+1)/slides.length*100)+'%';
+    prevBtn.classList.toggle('show', current>0);
+    nextBtn.classList.toggle('show', current<slides.length-1);
+  }
+
+  function go(n){
+    if(n<0) n=0;
+    if(n>=slides.length) n=slides.length-1;
+    if(n===current) return;
+    current=n;
+    update();
+  }
+
+  prevBtn.addEventListener('click', ()=>go(current-1));
+  nextBtn.addEventListener('click', ()=>go(current+1));
+  document.addEventListener('keydown', e=>{
+    if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(current-1);
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' ') go(current+1);
+    if(e.key==='Home') go(0);
+    if(e.key==='End') go(slides.length-1);
+  });
+
+  // Click nav on slide (left/right halves)
+  document.querySelector('.slides').addEventListener('click', e=>{
+    const w = window.innerWidth;
+    if(e.clientX < w*0.3) go(current-1);
+    else if(e.clientX > w*0.7) go(current+1);
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
