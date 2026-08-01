@@ -12,11 +12,33 @@
 **Command:** `bmad-architecture`
 **Output:** 13 ADs, 6 data-flow paths, C4 diagrams, interactive HTML deck, solution design doc, ADR decision log, work-split view.
 
-### 2. Epics & Stories (RECOMMENDED NEXT)
+### 2. Epics & Stories (NEXT)
 **Command:** `bmad-create-epics-and-stories`
 **What it does:** Breaks the 13 architecture work slices into epics and user stories for sprint planning.
 **Depends on:** Architecture ✅
 **Why first:** Architecture has enough detail (13 ADs, work-split) to drive story creation directly. UX can proceed in parallel.
+
+**Current state:** `output/planning-artifacts/epics.md` now contains:
+- FR/NFR/additional-requirement coverage map
+- full 9-epic roadmap
+- UX-DR1 split across Epic 3 and Epic 7
+- Epic 1 stories 1.1–1.5
+- Epic 2 stories 2.1–2.10
+- Epic 3 stories 3.1–3.13
+- project-wide Python 3 scripting rule
+
+**Next session target:** Generate Epic 4 — IoT Device Onboarding, Lifecycle, and Edge Simulation — sequentially into `epics.md`.
+
+**Epic 4 expected stories:**
+1. Device provisioning and identity issuance
+2. Device lifecycle state machine and registry
+3. OTA metadata and update approval workflow
+4. Device credential rotation and revocation
+5. Device shadow registry and synchronization
+6. Offline IoT simulator for local validation
+7. Load/simulation validation for onboarding and lifecycle flows
+
+**Validation before moving on:** update `epics.md` frontmatter `stepsCompleted` to `[1, 2, 3]` and confirm all Epic 4 FR/NFR/additional items are covered.
 
 ### 3. UX Specifications (PARALLEL OPTION)
 **Command:** `bmad-ux`
@@ -62,7 +84,7 @@
 | Production region-specific configs (compliance, data locality) | Before production deployment |
 | Resource sizing per environment | After MVP baseline established |
 | Canary analysis thresholds (error rate, latency p99) | Before production deployment |
-| Casbin policy schema format (PERM model, relationship tuples) | Sprint 1 story creation |
+| Casbin policy schema format (PERM model, relationship tuples) | Epic 4 story creation |
 | Observability storage backend (Ceph vs local vs S3) | When VictoriaMetrics performance tuning begins |
 | Pulsar topic partition counts | Per-deployment configuration |
 | Central hub SPA framework (React/Vue/Angular) | v2 planning starts |
