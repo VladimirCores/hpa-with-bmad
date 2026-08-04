@@ -62,6 +62,9 @@ python3 tests/test_install_kargo_dev.py
 python3 tests/test_install_argocd_dev.py
 python3 tests/test_install_argorollouts_dev.py
 python3 tests/test_install_argoevents_dev.py
+python3 tests/test_install_envoy_gateway_dev.py
+python3 tests/test_install_cert_manager_dev.py
+python3 tests/test_epic3_gateway_stack_dev.py
 python3 tests/test_validate_offline_gitops_pipeline.py
 python3 tests/test_startup_dev.py
 ```

@@ -58,7 +58,7 @@ def discover_steps() -> list[Step]:
         return []
     steps = []
     for path in sorted(STEPS_DIR.iterdir()):
-        if path.is_file() and (path.name.startswith("0") or path.name.startswith("1")):
+        if path.is_file() and path.name.split("-", 1)[0].isdigit():
             steps.append(load_step(path))
     return sorted(steps, key=lambda step: step.number)
 

@@ -28,6 +28,10 @@ def validate() -> None:
         "gitops/argo-cd/base/argocd.yaml",
         "gitops/argo-rollouts/base/argorollouts.yaml",
         "gitops/argo-events/base/argoevents.yaml",
+        "gitops/envoy-gateway/base/envoy-gateway.yaml",
+        "gitops/envoy-gateway/overlays/dev/kustomization.yaml",
+        "gitops/cert-manager/base/cert-manager.yaml",
+        "gitops/cert-manager/overlays/dev/kustomization.yaml",
         "output/harbor/cache-images.txt",
         "output/harbor/image-cache-metadata.yaml",
         "output/git/mirror-repositories.txt",
@@ -41,6 +45,8 @@ def validate() -> None:
     assert not missing, missing
     assert "kind: Rollout" in (ROOT / "gitops/argo-rollouts/base/argorollouts.yaml").read_text(encoding="utf-8")
     assert "kind: Workflow" in (ROOT / "gitops/argo-events/base/argoevents.yaml").read_text(encoding="utf-8")
+    assert "kind: HTTPRoute" in (ROOT / "gitops/envoy-gateway/base/envoy-gateway.yaml").read_text(encoding="utf-8")
+    assert "kind: Certificate" in (ROOT / "gitops/cert-manager/base/cert-manager.yaml").read_text(encoding="utf-8")
 
 
 def main() -> int:

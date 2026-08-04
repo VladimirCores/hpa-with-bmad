@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: security
+  labels:
+    app.kubernetes.io/name: security
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: messaging-api-keys
+  namespace: security
+  labels:
+    app.kubernetes.io/name: messaging-api-keys
+    app.kubernetes.io/part-of: hpdc-platform
+type: Opaque
+stringData:
+  events-key: hpdc-events-dev-key
+  telemetry-key: hpdc-telemetry-dev-key
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: hpdc-messaging-api-key-authn
+  namespace: security
+  labels:
+    app.kubernetes.io/name: hpdc-messaging-api-key-authn
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: hpdc-edge-domain-routes
+    namespace: envoy-gateway-system
+  localJWTProviders: []
+  jwt: []
+  apiKeyAuth:
+    - name: messaging-api-keys
+      secretRef:
+        name: messaging-api-keys
+      methods:
+        - path:
+            type: PathPrefix
+            value: /events
+          parameter:
+            type: Header
+            name: X-API-Key
+        - path:
+            type: PathPrefix
+            value: /telemetry
+          parameter:
+            type: Header
+            name: X-API-Key

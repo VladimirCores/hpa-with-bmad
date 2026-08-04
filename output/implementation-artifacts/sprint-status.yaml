@@ -43,21 +43,21 @@ development_status:
   2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: done
   2-9-configure-argo-events-and-workflows: done
   2-10-validate-offline-gitops-pipeline-and-image-cache: done
-  epic-3: backlog
+  epic-3: done
   epic-3-retrospective: optional
-  3-1-install-envoy-gateway-edge-routing: backlog
-  3-2-configure-tls-termination-with-cert-manager: backlog
-  3-3-configure-api-key-auth-for-messaging-routes: backlog
-  3-4-configure-casdoor-jwt-authn-for-domain-routes: backlog
-  3-5-configure-casbin-rbac-policies: backlog
-  3-6-configure-casbin-rebac-policies: backlog
-  3-7-configure-casbin-abac-policies: backlog
-  3-8-configure-infisical-secrets-management: backlog
-  3-9-configure-mtls-mesh-enforcement-with-cilium: backlog
-  3-10-configure-openapi-specification-governance: backlog
-  3-11-provision-backstage-developer-portal-and-golden-path-templates: backlog
-  3-12-expose-backstage-argo-cd-ui-and-kargo-ui-via-envoy-gateway: backlog
-  3-13-expose-grafana-and-hubble-ui-via-envoy-gateway: backlog
+  3-1-install-envoy-gateway-edge-routing: done
+  3-2-configure-tls-termination-with-cert-manager: done
+  3-3-configure-api-key-auth-for-messaging-routes: done
+  3-4-configure-casdoor-jwt-authn-for-domain-routes: done
+  3-5-configure-casbin-rbac-policies: done
+  3-6-configure-casbin-rebac-policies: done
+  3-7-configure-casbin-abac-policies: done
+  3-8-configure-infisical-secrets-management: done
+  3-9-configure-mtls-mesh-enforcement-with-cilium: done
+  3-10-configure-openapi-specification-governance: done
+  3-11-provision-backstage-developer-portal-and-golden-path-templates: done
+  3-12-expose-backstage-argo-cd-ui-and-kargo-ui-via-envoy-gateway: done
+  3-13-expose-grafana-and-hubble-ui-via-envoy-gateway: done
   epic-4: backlog
   epic-4-retrospective: optional
   4-1-build-iot-device-simulator-and-telemetry-acceptance-harness: backlog

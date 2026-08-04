@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backstage
+  labels:
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backstage-config
+  namespace: backstage
+  labels:
+    app.kubernetes.io/name: backstage-config
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  app-config.yaml: |
+    app:
+      title: HPDC Developer Portal
+    backend:
+      baseUrl: https://backstage.hpdc.local
+      auth:
+        keys:
+          - secret: backstage-backend-secret
+    auth:
+      providers:
+        casdoor:
+          development:
+            clientId: hpdc-backstage
+            clientSecret: backstage-client-secret
+            issuerUrl: https://casdoor.hpdc.local
+            scopes:
+              - openid
+              - profile
+              - email
+    catalog:
+      imports:
+        - type: url
+          url: https://raw.githubusercontent.com/backstage/backstage/master/examples/org.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  namespace: backstage
+  labels:
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/component: portal
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backstage
+      app.kubernetes.io/component: portal
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backstage
+        app.kubernetes.io/component: portal
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+        - name: backstage
+          image: ghcr.io/backstage/backstage:1.42.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - start
+          ports:
+            - name: http
+              containerPort: 7007
+          env:
+            - name: NODE_ENV
+              value: production
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage
+  namespace: backstage
+  labels:
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/component: portal
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 7007
+  selector:
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/component: portal
