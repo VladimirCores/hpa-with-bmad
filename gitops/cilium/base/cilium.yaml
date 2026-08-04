@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2alpha1
+kind: Cilium
+metadata:
+  name: cilium
+  namespace: kube-system
+spec:
+  kubeProxyReplacement:
+    enableOnAllNodes: true
+  l2AnnouncementMode: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  operator:
+    replicas: 1
+  routingMode: tunnel
+  ipam:
+    mode: kubernetes
+  k8sServiceProxy:
+    enabled: false
+  egressMasqueradeInterfaces: eth0

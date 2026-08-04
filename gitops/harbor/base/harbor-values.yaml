@@ -1,0 +1,72 @@
+expose:
+  type: service
+  tls:
+    certSource: none
+externalURL: http://harbor.harbor.svc.cluster.local
+secretkey: harbor-secretkey-for-offline-dev
+adminUser: admin
+adminPassword: HarborAdmin12345
+authMode: databaseAuth
+projectCreationRestriction: anyonewithaccount
+registryCredentialSecretName: harbor-dev-secrets
+registryStorageProviderName: local
+registryStorageDeleteEnabled: true
+storageClassName: rook-ceph-rbd
+registryHttpSecret: HarborRegistryHttpSecret12345
+registryStorageGoogleCredentials: '{"type":"service_account","project_id":"hpdc-offline"}'
+trivy:
+  enabled: true
+  clair:
+    enabled: true
+  insecure: true
+  ignoreUnfixed: false
+  jobsInterval: 60m
+  jvmGcMaxJobCount: 4
+  jvmGcMemoryLimit: 512Mi
+  scannerURL: http://harbor-trivy-adapter:8080
+cosign:
+  signatureVerification: true
+  verifyPullSignatures: true
+chartRepository:
+  enabled: true
+  storageProviderName: local
+  jobsInterval: 60m
+persistence:
+  enabled: true
+  persistentVolumeClaim:
+    registry:
+      pvcStorageClassName: rook-ceph-rbd
+      storageClass: rook-ceph-rbd
+      accessModes:
+        - ReadWriteOnce
+      size: 20Gi
+    database:
+      pvcStorageClassName: rook-ceph-rbd
+      storageClass: rook-ceph-rbd
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+    redis:
+      pvcStorageClassName: rook-ceph-rbd
+      storageClass: rook-ceph-rbd
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+    jobservice:
+      pvcStorageClassName: rook-ceph-rbd
+      storageClass: rook-ceph-rbd
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+    trivy:
+      pvcStorageClassName: rook-ceph-rbd
+      storageClass: rook-ceph-rbd
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+    chartmuseum:
+      pvcStorageClassName: rook-ceph-rbd
+      storageClass: rook-ceph-rbd
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi

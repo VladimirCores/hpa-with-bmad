@@ -1,0 +1,267 @@
+apiVersion: cilium.io/v2alpha1
+kind: Cilium
+metadata:
+  name: cilium
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cilium
+    app.kubernetes.io/component: network
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  kubeProxyReplacement:
+    enableOnAllNodes: true
+  l2AnnouncementMode: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  operator:
+    replicas: 1
+  routingMode: tunnel
+  ipam:
+    mode: kubernetes
+  k8sServiceProxy:
+    enabled: false
+  egressMasqueradeInterfaces: eth0
+  authentication:
+    enabled: true
+    gcInterval: 5m0s
+    mutual:
+      enabled: true
+      port: 4250
+      connectTimeout: 5s
+      connectionTimeout: 30s
+      spire:
+        enabled: true
+        install:
+          enabled: false
+        namespace: cilium-spire
+        serverAddress: spire-server.cilium-spire.svc:8081
+        agentSocketPath: /run/spire/sockets/agent/agent.sock
+        adminSocketPath: /run/spire/sockets/admin.sock
+        skipKubeletVerification: true
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-server
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-agent
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server-config
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  server.conf: |
+    server {
+      bind_address = "0.0.0.0"
+      bind_port = "8081"
+      socket_path = "/run/spire/sockets/server/server.sock"
+      trust_domain = "hpdc.local"
+      data_dir = "/opt/spire/data"
+      ca_subject = {
+        country = ["US"]
+        organization = ["HPDC"]
+        common_name = "HPDC SPIRE CA"
+      }
+    }
+
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/opt/spire/data/datastore.sqlite3"
+        }
+      }
+
+      NodeAttester "k8s_psat" {
+        plugin_data {
+          clusters = {
+            "hpdc-dev" = {
+              token = "dev-server-token"
+            }
+          }
+        }
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spire-server
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  serviceName: spire-server
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cilium-spire
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cilium-spire
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: spire-server
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: spire-server
+          image: ghcr.io/spiffe/spire-server:v1.9.6
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - --config
+            - /run/spire/config/server.conf
+          env:
+            - name: SERVER_TOKEN
+              value: dev-server-token
+          ports:
+            - name: server
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: data
+              mountPath: /opt/spire/data
+            - name: sockets
+              mountPath: /run/spire/sockets
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: cilium-spire
+          app.kubernetes.io/component: server
+          app.kubernetes.io/part-of: hpdc-platform
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: rook-ceph-rbd
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: server
+  ports:
+    - name: server
+      port: 8081
+      targetPort: 8081
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spire-agent
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cilium-spire
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cilium-spire
+        app.kubernetes.io/component: agent
+    spec:
+      serviceAccountName: spire-agent
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: spire-agent
+          image: ghcr.io/spiffe/spire-agent:v1.9.6
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - --socketPath
+            - /run/spire/sockets/agent/agent.sock
+            - --log
+            - -
+          volumeMounts:
+            - name: sockets
+              mountPath: /run/spire/sockets
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent-config
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  agent.conf: |
+    agent {
+      socket_path = "/run/spire/sockets/agent/agent.sock"
+      log = "-"
+      trust_domain = "hpdc.local"
+      server_address = "spire-server.cilium-spire.svc"
+      server_port = "8081"
+    }

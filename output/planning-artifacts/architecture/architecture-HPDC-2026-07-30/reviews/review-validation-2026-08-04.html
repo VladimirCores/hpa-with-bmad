@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture Spine Validation Report — HPDC</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    h1, h2, h3 { line-height: 1.2; }
+    code { padding: 0.1rem 0.25rem; border-radius: 0.25rem; background: color-mix(in srgb, currentColor 10%, transparent); }
+    pre { overflow-x: auto; padding: 1rem; border-radius: 0.5rem; background: color-mix(in srgb, currentColor 8%, transparent); }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid currentColor; padding: 0.5rem; text-align: left; }
+    th { background: color-mix(in srgb, currentColor 12%, transparent); }
+  </style>
+</head>
+<body>
+<h1>Architecture Spine Validation Report — HPDC</h1>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Target:</strong> <code>output/planning-artifacts/architecture/architecture-HPDC-2026-07-30/ARCHITECTURE-SPINE.md</code></p>
+<p><strong>Intent:</strong> Validate existing architecture spine without changing it.</p>
+
+<h2>Gate Verdict</h2>
+<p><strong>Conditional Pass.</strong> The spine is usable for downstream implementation planning, but it should be amended before development starts if internal trust boundaries and operational upgrade invariants must be treated as hard requirements.</p>
+
+<h2>Deterministic Review</h2>
+<p><strong>Result:</strong> Pass</p>
+<p><strong>Total findings:</strong> 0</p>
+<p><strong>Mechanical issues:</strong> none detected</p>
+<p>Checks passed: no placeholder content, no duplicate AD IDs, each AD has Binds/Prevents/Rule, and stack versions are present.</p>
+
+<h2>Coverage Review</h2>
+<p>The spine binds <code>FR-1..FR-48</code> and <code>UJ-1..UJ-5</code>.</p>
+<p>The capability map covers telemetry ingestion, stream processing, alert management, entity management, GitOps delivery, Kubernetes substrate, observability, air-gapped delivery, multi-region federation, API gateway, security, AI agent engine, and auth routes.</p>
+
+<h2>Semantic Findings</h2>
+<h3>1. Internal Function Authorization Is Not Fully Governed</h3>
+<p><strong>Severity:</strong> High</p>
+<p>The spine governs external ingress through Envoy Gateway and internal transport security through Cilium mTLS, but does not fully define authorization for function-to-function calls.</p>
+<h3>2. Database Access Scope Is Broad</h3>
+<p><strong>Severity:</strong> High</p>
+<p>AD-6 states that all serverless functions have read/write access to all data stores. This is operationally convenient but weakens the domain segregation model.</p>
+<h3>3. Change Feed Loop Detection Is Partially Covered</h3>
+<p><strong>Severity:</strong> Medium</p>
+<p>AD-5 defines <code>origin</code> and <code>idempotency_key</code> for message envelopes, but database change feeds and CDC paths do not have a fully explicit loop-detection rule.</p>
+<h3>4. Argo Workflows vs Restate Boundary Is Deferred</h3>
+<p><strong>Severity:</strong> Medium</p>
+<p>The exact split between Argo Workflows and KNative + Restate is deferred, leaving a real implementation divergence point open.</p>
+<h3>5. Upgrade Strategy Is Not Fully Governed</h3>
+<p><strong>Severity:</strong> Medium</p>
+<p>The stack table says versions should be updated in place as the project evolves, but the spine does not define an upgrade invariant.</p>
+<h3>6. Version Pinning Is Mixed</h3>
+<p><strong>Severity:</strong> Low</p>
+<p>The spine includes both pinned versions and <code>(latest stable)</code> entries. Pinned entries are concrete; <code>(latest stable)</code> entries are not version locks.</p>
+
+<h2>Existing Review Context</h2>
+<p>Existing review files are present in <code>output/planning-artifacts/architecture/architecture-HPDC-2026-07-30/reviews/</code>.</p>
+
+<h2>Validation Decision</h2>
+<p><strong>Proceed with planning if:</strong></p>
+<ul>
+  <li>internal function authorization is accepted as mTLS-only for MVP,</li>
+  <li>broad database access is accepted as trusted-function behavior for MVP,</li>
+  <li>upgrade automation is handled as a later production-readiness concern.</li>
+</ul>
+<p><strong>Do not proceed without amendment if:</strong></p>
+<ul>
+  <li>the project treats every compromised function as a potential lateral-movement risk,</li>
+  <li>database least privilege is a hard requirement,</li>
+  <li>upgrade automation is required before implementation starts.</li>
+</ul>
+
+<h2>Recommended Next Step</h2>
+<p>Run <code>bmad-spec</code> next to adopt this spine as a companion implementation contract. If you want the architecture tightened before implementation, run an <strong>Update</strong> pass and add the high-severity invariants around internal function authorization, per-function database access scope, change-feed loop detection, and GitOps upgrade enforcement.</p>
+
+<h2>Post-Amendment Note</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Finding addressed:</strong> Finding 1 — Internal Function Authorization Is Not Fully Governed.</p>
+<p>Added <code>AD-14 — Internal function authorization</code> to the spine and updated the Consistency Conventions and testing section. Reran the deterministic spine lint pass after the amendment.</p>
+<p><strong>Result:</strong> <code>lint_spine.py</code> passes with 0 findings.</p>
+
+<h2>Post-Amendment Note</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Finding addressed:</strong> Finding 2 — Database Access Scope Is Broad.</p>
+<p>Added <code>AD-15 — Per-function database access scoping</code> to the spine. The new rule requires each function to declare minimum required database access in a Git-owned policy file, use per-function Infisical credentials, and read/write only approved databases, collections, tables, and KeyDB prefixes. CI must validate function manifests against the policy matrix before Kargo promotion.</p>
+<p>Updated the source tree with a <code>platform/database-access/</code> directory and added database access scope validation to deployment tests.</p>
+<p><strong>Result:</strong> <code>lint_spine.py</code> passes with 0 findings.</p>
+
+<h2>Post-Amendment Note</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Finding addressed:</strong> Finding 3 — Change Feed Loop Detection Is Partially Covered.</p>
+<p>Added <code>AD-16 — Change-feed loop detection</code> to the spine. The new rule requires CouchDB <code>_changes</code> and YugabyteDB CDC events that trigger KNative or Restate workflows to carry <code>event_id</code>, <code>origin</code>, <code>idempotency_key</code>, target domain, and mutation direction. KNative and Restate sinks must ignore self-origin events, enforce idempotency, and prevent recursive CDC/_changes loops.</p>
+<p>Updated the Consistency Conventions, added <code>platform/change-feed/</code> to the source tree, and added change-feed loop prevention to integration tests.</p>
+<p><strong>Result:</strong> <code>lint_spine.py</code> passes with 0 findings.</p>
+
+<h2>Post-Amendment Note</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Finding addressed:</strong> Finding 4 — Argo Workflows vs Restate Boundary Is Deferred.</p>
+<p>Added <code>AD-17 — Workflow orchestrator boundary</code> to the spine. The new rule assigns Restate to stateful SAGA/workflow state, durable business processes, idempotent state transitions, and change-feed-driven workflows. Argo Workflows is limited to CI/CD pipelines, build/test/scan/deploy automation, batch orchestration, and one-shot offline GitOps jobs. A single business workflow must not be implemented in both systems.</p>
+<p>Clarified ownership: business workflow implementation code belongs under <code>backend/</code> as serverless functions or SAGA modules; <code>platform/workflows/</code> contains only orchestrator policy matrices, allowed transition graphs, and ownership rules.</p>
+<p>Updated the source tree with a <code>platform/workflows/</code> directory and added workflow orchestrator boundary validation to deployment tests.</p>
+<p><strong>Result:</strong> <code>lint_spine.py</code> passes with 0 findings.</p>
+
+<h2>Post-Amendment Note</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Finding addressed:</strong> Finding 5 — Upgrade Strategy Is Not Fully Governed.</p>
+<p>Added <code>AD-18 — GitOps component upgrade enforcement</code> to the spine. The new rule requires all platform component upgrades to be declared as GitOps changes and promoted through Kargo Freight and Argo CD. In-place Helm upgrades, direct <code>kubectl</code> changes, and manual image tag swaps are forbidden. Each component upgrade must include version, rollback target, compatibility matrix, required sync-wave order, and validation evidence before staging or production promotion.</p>
+<p>Updated the source tree with <code>gitops/upgrades/</code> and added component upgrade validation to deployment tests.</p>
+<p><strong>Result:</strong> <code>lint_spine.py</code> passes with 0 findings.</p>
+
+<h2>Post-Amendment Note</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p><strong>Finding addressed:</strong> Finding 6 — Version Pinning Is Mixed.</p>
+<p>Added <code>AD-19 — Version pinning and provenance enforcement</code> to the spine. The new rule requires GitOps manifests to pin platform components by immutable digest or exact version, not <code>latest</code> or mutable tags. Kargo Freight may promote only Harbor images/configs with required scan, SBOM, and signing evidence. Mutable stack-table entries must be converted to exact pins or approved exceptions with owner, expiry, and rollback target.</p>
+<p>Updated the stack table to remove mutable <code>(latest stable)</code> placeholders and added <code>gitops/component-versions/</code> to the source tree.</p>
+<p><strong>Result:</strong> <code>lint_spine.py</code> passes with 0 findings.</p>
+</body>
+</html>

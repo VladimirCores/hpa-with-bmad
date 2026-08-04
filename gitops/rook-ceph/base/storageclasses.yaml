@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: StorageClass
+metadata:
+  name: rook-ceph-rbd
+  labels:
+    app.kubernetes.io/name: rook-ceph
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: hpdc-platform
+provisioner: rook-ceph.rook.io/block
+parameters:
+  clusterNamespace: rook-ceph
+  pool: rook-ceph
+  imageFormat: "2"
+  imageFeatures: layering
+  csi.storage.k8s.io/provisioner-secret: rook-csi-rbd-provisioner
+  csi.storage.k8s.io/controller-expand-secret: rook-csi-rbd-provisioner
+  csi.storage.k8s.io/node-stage-secret: rook-csi-rbd-node
+  csi.storage.k8s.io/node-publish-secret: rook-csi-rbd-node
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+
+---
+apiVersion: v1
+kind: StorageClass
+metadata:
+  name: rook-ceph-cephfs
+  labels:
+    app.kubernetes.io/name: rook-ceph
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: hpdc-platform
+provisioner: rook-ceph.rook.io/filesystem
+parameters:
+  clusterNamespace: rook-ceph
+  pool: rook-ceph
+  fsName: rook-ceph
+  csi.storage.k8s.io/provisioner-secret: rook-csi-cephfs-provisioner
+  csi.storage.k8s.io/controller-expand-secret: rook-csi-cephfs-provisioner
+  csi.storage.k8s.io/node-stage-secret: rook-csi-cephfs-node
+  csi.storage.k8s.io/node-publish-secret: rook-csi-cephfs-node
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate

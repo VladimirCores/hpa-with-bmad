@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - output/planning-artifacts/prds/prd-HPDC-2026-07-21/prd.md
   - output/planning-artifacts/architecture/architecture-HPDC-2026-07-30/ARCHITECTURE-SPINE.md
@@ -127,7 +127,7 @@ NFR26: Optimistic locking prevents concurrent alert state modification by two op
 
 No UX design contract was provided for this project. User-facing requirements are captured in the PRD user journeys (UJ-1..UJ-5) and FR list (e.g., FR-12 central hub alert handling, FR-17 Backstage developer portal, FR-28 Grafana dashboards). MVP UI is limited to Backstage + Grafana; the central hub SPA is deferred to v2.
 
-UX-DR1: [User request] Expose operational tool UIs in the MVP — Hubble UI (network flows, FR-29), Argo CD UI (sync/health, FR-19), Kargo UI (promotion state, FR-18), Backstage (developer portal, FR-17), and Grafana (dashboards, FR-28) — via Envoy Gateway routes (e.g., `backstage.hpdc.local`, `grafana.hpdc.local`, `argocd.hpdc.local`, `kargo.hpdc.local`, `hubble.hpdc.local`) for TLS termination and a single entry point. Each tool's NATIVE auth (SSO/RBAC/OIDC) handles access — Casdoor/Casbin ext_authz is NOT enforced on tool-UI routes. This gives tool UIs a consistent exposure class distinct from the five domain routes (which retain Casdoor/Casbin and API-Key auth). Rationale: avoids redundant platform-auth on top of the tools' own identity layers while preserving AD-1 (exclusive ingress boundary, centralized TLS/logging).
+UX-DR1: Expose operational tool UIs in the MVP — Hubble UI (network flows, FR-29), Argo CD UI (sync/health, FR-19), Kargo UI (promotion state, FR-18), Backstage (developer portal, FR-17), and Grafana (dashboards, FR-28) — via Envoy Gateway routes (e.g., `backstage.hpdc.local`, `grafana.hpdc.local`, `argocd.hpdc.local`, `kargo.hpdc.local`, `hubble.hpdc.local`) for TLS termination and a single entry point. Each tool's NATIVE auth (SSO/RBAC/OIDC) handles access — Casdoor/Casbin ext_authz is NOT enforced on tool-UI routes. This gives tool UIs a consistent exposure class distinct from the five domain routes (which retain Casdoor/Casbin and API-Key auth). Rationale: avoids redundant platform-auth on top of the tools' own identity layers while preserving AD-1 (exclusive ingress boundary, centralized TLS/logging).
 
 ### FR Coverage Map
 
@@ -204,7 +204,7 @@ So that I can provision the substrate without manual setup or external dependenc
 **When** I run the bootstrap script
 **Then** the script creates the standard monorepo directories (`gitops/`, `platform/`, `backend/`, `specs/`, `charts/`, `docs/`)
 **And** it creates a Talos machine config file under `platform/talos/machine-config.yaml`
-**And** it creates a dev bootstrap script under `scripts/bootstrap-dev.sh` using `talosctl cluster create`
+**And** it creates a Python 3 dev bootstrap script under `scripts/bootstrap-dev.py` using `talosctl cluster create`
 **And** it creates a Kustomize base directory under `gitops/platform/base`
 **And** it creates a README with the bootstrap command and expected output
 **And** the script exits with a non-zero status on any failure
@@ -733,77 +733,547 @@ So that observability users have a consistent ingress entry point without redund
 **And** Casdoor/Casbin ext_authz is not enforced on tool UI routes
 **And** TLS termination is active
 **And** the process is deferred until Epic 7 tools are installed
-**And** the script exits with a non-zero status on any failure
+**And** the script exits with a non-zero status on failure
 
 ### Epic 4: Real-Time Telemetry Ingestion & Processing
 
 The platform ingests 100K+ RPS telemetry from IoT devices via MQTT/HTTP/gRPC at the Envoy Gateway `/telemetry` route, normalizes payloads into the Protobuf CommonEnvelope, routes to partitioned Pulsar topics, processes in real time (Pulsar Functions for aggregation/windowing + Spin WASM for stateless Kafka transforms), and stores results in ClickHouse with KeyDB hot-state caching.
 
 **FRs covered:** FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8
+**NFRs covered:** NFR1, NFR3, NFR4, NFR5, NFR11, NFR13, NFR16, NFR18, NFR21, NFR23
+**Additional requirements:** AD-4, AD-5, AD-7, AD-8, AD-9, AD-10, AD-12, AD-13, Pulsar 4.2.3, Kafka, ClickHouse 26.7.1, KeyDB, Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
 
-**Implementation notes:** Pulsar 4.2.3 (MoP MQTT + gRPC handlers), Kafka for event/Spin path; CommonEnvelope protobuf with Schema Registry (AD-5); ClickHouse MergeTree `device_metrics` table (ORDER BY device_type, processed_timestamp); KeyDB clustered; includes a **tunable IoT device simulator** (configurable device count + message rate) generating telemetry across MQTT/HTTP/gRPC to drive the `/telemetry` route and validate SM-1 (100K RPS, p99 < 100ms) and FR-1 multi-protocol acceptance.
+### Story 4.1: Build IoT Device Simulator and Telemetry Acceptance Harness
 
-### Epic 5: Alert Detection & Response
+As a QA Engineer,
+I want a tunable IoT device simulator that can generate telemetry across MQTT, HTTP, and gRPC,
+So that the telemetry pipeline can be validated at realistic device counts, message rates, regions, and device types.
+
+**Acceptance Criteria:**
+
+**Given** the simulator configuration exists with device count, message rate, device types, and region IDs
+**When** I run the simulator against the local dev platform
+**Then** it emits telemetry through MQTT, HTTP, and gRPC routes
+**And** each message includes device_id, device_type, event_type, timestamp, payload, and region_id
+**And** the simulator can target 100K RPS or a lower configured rate for local validation
+**And** the simulator exposes throughput, error rate, and latency metrics for validation runs
+**And** the simulator exits with a non-zero status on connection, schema, or generation failure
+
+### Story 4.2: Accept Telemetry Through MQTT, HTTP, and gRPC Routes
+
+As a Platform Engineer,
+I want the `/telemetry` ingestion route to accept MQTT, HTTP, and gRPC telemetry,
+So that heterogeneous IoT devices can publish telemetry without separate protocol adapters.
+
+**Acceptance Criteria:**
+
+**Given** the simulator from Story 4.1 and the `/telemetry` route are available
+**When** I publish valid MQTT, HTTP, and gRPC telemetry payloads
+**Then** the platform accepts each payload type
+**And** each accepted payload is routed to the internal Pulsar ingestion topic
+**And** the platform returns HTTP 429 when ingestion exceeds the configured capacity for a device type
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.3: Normalize Telemetry into Protobuf CommonEnvelope
+
+As a Backend Developer,
+I want all inbound telemetry normalized into the Protobuf CommonEnvelope,
+So that downstream Pulsar, Kafka, and processing components share one schema and one data contract.
+
+**Acceptance Criteria:**
+
+**Given** a valid telemetry payload arrives at the ingestion route
+**When** it is normalized before publishing to internal topics
+**Then** it contains `device_id`, `device_type`, `event_type`, `timestamp`, `payload`, `region_id`, `origin`, and `idempotency_key`
+**And** the message is serialized as Protobuf
+**And** missing `device_id` or `timestamp` returns HTTP 400 with a structured error
+**And** payloads larger than 64KB return HTTP 413 with a structured error
+**And** the original payload bytes are preserved untransformed in `payload`
+**And** schema compatibility is enforced by Schema Registry
+
+### Story 4.4: Create Partitioned Pulsar Topics for Telemetry
+
+As a Platform Engineer,
+I want Pulsar topics partitioned by device type and region,
+So that telemetry for the same device type and region can be processed in parallel while preserving ordering.
+
+**Acceptance Criteria:**
+
+**Given** normalized telemetry is published to the ingestion route
+**When** the platform creates or uses internal Pulsar topics
+**Then** topics are partitioned by `device_type` and `region_id`
+**And** messages with the same `device_type` + `region_id` land on the same partition
+**And** partition count is adjustable without data loss
+**And** the topic configuration supports dev and production overlays
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.5: Apply Telemetry Back-Pressure and Drop-Metric Controls
+
+As a Platform Engineer,
+I want the ingestion layer to apply back-pressure when consumers lag,
+So that the platform prevents memory exhaustion and message loss during load spikes.
+
+**Acceptance Criteria:**
+
+**Given** downstream consumer lag exceeds the configured threshold
+**When** producers continue publishing telemetry
+**Then** the ingestion layer applies exponential backoff to producers
+**And** messages are dropped only when the buffer is full
+**And** each dropped message increments `ingestion_dropped_total` with a `reason` label
+**And** ingestion pods do not exceed the configured memory ceiling under peak load
+**And** the platform remains available for new telemetry after the lag clears
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.6: Process Telemetry with Pulsar Functions and Write to ClickHouse
+
+As a Backend Developer,
+I want Pulsar Functions to aggregate, window, and batch telemetry writes to ClickHouse,
+So that normalized telemetry becomes queryable analytical data with reliable retry behavior.
+
+**Acceptance Criteria:**
+
+**Given** partitioned Pulsar topics contain normalized telemetry
+**When** Pulsar Functions process the telemetry stream
+**Then** they perform aggregation and windowing
+**And** they write ClickHouse batches of 25,000 records with a 500ms flush interval
+**And** failed ClickHouse writes retry 3 times before being sent to a dead-letter queue
+**And** each write confirms success through the JDBC Sink acknowledgment path
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.7: Create ClickHouse Device Metrics Tables and Retention Policies
+
+As a Data Engineer,
+I want ClickHouse tables for processed telemetry with time and device-type partitioning,
+So that operators can query telemetry analytics quickly and retain data by environment.
+
+**Acceptance Criteria:**
+
+**Given** Pulsar Functions are writing normalized telemetry
+**When** the ClickHouse sink initializes storage
+**Then** it creates `device_metrics` using MergeTree or ReplacingMergeTree
+**And** the table uses `ORDER BY (device_type, processed_timestamp)`
+**And** time-range queries return 1M rows in under 2 seconds
+**And** retention policies are applied per environment: dev 24h, staging 7d, production configurable
+**And** processed telemetry is stored on Ceph-backed persistent storage
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.8: Cache Hot Device State and Alert Context in KeyDB
+
+As a Backend Developer,
+I want hot device state and alert context cached in KeyDB,
+So that downstream telemetry and alert handlers can read context with sub-millisecond latency and fall back safely on cache misses.
+
+**Acceptance Criteria:**
+
+**Given** device state or alert context exists in the authoritative stores
+**When** a downstream handler reads that context
+**Then** KeyDB returns cached values in under 1ms p99 when present
+**And** cached entries use a configurable TTL with 5 minutes as the default
+**And** cache misses fall back to CouchDB or ClickHouse without propagating cache errors
+**And** cached state is refreshed after authoritative telemetry or alert changes
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.9: Process Event Telemetry with Spin WASM Functions
+
+As a Backend Developer,
+I want Spin WASM functions to transform event telemetry on Kafka topics,
+So that stateless filtering, enrichment, and field-mapping logic runs with very low latency.
+
+**Acceptance Criteria:**
+
+**Given** normalized telemetry is published to the Kafka event path
+**When** a Spin function consumes the message
+**Then** it performs field mapping, enrichment, or filtering
+**And** a single message is processed in under 10ms p99
+**And** replicas scale based on Kafka consumer lag
+**And** transformed messages are written to the configured downstream store or topic
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 4.10: Validate End-to-End Telemetry Pipeline Performance
+
+As a QA Engineer,
+I want an end-to-end telemetry validation suite,
+So that the platform proves the telemetry path meets throughput, latency, storage, and offline delivery requirements.
+
+**Acceptance Criteria:**
+
+**Given** the simulator, ingestion routes, normalization, Pulsar topics, Pulsar Functions, ClickHouse, KeyDB, and Spin functions are installed
+**When** I run the telemetry validation suite
+**Then** the platform sustains 100K RPS from simulated devices in the configured local dev topology
+**And** p99 ingestion latency from edge to topic is under 100ms
+**And** a normalized message reaches ClickHouse within 2 seconds of ingestion
+**And** telemetry metrics, logs, and traces are visible through the observability stack
+**And** the validation suite confirms offline operation without internet access
+**And** the suite exits with a non-zero status on any failed metric, error path, or offline dependency
+
+## Epic 5: Alert Detection & Response
 
 SOC Analyst can detect security alerts from directed API streams, track them through a stateful lifecycle (initial → acknowledged → investigating → resolved → closed), trigger automated responses (device signals, webhooks, workflows), and handle alerts with full audit trail — plus basic LLM decision support for alert analysis.
 
 **FRs covered:** FR-9, FR-10, FR-11, FR-12, FR-46 (basic)
+**NFRs covered:** NFR6, NFR7, NFR12, NFR21, NFR24, NFR25, NFR26
+**Additional requirements:** AD-2, AD-3, AD-4, AD-5, AD-6, AD-7, AD-8, AD-9, AD-10, AD-12, AD-13, Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
 
-**Implementation notes:** Alert signals via `/events` route to Kafka; state machine as KNative + Restate SAGA (AD-3); alert state persisted CouchDB (100ms) + cached KeyDB (50ms); automated responses with correlation ID; optimistic locking; basic LLM alert analysis (FR-46 MVP scope only — no autonomous actions).
+### Story 5.1: Ingest Alert Signals Through Directed Kafka Streams
 
-### Epic 6: Entity & Device Management
+As a SOC Analyst,
+I want alert signals submitted through a dedicated API stream,
+So that concurrent alerts can be processed in parallel without blocking telemetry ingestion.
+
+**Acceptance Criteria:**
+
+**Given** the alert API endpoint and `/events` route are available
+**When** I submit a valid alert signal with `alert_id`, `device_id`, `severity`, `timestamp`, and metadata
+**Then** the platform accepts the alert signal
+**And** the alert signal is routed to a Kafka topic separate from telemetry
+**And** concurrent alert submissions do not block telemetry ingestion
+**And** invalid or malformed alert payloads return a structured HTTP error
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 5.2: Persist Alert State Machine Transitions
+
+As a SOC Analyst,
+I want alert state transitions persisted to CouchDB and cached in KeyDB,
+So that alert lifecycle state is durable, fast to read, and safe to audit.
+
+**Acceptance Criteria:**
+
+**Given** an alert exists in the initial state
+**When** it transitions to acknowledged, investigating, resolved, or closed
+**Then** the transition follows the valid path `initial → acknowledged → investigating → resolved → closed`
+**And** the transition is persisted to CouchDB within 100ms
+**And** KeyDB is updated within 50ms of the CouchDB write
+**And** invalid transitions return HTTP 409 with the current state
+**And** each transition records actor, timestamp, and change diff
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 5.3: Trigger Automated Alert Responses
+
+As a SOC Analyst,
+I want automated responses triggered when alert conditions are met,
+So that alerts can be acted on quickly while still preserving human approval for sensitive actions.
+
+**Acceptance Criteria:**
+
+**Given** an alert reaches the configured trigger condition
+**When** the automated response engine evaluates it
+**Then** it invokes the device communication microservice within 200ms
+**And** it delivers webhook payloads within 500ms using 3 attempts with exponential backoff
+**And** it starts the appropriate workflow process
+**And** every automated response is logged with correlation ID tied to `alert_id`
+**And** ambiguous low-confidence AI suggestions are escalated for manual review instead of executed
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 5.4: Manage Human Alert Handling with Audit Trail
+
+As a SOC Analyst,
+I want to acknowledge, investigate, and resolve alerts with notes and audit history,
+So that incident response actions are visible, reviewable, and protected from concurrent edits.
+
+**Acceptance Criteria:**
+
+**Given** an alert is active and visible in the operator workflow
+**When** I acknowledge, investigate, add notes, and resolve it
+**Then** the alert state changes through the valid lifecycle
+**And** every action is recorded with actor, timestamp, and notes
+**And** concurrent operators cannot modify the same alert state at the same time
+**And** the latest alert state and audit trail are visible to authorized users
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 5.5: Provide Basic LLM Decision Support for Alerts
+
+As a SOC Analyst,
+I want basic LLM decision support for alert analysis,
+So that I can review suggested responses while remaining in control of final action.
+
+**Acceptance Criteria:**
+
+**Given** an alert has relevant device, telemetry, and history context
+**When** I request decision support
+**Then** the system invokes the configured LLM provider
+**And** the response is constrained to actionable recommendations only
+**And** the system refuses to autonomously execute sensitive actions without approval
+**And** the LLM interaction is logged with input, output, and decision context
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+## Epic 6: Entity & Device Management
 
 Operators can manage the company → client → devices/assets hierarchy with CRUD and audit logging across CouchDB (documents), ArcadeDB (graph/lineage), and YugabyteDB (transactional state), with change-driven business logic via KNative + Restate and unified GraphQL via Hasura.
 
 **FRs covered:** FR-13, FR-14, FR-15, FR-16
+**NFRs covered:** NFR8, NFR9, NFR10, NFR12, NFR16, NFR21, NFR25
+**Additional requirements:** AD-2, AD-3, AD-4, AD-5, AD-6, AD-7, AD-8, AD-9, AD-10, AD-12, AD-13, Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
 
-**Implementation notes:** Triple-database ownership boundaries per AD-6; CouchDB `_changes` + YugabyteDB CDC → KNative Eventing; Hasura deployed at `/gql` (full cross-store federation deferred to v2 — MVP uses direct DB access); ULID IDs, ISO-8601 timestamps, structured errors.
+### Story 6.1: Store Entity Hierarchy Across CouchDB, ArcadeDB, and YugabyteDB
 
-### Epic 7: Observability & Business Reporting
+As an Operator,
+I want entities and relationships stored across the approved databases,
+So that document hierarchy, graph lineage, and transactional state remain consistent with the architecture boundaries.
+
+**Acceptance Criteria:**
+
+**Given** an entity document is submitted for a company, client, device, or asset
+**When** the system stores it in the owning data store
+**Then** CouchDB stores the document hierarchy and document CRUD data
+**And** ArcadeDB stores graph-structured lineage and relationship data
+**And** YugabyteDB stores internal transactional state
+**And** all serverless functions can read and write the required stores through the approved access patterns
+**And** Ceph-backed persistent storage is used for stateful workloads
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 6.2: Provide Entity CRUD and Bulk Operations
+
+As an Operator,
+I want CRUD and bulk operations for entities,
+So that device and asset management can be performed consistently and efficiently.
+
+**Acceptance Criteria:**
+
+**Given** the entity API is available
+**When** I create, read, update, delete, or bulk-create entities
+**Then** the system supports companies, clients, devices, and assets
+**And** operations are enforced with role-based access control
+**And** entity mutations are logged with actor, timestamp, and change diff
+**And** bulk operations support up to 1000 entities per request
+**And** entity create/update operations complete in under 200ms p99
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 6.3: React to Entity Change Feeds with KNative + Restate
+
+As a Backend Developer,
+I want KNative services with Restate to react to CouchDB and YugabyteDB change feeds,
+So that business logic runs statefully, idempotently, and consistently when entity data changes.
+
+**Acceptance Criteria:**
+
+**Given** CouchDB `_changes` or YugabyteDB CDC events occur
+**When** KNative services with Restate process them
+**Then** the service reacts within 500ms
+**And** the service reads and writes the required CouchDB and YugabyteDB state in the same workflow step
+**And** change events are processed exactly once through Restate virtual object state
+**And** service failure triggers automatic retry and a dead-letter queue
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 6.4: Expose Cross-Store Queries Through Hasura GraphQL
+
+As an Operator,
+I want cross-store queries through Hasura GraphQL,
+So that I can view entity state, telemetry, and internal resources without joining data manually.
+
+**Acceptance Criteria:**
+
+**Given** CouchDB, YugabyteDB, and ClickHouse data are available
+**When** I query the Hasura GraphQL endpoint at `/gql`
+**Then** the system resolves a query joining CouchDB entities with YugabyteDB resources
+**And** the query completes in under 2 seconds
+**And** Hasura permissions follow the configured role model
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+## Epic 7: Observability & Business Reporting
 
 Operators and business stakeholders can monitor platform health, telemetry throughput, alert statistics, network flows, and SLA/business metrics through VictoriaMetrics, Grafana, AlertManager, Cilium Hubble, vmlog, and OpenTelemetry tracing.
 
 **FRs covered:** FR-25, FR-26, FR-27, FR-28, FR-29
+**NFRs covered:** NFR4, NFR14, NFR15, NFR16, NFR18, NFR21
+**Additional requirements:** AD-1, AD-2, AD-3, AD-4, AD-7, AD-8, AD-9, AD-10, AD-12, AD-13, Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** UX-DR1 applies to tool UI exposure through Envoy Gateway with native tool auth.
 
-**Implementation notes:** VictoriaMetrics cluster (vmstorage/vminsert/vmselect) + vmagent scraping; single-node mode in dev; structured JSON logs to stdout; OTel auto-instrumentation of KNative functions; Hubble UI exposure (UX-DR1); Grafana and Hubble UI routes are exposed after Envoy Gateway exists and after Epic 7 tools are installed; retention 7d raw / 30d aggregated / 1y monthly (AD-12); business dashboards: alert throughput, device coverage, SLA compliance, cost per cluster.
+### Story 7.1: Deploy VictoriaMetrics Metrics Cluster
 
-### Epic 8: Multi-Region Federation (v2 - deferred)
+As a Platform Engineer,
+I want a VictoriaMetrics cluster for platform metrics,
+So that metrics can be scraped, queried, and retained at platform scale.
+
+**Acceptance Criteria:**
+
+**Given** the platform has a local dev cluster or production topology available
+**When** I apply the VictoriaMetrics cluster configuration
+**Then** vmstorage, vminsert, and vmselect are deployed with configurable replica counts
+**And** vmagent scrapes metrics from all platform components
+**And** PromQL queries return 24h range results in under 2 seconds
+**And** retention policies are applied per environment
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 7.2: Collect Logs with vmlog
+
+As a Platform Engineer,
+I want vmlog to collect stdout and stderr from all pods,
+So that operators can search logs by namespace, pod, and content.
+
+**Acceptance Criteria:**
+
+**Given** platform pods emit structured JSON logs to stdout
+**When** vmlog indexes those logs
+**Then** logs are searchable by namespace, pod, and content within 5 seconds
+**And** log retention is applied per environment
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 7.3: Export Distributed Traces with OpenTelemetry Collector
+
+As a Platform Engineer,
+I want OpenTelemetry Collector to receive and export traces,
+So that service behavior can be traced across the platform.
+
+**Acceptance Criteria:**
+
+**Given** instrumented services emit OTLP traces
+**When** the OpenTelemetry Collector receives them
+**Then** traces are exported to the configured backend, VictoriaMetrics or Jaeger
+**And** sampling is configurable per service
+**And** trace data is visible in the observability stack
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 7.4: Configure Grafana Dashboards and AlertManager
+
+As a Business Stakeholder,
+I want dashboards and alert routing for platform performance and SLA metrics,
+So that I can monitor throughput, device coverage, SLA compliance, and cost per cluster.
+
+**Acceptance Criteria:**
+
+**Given** VictoriaMetrics and AlertManager are deployed
+**When** I open Grafana
+**Then** I see dashboards for platform health, telemetry throughput, and alert statistics
+**And** business dashboards show alert throughput, device coverage, SLA compliance, and cost per cluster
+**And** AlertManager routes alerts to configured channels
+**And** stale metrics older than 5 minutes show a warning banner
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 7.5: Expose Grafana and Hubble Tool UIs via Envoy Gateway
+
+As a Platform Administrator,
+I want Grafana and Hubble UIs exposed through Envoy Gateway routes with native tool auth,
+So that observability users have a consistent ingress entry point without redundant platform auth.
+
+**Acceptance Criteria:**
+
+**Given** Envoy Gateway from Epic 3 is installed
+**And** TLS termination from Epic 3 is configured
+**And** Grafana and Hubble from this epic are installed
+**When** I apply the tool UI route manifest from GitOps
+**Then** `grafana.hpdc.local` and `hubble.hpdc.local` routes are exposed through Envoy Gateway
+**And** each tool’s native auth handles access
+**And** Casdoor/Casbin ext_authz is not enforced on tool UI routes
+**And** TLS termination is active
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+## Epic 8: Multi-Region Federation (v2 - deferred)
 
 Cross-region visibility with data sovereignty: Cilium ClusterMesh over WireGuard VPN, independent regional data stores with no cross-region replication, and a central hub querying regional APIs with region-scoped auth.
 
 **FRs covered:** FR-33, FR-34, FR-35
+**NFRs covered:** NFR12, NFR18, NFR20, NFR21
+**Additional requirements:** AD-1, AD-2, AD-4, AD-7, AD-8, AD-9, AD-10, AD-11, AD-12, AD-13, Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
 
-**Implementation notes:** v2 scope per PRD §6.2 and architecture Deferred list. Multi-region is the core differentiator — v2 planning starts immediately after MVP validation.
+### Story 8.1: Establish Cross-Cluster Service Discovery with ClusterMesh
 
-### Epic 9: AI Agent Engine (v2 - deferred)
+As a Platform Engineer,
+I want ClusterMesh to connect regional clusters over WireGuard VPN,
+So that services can discover each other across regions without manual configuration.
+
+**Acceptance Criteria:**
+
+**Given** two regional clusters are provisioned
+**When** ClusterMesh is configured over WireGuard VPN
+**Then** services are discovered across clusters
+**And** cross-cluster traffic is encrypted through the VPN tunnel
+**And** no manual per-service discovery configuration is required
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 8.2: Enforce Regional Data Sovereignty
+
+As a Platform Engineer,
+I want independent regional data stores with no automatic cross-region replication,
+So that regional data remains local unless explicitly configured otherwise.
+
+**Acceptance Criteria:**
+
+**Given** each region has its own CouchDB, YugabyteDB, ClickHouse, ArcadeDB, KeyDB, and PostgreSQL
+**When** regional queries are routed
+**Then** each query goes to the region-scoped data store
+**And** cross-region replication does not happen by default
+**And** explicit replication configuration is required before cross-region data movement
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 8.3: Query Regional APIs for Cross-Region Visibility
+
+As a Business Stakeholder,
+I want a central hub that can query regional APIs for aggregate visibility,
+So that I can see platform metrics across regions without storing regional data at the hub.
+
+**Acceptance Criteria:**
+
+**Given** regional APIs are available with region-scoped authentication
+**When** the central hub queries them
+**Then** it displays aggregated metrics across regions
+**And** it supports per-region drill-down for entity and alert state
+**And** the hub does not store regional data
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+## Epic 9: AI Agent Engine (v2 - deferred)
 
 Full AI agent orchestration: MCP tool invocation and A2A inter-agent communication with the platform's capabilities.
 
 **FRs covered:** FR-47, FR-48, FR-46 (full)
+**NFRs covered:** NFR12, NFR21, NFR25
+**Additional requirements:** AD-2, AD-3, AD-4, AD-6, AD-8, AD-9, AD-10, AD-12, AD-13, Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
 
-**Implementation notes:** v2 scope per PRD §6.2. MVP includes only basic LLM alert analysis in Epic 5.
+### Story 9.1: Expose Platform Capabilities as MCP Tools
 
-<!-- Repeat for each epic in epics_list (N = 1, 2, 3...) -->
-
-## Epic {{N}}: {{epic_title_N}}
-
-{{epic_goal_N}}
-
-<!-- Repeat for each story (M = 1, 2, 3...) within epic N -->
-
-### Story {{N}}.{{M}}: {{story_title_N_M}}
-
-As a {{user_type}},
-I want {{capability}},
-So that {{value_benefit}}.
+As an AI Agent,
+I want platform capabilities exposed as MCP-compatible tools,
+So that agents can query databases, call APIs, and trigger workflows through a consistent interface.
 
 **Acceptance Criteria:**
 
-<!-- for each AC on this story -->
+**Given** the platform exposes MCP-compatible tool definitions
+**When** an agent invokes a tool
+**Then** the invocation is validated against security policies
+**And** the tool call is logged with agent ID, tool name, parameters, and result
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
 
-**Given** {{precondition}}
-**When** {{action}}
-**Then** {{expected_outcome}}
-**And** {{additional_criteria}}
+### Story 9.2: Enable Agent-to-Agent Communication
 
-<!-- End story repeat -->
+As an AI Agent,
+I want authenticated agent-to-agent messaging,
+So that coordinated decision-making and task delegation can happen without unauthorized impersonation.
+
+**Acceptance Criteria:**
+
+**Given** agents are registered with the platform
+**When** one agent sends a message to another
+**Then** the message is routed through an authenticated channel
+**And** unauthorized impersonation is prevented
+**And** agent registration and discovery work as configured
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure

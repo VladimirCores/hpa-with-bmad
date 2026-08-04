@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rook-ceph
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-osd
+  namespace: rook-ceph
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rook-ceph-operator
+  namespace: rook-ceph
+  labels:
+    app.kubernetes.io/name: rook-ceph
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rook-ceph
+      app.kubernetes.io/component: operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rook-ceph
+        app.kubernetes.io/component: operator
+    spec:
+      serviceAccountName: rook-ceph-operator
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: rook-ceph-operator
+          image: quay.io/rook/ceph:v1.20.3
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ROOK_CEPH_IMAGE
+              value: quay.io/rook/ceph:v1.20.3
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+---
+apiVersion: ceph.rook.io/v1
+kind: CephCluster
+metadata:
+  name: rook-ceph
+  namespace: rook-ceph
+spec:
+  cephVersion:
+    image: quay.io/rook/ceph:v1.20.3
+    allowUnsupported: true
+  dataDirHostPath: /var/lib/rook
+  mon:
+    store:
+      type: bluestore
+    count: 1
+    allowMultiplePerNode: false
+  mgr:
+    count: 1
+  dashboard:
+    enabled: true
+    ssl: false
+  storage:
+    storageClassDeviceSets:
+      - name: rook-ceph-dev-osd
+        plan:
+          replicas: 1
+        count: 1
+        portable: true
+        size: 16G
+        dataEmptyDir: false
+        devices:
+          - name: /dev/disk/by-id/qemu_talos-v1
+        placement:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: Exists
+        preparePlacement:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: Exists
+  network:
+    provider: kubernetes
+    podIP:
+      serviceCIDR: 10.96.0.0/12
+  healthCheck:
+    daemonHealth:
+      mon:
+        disabled: false
+      mgr:
+        disabled: false
+      osd:
+        disabled: false
+    livenessProbe:
+      disabled: false
+    readinessProbe:
+      disabled: false

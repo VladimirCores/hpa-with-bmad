@@ -1,0 +1,16 @@
+machine:
+  install:
+    disk: /dev/vda
+    extraKernelArgs:
+      - talos.platform=metal
+  network:
+    nameservers: []
+  time:
+    disabled: false
+  kubelet:
+    extraArgs:
+      protect-kernel-defaults: "true"
+  features:
+    talos:
+      cgroups:
+        version: v2

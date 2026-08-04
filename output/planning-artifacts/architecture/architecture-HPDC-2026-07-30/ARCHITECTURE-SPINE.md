@@ -221,21 +221,57 @@ All serverless functions have read/write access to all data stores. The ownershi
 - **Prevents:** Secrets in git, ConfigMaps, or environment variables; credential sprawl; rotation gaps
 - **Rule:** All secrets (DB credentials, API keys, TLS certificates) stored in Infisical and never in version control. Infisical K8s Operator injects secrets into pods via the CSI Driver provider (mounted as volumes) or operator syncs to native K8s Secrets for cluster-internal use. Secrets auto-rotate on a configurable schedule (default 90 days). Service accounts (per-function, per-component) in Infisical, never shared credentials.
 
+### AD-14 — Internal function authorization
+
+- **Binds:** AD-2, AD-8, all internal function-to-function calls
+- **Prevents:** Internal auth bypass; unauthenticated function-to-function calls; functions using mTLS as a substitute for authorization
+- **Rule:** Inter-domain communication remains limited to the event-mesh (Pulsar topics, Kafka topics) or database-level change feeds. Same-domain KNative↔KNative or KNative↔SpinApp HTTP calls are allowed only when both functions share the same bounded domain, the caller authenticates with a Cilium SPIFFE/SPIRE identity, and the callee authorizes that caller against an explicit allow list or service identity policy. Function endpoints must not be publicly reachable inside the cluster, must use context-based timeouts, and must never bypass external route authN/authZ for user-triggered behavior.
+
+### AD-15 — Per-function database access scoping
+
+- **Binds:** AD-6, AD-13, all database access
+- **Prevents:** Broad read/write blast radius; shared database credentials; lateral movement from one compromised function to unrelated authoritative stores
+- **Rule:** Every function must declare its minimum required database access in a Git-owned access policy file. Access must be enforced with per-function credentials injected through Infisical, and each function may read/write only the databases, collections, tables, and key prefixes declared in its approved policy. KeyDB keys must use registered prefixes by logical concern, and CI must validate function manifests against the policy matrix before Kargo promotion.
+
+### AD-16 — Change-feed loop detection
+
+- **Binds:** AD-4, AD-5, AD-6, KNative + Restate workflows, CouchDB `_changes`, YugabyteDB CDC
+- **Prevents:** Mutation loops; duplicate state transitions; self-triggering workflows; lost updates from repeated change-feed events
+- **Rule:** All database change events that trigger KNative or Restate workflows must carry `event_id`, `origin`, `idempotency_key`, target domain, and mutation direction. KNative and Restate sinks must ignore self-origin events, enforce idempotency before state transitions, and use target-specific deduplication windows. Mutating workflows must write through an approved policy matrix and must not trigger unbounded recursive CDC or `_changes` processing.
+
+### AD-17 — Workflow orchestrator boundary
+
+- **Binds:** AD-3, AD-4, AD-9, KNative + Restate, Argo Workflows
+- **Prevents:** Same business workflow implemented twice with incompatible state, retries, and audit semantics
+- **Rule:** Restate owns stateful SAGA/workflow state, durable business processes, idempotent state transitions, and change-feed-driven workflows. Argo Workflows owns CI/CD pipelines, build/test/scan/deploy automation, batch orchestration, and one-shot offline GitOps jobs. A single business workflow must not be implemented in both systems; the owner is Restate when durable user/business state or exactly-once state transitions are required, otherwise Argo Workflows. Business workflow implementation code belongs under `backend/` as serverless functions or SAGA modules; `platform/workflows/` contains only orchestrator policy matrices, allowed transition graphs, and ownership rules.
+
+### AD-18 — GitOps component upgrade enforcement
+
+- **Binds:** AD-9, AD-10, AD-12, Stack table, all platform components
+- **Prevents:** Drift between Git state and deployed platform components; untracked upgrades; production upgrades outside promotion flow
+- **Rule:** All platform component upgrades must be declared as GitOps changes and promoted through Kargo Freight and Argo CD. In-place Helm upgrades, direct `kubectl` changes, and manual image tag swaps are forbidden. Each component upgrade must include version, rollback target, compatibility matrix, required sync-wave order, and validation evidence before promotion to staging or production.
+
+### AD-19 — Version pinning and provenance enforcement
+
+- **Binds:** AD-9, AD-12, AD-18, Stack table, Harbor, Kargo, Argo CD
+- **Prevents:** Floating versions; unsigned or unscanned images; unreviewed dependency drift; production upgrades from unverified upstream releases
+- **Rule:** GitOps manifests must pin platform components by immutable digest or exact version, not `latest` or mutable tags. Kargo Freight may promote only images/configs from Harbor that have required scan, SBOM, and signing evidence. Any component with a mutable semantic version in the stack table must be converted to an exact pin or an approved exception with owner, expiry, and rollback target.
+
 ## Consistency Conventions
 
 | Concern | Convention |
 |---------|------------|
 | Naming (entities, files, interfaces) | snake_case for protobuf fields, kebab-case for Kubernetes resources, PascalCase for entity types |
 | Data & formats (ids, dates, error shapes) | ULID for all entity/resource IDs. ISO-8601/RFC3339 for all timestamps. Structured error payload: `{"code": "<http-status>", "message": "<human>", "details": {...}}` |
-| State & cross-cutting (mutation, errors, logging, config, auth) | Structured JSON logging to stdout (not files). Config via ConfigMap/Secret, never env vars for sensitive data. AuthN via Casdoor JWT or API-Key; AuthZ via Casbin ext_authz (Go gRPC) at Envoy Gateway SecurityPolicy. Auth model conflict resolution: DENY wins — if any model (RBAC/ReBAC/ABAC) evaluates to DENY, the decision is DENY regardless of other model results. |
-| Function-to-function calls | KNative functions may call other KNative functions or SpinApps via HTTP for stateful operations (e.g., welcome function → counter SpinApp → KeyDB). Calls use DNS service discovery with context-based timeouts. SpinApps never call other SpinApps directly. |
+| State & cross-cutting (mutation, errors, logging, config, auth) | Structured JSON logging to stdout (not files). Config via ConfigMap/Secret, never env vars for sensitive data. AuthN via Casdoor JWT or API-Key; AuthZ via Casbin ext_authz (Go gRPC) at Envoy Gateway SecurityPolicy. Auth model conflict resolution: DENY wins — if any model (RBAC/ReBAC/ABAC) evaluates to DENY, the decision is DENY regardless of other model results. Change events must carry event_id, origin, idempotency_key, target domain, and mutation direction to prevent CDC/_changes loops. |
+| Function-to-function calls | KNative functions may call same-domain KNative functions or SpinApps over HTTP only through AD-14: mTLS with SPIFFE identity, callee-side caller allow-list authorization, no public function endpoints, and context-based timeouts. SpinApps never call other SpinApps directly. |
 | Protobuf schemas | All `.proto` files in `specs/proto/` with Pulsar/Kafka Schema Registry enforcing compatibility. Backward-compatible field numbering. |
 | Environment naming | `dev` (local/talosctl QEMU), `prod` (production bare-metal) |
 | Kubernetes resource labels | Three-label taxonomy on all workload resources: `app.kubernetes.io/name`, `app.kubernetes.io/component` (`knative-function`, `spin-function`, `pulsar-function`, `infrastructure`), `app.kubernetes.io/part-of: hpdc-platform` |
 
 ## Stack
 
-*Web-verified at time of writing (2026-07-30). The code owns these versions once deployed — update in place as the project evolves.*
+*Web-verified at time of writing (2026-07-30). These are candidate versions for the spine; production GitOps must pin exact versions or immutable digests in `gitops/`.*
 
 | Name | Version | Notes |
 |------|---------|-------|
@@ -244,28 +280,28 @@ All serverless functions have read/write access to all data stores. The ownershi
 | Rook-Ceph | 1.20.3 | Ceph v20.2.2, RBD + CephFS CSI |
 | Envoy Gateway | 1.8.3 | K8s Gateway API ingress, ext_authz, rate limiting |
 | Pulsar | 4.2.3 | Native MQTT (MoP) + gRPC protocol handlers, Pulsar Functions |
-| Kafka | (latest stable) | Event streams, Spin WASM input |
+| Kafka | Pinned in GitOps; candidate reviewed separately | Event streams, Spin WASM input |
 | ClickHouse | 26.7.1 | MergeTree engine, JDBC Sink target |
 | CouchDB | 3.5.2 | Document DB, `_changes` feed, MapReduce |
 | YugabyteDB | 2026.1.0.1 | Distributed SQL for transactional state |
 | ArcadeDB | 26.7.3 | Multi-model graph DB |
-| KeyDB | (latest stable) | Clustered in-memory cache, pub-sub, state |
+| KeyDB | Pinned in GitOps; candidate reviewed separately | Clustered in-memory cache, pub-sub, state |
 | VictoriaMetrics | 1.148.0 | Cluster mode (vmstorage/vminsert/vmselect) |
 | Kargo | 1.11.0 | GitOps promotion engine |
-| Argo CD | (latest stable) | GitOps sync engine + ApplicationSet |
-| Argo Rollouts | (latest stable) | Progressive delivery (canary/blue-green) |
-| Argo Events | (latest stable) | Event-driven automation triggers |
-| Argo Workflows | (latest stable) | DAG workflow engine |
-| Backstage | (latest stable) | Developer portal, Software Catalog, Golden Path templates |
-| KNative | (latest stable) | Serverless scale-to-zero + Eventing |
-| Restate | (latest stable) | Stateful workflow/SAGA engine |
+| Argo CD | Pinned in GitOps; candidate reviewed separately | GitOps sync engine + ApplicationSet |
+| Argo Rollouts | Pinned in GitOps; candidate reviewed separately | Progressive delivery (canary/blue-green) |
+| Argo Events | Pinned in GitOps; candidate reviewed separately | Event-driven automation triggers |
+| Argo Workflows | Pinned in GitOps; candidate reviewed separately | DAG workflow engine |
+| Backstage | Pinned in GitOps; candidate reviewed separately | Developer portal, Software Catalog, Golden Path templates |
+| KNative | Pinned in GitOps; candidate reviewed separately | Serverless scale-to-zero + Eventing |
+| Restate | Pinned in GitOps; candidate reviewed separately | Stateful workflow/SAGA engine |
 | SpinKube | shim v0.25.1 | WASM runtime: Spin v4.0.1, Operator v0.6.1. Helm charts from `spinframework` org. |
-| Casdoor | (latest stable) | AuthN: JWT, SSO, OIDC/SAML |
-| Casbin | (latest stable) | AuthZ: RBAC + ReBAC (Zanzibar) + ABAC |
-| Hasura | (latest stable) | GraphQL federation backend |
-| Infisical | (latest stable) | Secrets management with K8s Operator |
-| Harbor | (latest stable) | OCI registry with Trivy scanning, Cosign signing |
-| Spegel | (latest stable) | P2P container image distribution |
+| Casdoor | Pinned in GitOps; candidate reviewed separately | AuthN: JWT, SSO, OIDC/SAML |
+| Casbin | Pinned in GitOps; candidate reviewed separately | AuthZ: RBAC + ReBAC (Zanzibar) + ABAC |
+| Hasura | Pinned in GitOps; candidate reviewed separately | GraphQL federation backend |
+| Infisical | Pinned in GitOps; candidate reviewed separately | Secrets management with K8s Operator |
+| Harbor | Pinned in GitOps; candidate reviewed separately | OCI registry with Trivy scanning, Cosign signing |
+| Spegel | Pinned in GitOps; candidate reviewed separately | P2P container image distribution |
 
 ## Structural Seed
 
@@ -312,12 +348,15 @@ hpdc/
 │       │   └── kustomization.yaml     # References functions/ + spins/ + secrets
 │       └── prod/
 │           └── kustomization.yaml
+│   ├── component-versions/            # Approved stack pins, SBOMs, scan and signing evidence
+│   └── upgrades/                      # Component upgrade manifests and rollback targets
 ├── platform/
 │   ├── cilium/
 │   ├── rook-ceph/
 │   ├── pulsar/
 │   ├── kafka/
 │   │   └── kafkatopic.yaml           # Strimzi KafkaTopic definitions
+│   ├── database-access/              # Function access policy matrix and KeyDB namespaces
 │   ├── couchdb/
 │   ├── yugabytedb/
 │   ├── arcadedb/
@@ -339,6 +378,8 @@ hpdc/
 │   │   ├── deployment.yaml           # Go gRPC ext_authz service
 │   │   ├── casbin-model.conf         # RBAC/ReBAC/ABAC model
 │   │   └── casbin-policy.csv         # Static policy defaults
+│   ├── change-feed/                  # CDC/_changes loop policy and dedup windows
+│   ├── workflows/                      # Workflow ownership matrix and allowed transition graphs
 │   ├── hasura/
 │   ├── harbor/
 │   └── spegel/
@@ -433,6 +474,8 @@ Executed in CI before any Kargo promotion:
 | Dry-run apply | `kubectl apply --dry-run=server --server-side` | Manifests are accepted by the Kubernetes API server |
 | Kargo Freight check | `kargo verify freight` | Freight contains all required images/configs for the target stage |
 | Helm lint | `helm lint` | Chart values pass schema validation |
+| Database access scope validation | Static policy check + CI | Function database access manifests match the approved policy matrix and KeyDB namespaces |
+| Component upgrade validation | GitOps policy check + Kargo/Argo dry-run | Upgrade manifests include version, rollback target, sync-wave order, and validation evidence; direct kubectl/Helm upgrades are rejected |
 
 ### Route exposure tests
 
@@ -440,6 +483,9 @@ Executed in CI before any Kargo promotion:
 |------|------|-------------------|
 | Gateway API validation | `kubectl apply --dry-run=server -f httproute.yaml` | HTTPRoute, GRPCRoute, TLSRoute resources accepted |
 | SecurityPolicy wiring | Integration test with mock ext_authz | JWT+API-Key auth flows, RBAC/ReBAC/ABAC decision propagation |
+| Function identity authorization | Integration test with SPIFFE identity | Same-domain function calls require caller identity authorization and reject unauthorized callers |
+| Change-feed loop prevention | Integration test with CDC/_changes fakes | Mutating workflows ignore self-origin events, dedupe idempotent keys, and stop recursive loop chains |
+| Workflow orchestrator boundary | Static policy check + integration test | Business workflows use Restate when durable state is required; Argo Workflows is limited to CI/CD, batch, and one-shot pipelines |
 | Rate limiting | Integration test | Per-route rate limits enforced; back-pressure triggers |
 
 ### E2E tests — full system on live cluster
