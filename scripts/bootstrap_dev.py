@@ -81,7 +81,7 @@ All project automation scripts must be written in Python 3. Shell wrappers are n
 ## Bootstrap command
 
 ```python
-scripts/bootstrap-dev.py
+python3 startup.dev.py --offline --dry-run
 ```
 
 ## Expected output
@@ -89,8 +89,8 @@ scripts/bootstrap-dev.py
 ```text
 HPDC scaffold created.
 Required files:
-- scripts/bootstrap-dev.py
-- scripts/bootstrap_dev.py
+- startup.dev.py
+- scripts/steps/01-bootstrap-dev.py
 - platform/talos/machine-config.yaml
 - gitops/platform/base/kustomization.yaml
 - gitops/platform/overlays/dev/kustomization.yaml
@@ -101,11 +101,11 @@ Required files:
 
 ## Next step
 
-Run `scripts/bootstrap-dev.py` from Story 1.1, then continue with Story 1.2 to provision the offline Talos dev cluster.
+Run `python3 startup.dev.py --offline --dry-run` from Story 1.1, then continue with Story 1.2 to provision the offline Talos dev cluster.
 """,
     ROOT / "README.md": """# High Performance Distributed Cluster (HPDC)
 
-HPDC is an offline-first, security-focused distributed cluster scaffold for Talos, Cilium, and Rook-Ceph.
+HPDC is an offline-first, security-focused distributed cluster scaffold for Talos, Cilium, Rook-Ceph, Harbor, GitOps delivery, and offline image distribution.
 
 ## Project-wide scripting rule
 
@@ -116,7 +116,7 @@ All project automation scripts must be written in Python 3. Shell wrappers are n
 Run:
 
 ```python
-scripts/bootstrap-dev.py
+python3 startup.dev.py --offline --dry-run
 ```
 
 Expected output:
@@ -145,8 +145,8 @@ REQUIRED_DIRS = [
     ROOT / "tests",
 ]
 REQUIRED_FILES = [
-    ROOT / "scripts" / "bootstrap-dev.py",
-    ROOT / "scripts" / "bootstrap_dev.py",
+    ROOT / "startup.dev.py",
+    ROOT / "scripts" / "steps" / "01-bootstrap-dev.py",
     ROOT / "platform" / "talos" / "machine-config.yaml",
     ROOT / "gitops" / "platform" / "base" / "kustomization.yaml",
     ROOT / "gitops" / "platform" / "overlays" / "dev" / "kustomization.yaml",
@@ -223,8 +223,8 @@ def main() -> int:
     ensure_dirs()
     for path, content in REQUIRED_FILES.items():
         write_file(path, content)
-    ensure_script_mode(ROOT / "scripts" / "bootstrap-dev.py")
-    ensure_script_mode(ROOT / "scripts" / "bootstrap_dev.py")
+    ensure_script_mode(ROOT / "startup.dev.py")
+    ensure_script_mode(ROOT / "scripts" / "steps" / "01-bootstrap-dev.py")
 
     print("HPDC scaffold created.")
     print("Required files:")

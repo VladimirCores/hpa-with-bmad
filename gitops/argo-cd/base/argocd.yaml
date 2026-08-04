@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-sync-waves
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-sync-waves
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  sync-waves.yaml: |
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: hpdc-platform
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "-10"
+    spec:
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: default
+      source:
+        repoURL: git://git-mirror/git-mirror
+        targetRevision: main
+        path: gitops/platform
+    ---
+    apiVersion: argoproj.io/v1alpha1
+    kind: ApplicationSet
+    metadata:
+      name: hpdc-applications
+      namespace: argocd
+    spec:
+      generators:
+        - git:
+            repoURL: git://git-mirror/git-mirror
+            revision: main
+            directories:
+              - path: gitops/*/overlays/dev/*

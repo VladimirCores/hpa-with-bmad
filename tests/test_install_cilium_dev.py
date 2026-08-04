@@ -7,8 +7,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = [
-    ROOT / "scripts" / "install-cilium-dev.py",
-    ROOT / "scripts" / "install_cilium_dev.py",
+    ROOT / "startup.dev.py",
+    ROOT / "scripts" / "steps" / "03-install-cilium-dev.py",
     ROOT / "gitops" / "cilium" / "base" / "cilium.yaml",
     ROOT / "gitops" / "cilium" / "base" / "cilium-l2-policy.yaml",
     ROOT / "gitops" / "cilium" / "base" / "cilium-loadbalancer-ippool.yaml",

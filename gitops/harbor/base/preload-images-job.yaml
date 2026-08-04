@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: preload-images-job-config
+  namespace: harbor
+  labels:
+    app.kubernetes.io/name: preload-images-job-config
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  job.yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: preload-offline-image-cache
+    spec:
+      backoffLimit: 1

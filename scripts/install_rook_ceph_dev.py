@@ -127,8 +127,8 @@ def apply_manifests(args: argparse.Namespace) -> None:
 def check_scaffold() -> list[str]:
     failures = []
     required = [
-        ROOT / "scripts" / "install-rook-ceph-dev.py",
-        ROOT / "scripts" / "install_rook_ceph_dev.py",
+        ROOT / "startup.dev.py",
+        ROOT / "scripts" / "steps" / "05-install-rook-ceph-dev.py",
         ROOT / "docs" / "rook-ceph-dev-storage.md",
         ROOT / "tests" / "test_install_rook_ceph_dev.py",
     ]

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harbor-image-cache-refresh
+  namespace: harbor
+  labels:
+    app.kubernetes.io/name: harbor-image-cache-refresh
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  refresh.yaml: |
+    images:
+      - name: harbor/harbor-core:v2.11.3
+        source: output/harbor/images/harbor-core-v2.11.3
+        digest: sha256:offline-core
+        changed: false
+      - name: harbor/harbor-registry:v2.11.3
+        source: output/harbor/images/harbor-registry-v2.11.3
+        digest: sha256:offline-registry
+        changed: false

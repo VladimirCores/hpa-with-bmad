@@ -88,8 +88,8 @@ def apply_manifests(args: argparse.Namespace) -> None:
 def check_scaffold() -> list[str]:
     failures = []
     required = [
-        ROOT / "scripts" / "install-cilium-dev.py",
-        ROOT / "scripts" / "install_cilium_dev.py",
+        ROOT / "startup.dev.py",
+        ROOT / "scripts" / "steps" / "03-install-cilium-dev.py",
         ROOT / "docs" / "cilium-dev-networking.md",
         ROOT / "tests" / "test_install_cilium_dev.py",
     ]

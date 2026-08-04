@@ -137,9 +137,8 @@ def provision_cluster(args: argparse.Namespace) -> None:
 def check_scaffold() -> list[str]:
     failures = []
     required = [
-        ROOT / "scripts" / "bootstrap-talos-dev.sh",
-        ROOT / "scripts" / "bootstrap_talos_dev.py",
-        ROOT / "platform" / "talos" / "machine-config.yaml",
+        ROOT / "startup.dev.py",
+        ROOT / "scripts" / "steps" / "02-bootstrap-talos-dev.py",
         ROOT / "docs" / "bootstrap.md",
         ROOT / "tests" / "test_bootstrap_talos_dev.py",
     ]

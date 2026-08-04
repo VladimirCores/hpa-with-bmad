@@ -124,8 +124,8 @@ def apply_manifests(args: argparse.Namespace) -> None:
 def check_scaffold() -> list[str]:
     failures = []
     required = [
-        ROOT / "scripts" / "install-harbor-dev.py",
-        ROOT / "scripts" / "install_harbor_dev.py",
+        ROOT / "startup.dev.py",
+        ROOT / "scripts" / "steps" / "06-install-harbor-dev.py",
         ROOT / "docs" / "harbor-dev-registry.md",
         ROOT / "tests" / "test_install_harbor_dev.py",
     ]

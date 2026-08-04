@@ -8,3 +8,4 @@ bmad-loop:
     skill'
   version: 0.8.1
   default_selected: false
+  module_version: 0.8.1

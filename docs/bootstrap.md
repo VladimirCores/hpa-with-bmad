@@ -16,25 +16,37 @@ All project automation scripts must be written in Python 3. Shell wrappers are n
 
 ## Bootstrap command
 
+Run the scaffold bootstrap once:
+
 ```python
-scripts/bootstrap-dev.py
+python3 startup.dev.py --offline --check --step 01-bootstrap-dev.py
 ```
+
+## Dev cluster entry point
+
+Run the ordered HPDC dev setup through the single entry point:
+
+```python
+python3 startup.dev.py --offline --dry-run
+```
+
+List the ordered step scripts:
+
+```python
+python3 startup.dev.py --list
+```
+
+Each startup run rewrites `output/startup.dev.log` before executing so the selected dry-run, check, or apply flow is reviewable.
 
 ## Expected output
 
 ```text
-HPDC scaffold created.
-Required files:
-- scripts/bootstrap-dev.py
-- scripts/bootstrap_dev.py
-- platform/talos/machine-config.yaml
-- gitops/platform/base/kustomization.yaml
-- gitops/platform/overlays/dev/kustomization.yaml
-- gitops/platform/overlays/prod/kustomization.yaml
-- docs/bootstrap.md
-- tests/test_bootstrap_dev.py
+01  01-bootstrap-dev.py  Bootstrap the HPDC monorepo scaffold.
+02  02-bootstrap-talos-dev.py  Provision the offline Talos dev cluster.
+...
+15  15-validate-offline-gitops-pipeline.py  Validate offline GitOps pipeline.
 ```
 
 ## Next step
 
-Run `scripts/bootstrap-dev.py` from Story 1.1, then continue with Story 1.2 to provision the offline Talos dev cluster.
+Run `python3 startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py` to provision the offline Talos dev cluster.

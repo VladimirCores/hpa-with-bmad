@@ -27,19 +27,19 @@ The overlay applies:
 ## Installer command
 
 ```python
-scripts/install-cilium-dev.py --offline --dry-run
+python3 startup.dev.py --offline --dry-run --step 03-install-cilium-dev.py
 ```
 
 ## Real apply command
 
 ```python
-scripts/install-cilium-dev.py --offline --apply
+python3 startup.dev.py --offline --apply --step 03-install-cilium-dev.py
 ```
 
 ## Expected output
 
 ```text
-$ scripts/install-cilium-dev.py --offline --dry-run
+$ python3 startup.dev.py --offline --dry-run --step 03-install-cilium-dev.py
 Cilium dev cluster dry-run passed.
 Cilium version: 1.19.6
 Cilium offline image cache: output/cilium/images/cilium-agent-v1.19.6

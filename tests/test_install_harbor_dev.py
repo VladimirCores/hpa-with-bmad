@@ -44,17 +44,19 @@ def validate_manifests() -> None:
 
 
 def test_check_mode() -> None:
-    result = run([sys.executable, "scripts/install_harbor_dev.py", "--check"])
+    result = run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "06-install-harbor-dev.py"])
     assert result.returncode == 0
-    assert "Harbor bootstrap scaffold validation passed." in result.stdout
+    log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
+    assert "Harbor bootstrap scaffold validation passed." in log
 
 
 def test_dry_run_mode() -> None:
-    result = run(["./scripts/install-harbor-dev.py", "--offline", "--dry-run"])
+    result = run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "06-install-harbor-dev.py"])
     assert result.returncode == 0
-    assert f"Harbor version: {HARBOR_VERSION}" in result.stdout
-    assert "Rook-Ceph cache: output/rook-ceph/images/rook-ceph-v1.20.3" in result.stdout
-    assert "GitOps overlay: gitops/harbor/overlays/dev" in result.stdout
+    log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
+    assert f"Harbor version: {HARBOR_VERSION}" in log
+    assert "Rook-Ceph cache: output/rook-ceph/images/rook-ceph-v1.20.3" in log
+    assert "GitOps overlay: gitops/harbor/overlays/dev" in log
 
 
 def test_missing_harbor_cache_fails() -> None:
@@ -63,7 +65,7 @@ def test_missing_harbor_cache_fails() -> None:
         marker.unlink()
     try:
         result = subprocess.run(
-            ["./scripts/install-harbor-dev.py", "--offline", "--dry-run"],
+            [sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "06-install-harbor-dev.py"],
             cwd=ROOT,
             check=False,
             capture_output=True,

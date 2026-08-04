@@ -124,7 +124,8 @@ def apply_manifests(args: argparse.Namespace) -> None:
 def check_scaffold() -> list[str]:
     failures = []
     required = [
-        ROOT / "scripts" / "install-cilium-mtls-dev.py",
+        ROOT / "startup.dev.py",
+        ROOT / "scripts" / "steps" / "04-install-cilium-mtls-dev.py",
         ROOT / "docs" / "cilium-mtls-service-mesh.md",
         ROOT / "tests" / "test_install_cilium_mtls_dev.py",
     ]

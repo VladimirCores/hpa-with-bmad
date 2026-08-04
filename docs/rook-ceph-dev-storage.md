@@ -11,19 +11,19 @@ Rook-Ceph provides persistent block and file storage for stateful HPDC workloads
 From the repository root:
 
 ```python
-./scripts/install-rook-ceph-dev.py --offline --dry-run
+python3 startup.dev.py --offline --dry-run --step 05-install-rook-ceph-dev.py
 ```
 
 To apply the GitOps overlay to the Talos cluster after Cilium is installed:
 
 ```python
-./scripts/install-rook-ceph-dev.py --offline --apply
+python3 startup.dev.py --offline --apply --step 05-install-rook-ceph-dev.py
 ```
 
 Validation mode:
 
 ```python
-python3 scripts/install-rook-ceph-dev.py --check
+python3 startup.dev.py --offline --check --step 05-install-rook-ceph-dev.py
 ```
 
 ## Required Offline Artifacts
@@ -80,10 +80,10 @@ storageClassName: rook-ceph-cephfs
 Run:
 
 ```python
-./scripts/install-rook-ceph-dev.py --offline --dry-run
-python3 scripts/install-rook-ceph-dev.py --check
-./tests/test_install_rook_ceph_dev.py
-python3 -m py_compile scripts/install-rook-ceph-dev.py scripts/install_rook_ceph_dev.py tests/test_install_rook_ceph_dev.py
+python3 startup.dev.py --offline --dry-run --step 05-install-rook-ceph-dev.py
+python3 startup.dev.py --offline --check --step 05-install-rook-ceph-dev.py
+python3 tests/test_install_rook_ceph_dev.py
+python3 -m compileall -q startup.dev.py scripts tests
 ```
 
 ## Constraints

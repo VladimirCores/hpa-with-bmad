@@ -7,3 +7,5 @@
 .claude
 .opencode
 !README.md
+output/startup.dev.log
+_bmad/render/

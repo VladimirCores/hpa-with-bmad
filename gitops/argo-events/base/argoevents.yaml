@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argo-events
+  labels:
+    app.kubernetes.io/name: argo-events
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: offline-gitops
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/name: offline-gitops
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  git:
+    offline-gitops:
+      repoURL: git://git-mirror/git-mirror
+      branch: main
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: offline-gitops
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/name: offline-gitops
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  dependencies:
+    - name: offline-gitops
+      eventSourceName:
+        name: offline-gitops
+      eventName: git
+  triggers:
+    - template:
+        name: offline-gitops
+        workflow:
+          entrypoint: offline-gitops
+          templates:
+            - name: offline-gitops
+              container:
+                image: alpine:3.20
+                command: [sh, -c]
+                args: ["echo offline gitops event received"]
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: offline-gitops
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/name: offline-gitops
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  entrypoint: offline-gitops
+  templates:
+    - name: offline-gitops
+      container:
+        image: alpine:3.20
+        command: [sh, -c]
+        args: ["echo offline workflow received"]

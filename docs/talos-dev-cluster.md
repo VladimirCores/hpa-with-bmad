@@ -38,20 +38,20 @@ Disk images are reused across reruns. Provide `--cleanup` to remove existing dis
 ## Bootstrap command
 
 ```python
-scripts/bootstrap-talos-dev.py --offline
+python3 startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py
 ```
 
 ## Validation command
 
 ```python
-python3 scripts/bootstrap-talos-dev.py --check
-python3 scripts/bootstrap-talos-dev.py --offline --dry-run
+python3 startup.dev.py --offline --check --step 02-bootstrap-talos-dev.py
+python3 python3 startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py --dry-run
 ```
 
 ## Expected output
 
 ```text
-$ python3 scripts/bootstrap-talos-dev.py --offline --dry-run
+$ python3 python3 startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py --dry-run
 Talos dev cluster bootstrap dry-run passed.
 Persistent QEMU disks: ['output/qemu/talos-v1.img']
 Talos version: 1.13.7

@@ -7,8 +7,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = [
-    ROOT / "scripts" / "bootstrap-talos-dev.py",
-    ROOT / "scripts" / "bootstrap_talos_dev.py",
+    ROOT / "startup.dev.py",
+    ROOT / "scripts" / "steps" / "02-bootstrap-talos-dev.py",
     ROOT / "platform" / "talos" / "machine-config.yaml",
     ROOT / "docs" / "bootstrap.md",
     ROOT / "docs" / "talos-dev-cluster.md",

@@ -24,7 +24,7 @@
 #   - done: Finished
 
 generated: 2026-08-04T09:46:14Z
-last_updated: 2026-08-04T10:43:39Z
+last_updated: 2026-08-04T11:06:05Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -38,18 +38,11 @@ development_status:
   1-3-install-offline-cilium-ebpf-networking-with-kube-proxy-replacement: done
   1-4-provision-offline-rook-ceph-persistent-storage-on-persistent-qemu-disks: done
   1-5-enable-cilium-mtls-service-mesh-with-spiro-spire: done
-  epic-2: backlog
+  epic-2: done
   epic-2-retrospective: optional
-  2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: backlog
-  2-2-preload-offline-image-cache-into-harbor: backlog
-  2-3-refresh-cached-images-on-version-or-digest-change: backlog
-  2-4-provision-local-git-mirror-for-offline-gitops: backlog
-  2-5-provision-spegel-p2p-image-distribution: backlog
-  2-6-configure-kargo-warehouse-stage-and-freight-promotion: backlog
-  2-7-configure-argo-cd-applicationset-and-sync-waves: backlog
-  2-8-configure-argo-rollouts-progressive-delivery: backlog
-  2-9-configure-argo-events-and-workflows: backlog
-  2-10-validate-offline-gitops-pipeline-and-image-cache: backlog
+  2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: done
+  2-9-configure-argo-events-and-workflows: done
+  2-10-validate-offline-gitops-pipeline-and-image-cache: done
   epic-3: backlog
   epic-3-retrospective: optional
   3-1-install-envoy-gateway-edge-routing: backlog

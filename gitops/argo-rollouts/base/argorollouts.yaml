@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argo-rollouts
+  labels:
+    app.kubernetes.io/name: argo-rollouts
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: rollout-demo
+  namespace: argo-rollouts
+  labels:
+    app.kubernetes.io/name: rollout-demo
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rollout-demo
+  strategy:
+    canary:
+      steps:
+        - setWeight: 10
+        - pause: {duration: 30s}
+        - setWeight: 50
+        - pause: {duration: 30s}
+        - setWeight: 100
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollout-demo
+  namespace: argo-rollouts
+  labels:
+    app.kubernetes.io/name: rollout-demo
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app: rollout-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollout-demo
+  namespace: argo-rollouts
+  labels:
+    app.kubernetes.io/name: rollout-demo
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rollout-demo
+  template:
+    metadata:
+      labels:
+        app: rollout-demo
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
