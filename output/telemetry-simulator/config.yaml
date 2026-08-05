@@ -1,0 +1,33 @@
+# Default HPDC telemetry simulator configuration for local validation.
+# Keep secrets local and non-committed in real environments.
+device_count: 10
+message_rate: 100
+device_types:
+  - sensor
+  - actuator
+  - gateway
+region_ids:
+  - us-east-1
+  - eu-west-1
+  - ap-south-1
+protocol_targets:
+  http:
+    url: "http://localhost:8080/telemetry"
+    enabled: true
+    timeout: 2.0
+  mqtt:
+    broker: "localhost:1883"
+    topic: "hpdc/telemetry"
+    enabled: true
+    timeout: 2.0
+  grpc:
+    endpoint: "localhost:50051"
+    service: "hpdc.telemetry.v1.TelemetryService"
+    method: "/hpdc.telemetry.v1.TelemetryService/PublishTelemetry"
+    enabled: true
+    timeout: 2.0
+api_key: "local-dev-api-key"
+timeout: 2.0
+output_path: "output/telemetry-simulator/summary.json"
+seed: 42
+payload_size_limit_bytes: 65536

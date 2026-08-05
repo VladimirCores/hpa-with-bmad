@@ -24,7 +24,7 @@
 #   - done: Finished
 
 generated: 2026-08-04T09:46:14Z
-last_updated: 2026-08-04T11:06:05Z
+last_updated: 2026-08-05T07:35:04Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -58,9 +58,9 @@ development_status:
   3-11-provision-backstage-developer-portal-and-golden-path-templates: done
   3-12-expose-backstage-argo-cd-ui-and-kargo-ui-via-envoy-gateway: done
   3-13-expose-grafana-and-hubble-ui-via-envoy-gateway: done
-  epic-4: backlog
+  epic-4: in-progress
   epic-4-retrospective: optional
-  4-1-build-iot-device-simulator-and-telemetry-acceptance-harness: backlog
+  4-1-build-iot-device-simulator-and-telemetry-acceptance-harness: review
   4-2-accept-telemetry-through-mqtt-http-and-grpc-routes: backlog
   4-3-normalize-telemetry-into-protobuf-commonenvelope: backlog
   4-4-create-partitioned-pulsar-topics-for-telemetry: backlog

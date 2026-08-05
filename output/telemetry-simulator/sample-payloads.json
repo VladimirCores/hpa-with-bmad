@@ -1,0 +1,61 @@
+{
+  "sample_payloads": [
+    {
+      "device_id": "sensor_us_east_1_00000",
+      "device_type": "sensor",
+      "event_type": "telemetry.sample",
+      "timestamp": "2026-08-05T00:00:00Z",
+      "payload": {
+        "device_index": 0,
+        "device_type": "sensor",
+        "region_id": "us-east-1",
+        "sequence": 0,
+        "metric": "temperature",
+        "value": 23.421,
+        "unit": "unitless",
+        "generated_at": "2026-08-05T00:00:00Z"
+      },
+      "region_id": "us-east-1",
+      "origin": "iot-device-simulator",
+      "idempotency_key": "sensor_us_east_1_00000:0"
+    },
+    {
+      "device_id": "actuator_eu_west_1_00001",
+      "device_type": "actuator",
+      "event_type": "telemetry.sample",
+      "timestamp": "2026-08-05T00:00:01Z",
+      "payload": {
+        "device_index": 1,
+        "device_type": "actuator",
+        "region_id": "eu-west-1",
+        "sequence": 1,
+        "metric": "valve_position",
+        "value": 67.123,
+        "unit": "percent",
+        "generated_at": "2026-08-05T00:00:01Z"
+      },
+      "region_id": "eu-west-1",
+      "origin": "iot-device-simulator",
+      "idempotency_key": "actuator_eu_west_1_00001:1"
+    },
+    {
+      "device_id": "gateway_ap_south_1_00002",
+      "device_type": "gateway",
+      "event_type": "telemetry.sample",
+      "timestamp": "2026-08-05T00:00:02Z",
+      "payload": {
+        "device_index": 2,
+        "device_type": "gateway",
+        "region_id": "ap-south-1",
+        "sequence": 2,
+        "metric": "uptime",
+        "value": 12345,
+        "unit": "seconds",
+        "generated_at": "2026-08-05T00:00:02Z"
+      },
+      "region_id": "ap-south-1",
+      "origin": "iot-device-simulator",
+      "idempotency_key": "gateway_ap_south_1_00002:2"
+    }
+  ]
+}

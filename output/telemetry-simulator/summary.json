@@ -1,0 +1,47 @@
+{
+  "accepted_messages": 0,
+  "config_path": "output/telemetry-simulator/config.yaml",
+  "connection_failures": 0,
+  "error_rate": 0.0,
+  "exit_status": 0,
+  "generated_at": "2026-08-05T07:35:04Z",
+  "latency_percentiles_ms": {
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.0
+  },
+  "messages_generated": 10,
+  "mode": "dry-run",
+  "protocol_counts": {
+    "grpc": {
+      "accepted": 0,
+      "connection_failures": 0,
+      "planned": 10,
+      "protocol_failures": 0,
+      "rejected": 0,
+      "schema_failures": 0
+    },
+    "http": {
+      "accepted": 0,
+      "connection_failures": 0,
+      "planned": 10,
+      "protocol_failures": 0,
+      "rejected": 0,
+      "schema_failures": 0
+    },
+    "mqtt": {
+      "accepted": 0,
+      "connection_failures": 0,
+      "planned": 10,
+      "protocol_failures": 0,
+      "rejected": 0,
+      "schema_failures": 0
+    }
+  },
+  "protocol_failures": 0,
+  "rejected_messages": 0,
+  "schema_failures": 0,
+  "target_rps": 100,
+  "throughput_messages_per_second": 30.0,
+  "total_messages": 30
+}

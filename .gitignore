@@ -2,10 +2,16 @@
 .bmad-loop/runs/
 .bmad-loop/cache/
 .bmad-loop/policy.toml
+# Generated Talos, QEMU, and cluster bootstrap artifacts
+controlplane.yaml
+worker.yaml
+output/hpdc-controlplane-network-*
+output/qemu/
+output/talos/talosconfig
+output/startup.dev.log
 .zed
 .qwen
 .claude
 .opencode
 !README.md
-output/startup.dev.log
 _bmad/render/
