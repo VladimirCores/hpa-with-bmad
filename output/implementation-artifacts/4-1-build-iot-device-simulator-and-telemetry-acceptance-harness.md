@@ -4,7 +4,7 @@ baseline_commit: a6b07e03c8c1cfd889f055bc9137187f93a1820e
 
 # Story 4.1: Build IoT Device Simulator and Telemetry Acceptance Harness
 
-Status: review
+Status: done
 
 ## Story
 
@@ -28,7 +28,7 @@ so that the telemetry pipeline can be validated at realistic device counts, mess
 ## Tasks / Subtasks
 
 - [x] Task 1: Define simulator configuration and payload model (AC: 1, 2, 9)
-  - [x] Subtask 1.1: Add a YAML or JSON config for device count, message rate, device types, region IDs, protocol targets, API key, timeout, and output path.
+  - [x] Subtask 1.1: Add a YAML or JSON config for device count, message rate, device types, region IDs, protocol targets, API key source, timeout, and output path.
   - [x] Subtask 1.2: Generate deterministic but varied telemetry payloads across device types and regions.
   - [x] Subtask 1.3: Preserve the original payload bytes or JSON object untransformed inside `payload`.
   - [x] Subtask 1.4: Include RFC3339/ISO-8601 timestamps and CommonEnvelope-compatible fields.
@@ -73,7 +73,7 @@ so that the telemetry pipeline can be validated at realistic device counts, mess
 
 - This story owns the simulator and acceptance harness only. Do not implement Story 4.2 ingestion, Story 4.3 normalization, Story 4.4 topic partitioning, Story 4.5 back-pressure, Story 4.6 Pulsar Functions, Story 4.7 ClickHouse tables, Story 4.8 KeyDB cache, Story 4.9 Spin functions, or Story 4.10 end-to-end validation.
 - The simulator must support MQTT, HTTP, and gRPC telemetry emission.
-- The simulator must be configurable by device count, message rate, device types, region IDs, protocol targets, API key, timeout, and output path.
+- The simulator must be configurable by device count, message rate, device types, region IDs, protocol targets, API key source, timeout, and output path.
 - The simulator must target up to 100K RPS when configured, but must also support lower rates for local validation.
 - The simulator must expose throughput, error rate, and latency metrics.
 - Offline, dry-run, and check modes must not require internet access or a live Kubernetes cluster.
@@ -149,7 +149,7 @@ so that the telemetry pipeline can be validated at realistic device counts, mess
 - Do not use non-offline dependencies for dry-run/check validation.
 - Do not hide failures by returning zero on partial protocol failure.
 - Do not rely on plaintext HTTP inside the cluster; external simulator traffic is through Envoy Gateway.
-- Do not store secrets in Git. Use config files with placeholders or local secret references.
+- Do not store secrets in Git. Use environment-backed config references for live telemetry API keys.
 - Do not create persistent local state for generated telemetry unless it is an output summary.
 
 ## Dev Agent Record
@@ -163,8 +163,8 @@ nex-agi/nex-n2-mini
 - Added a Python 3 simulator core at `scripts/telemetry_simulator.py` for config parsing, CommonEnvelope generation, protocol planning, metrics collection, and optional live emission.
 - Added hyphenated and underscored entrypoints so both invocation styles delegate to the same implementation module.
 - Added default dry-run/check configuration and sample payloads under `output/telemetry-simulator/`.
-- Implemented HTTP live emission with `X-API-Key`; MQTT and gRPC live emission are optional dependency paths with clear non-zero failures when dependencies or endpoints are unavailable.
-- Added JSON summary output with protocol counts, accepted/rejected counts, failure counts, throughput, latency percentiles, error rate, and exit status.
+- Implemented HTTP live emission using `urllib.request` and environment-backed API key resolution for `X-API-Key`.
+- Implemented JSON summary output with protocol counts, accepted/rejected counts, failure counts, throughput, latency percentiles, error rate, and exit status.
 - Added offline documentation and startup integration step.
 - Added validation coverage for config parsing, payload generation, CommonEnvelope fields, dry-run summary output, missing config, invalid schema, connection failure, and alias behavior.
 
@@ -181,14 +181,15 @@ nex-agi/nex-n2-mini
 - Implemented deterministic CommonEnvelope generation with device ID, device type, event type, timestamp, payload, region ID, origin, and idempotency key.
 - Preserved generated payload objects untransformed inside `payload`.
 - Implemented dry-run, check, apply, and live modes through both `scripts/simulate-telemetry-dev.py` and `scripts/simulate_telemetry_dev.py`.
-- Implemented HTTP live emission using `urllib.request` and configured API key headers.
+- Implemented HTTP live emission using `urllib.request` and environment-backed API key resolution for `X-API-Key`.
 - Implemented optional live MQTT emission through `paho-mqtt` and optional live gRPC emission through `grpcio`; dry-run/check paths remain dependency-free.
 - Implemented summary metrics: protocol counts, total/accepted/rejected messages, connection/schema/protocol failures, target RPS, throughput, p50/p95/p99 latency, error rate, and exit status.
 - Added failure handling for missing config, invalid CommonEnvelope schema, HTTP connection failure, and protocol errors.
 - Added offline documentation at `docs/telemetry-device-simulator-harness.md`.
 - Added startup integration step `scripts/steps/16-simulate-telemetry-dev.py`.
 - Added validation coverage in `tests/test_simulate_telemetry_dev.py`.
-- Validation passed: `python3 -m compileall -q startup.dev.py scripts tests`, `python3 tests/test_simulate_telemetry_dev.py`, `python3 scripts/simulate-telemetry-dev.py --offline --dry-run`, and `python3 startup.dev.py --offline --dry-run --step 16-simulate-telemetry-dev.py`.
+- Validation passed after patch application: `python3 -m compileall -q startup.dev.py scripts tests`, `python3 tests/test_simulate_telemetry_dev.py`, `python3 scripts/simulate-telemetry-dev.py --offline --dry-run`, `python3 startup.dev.py --offline --dry-run --step 16-simulate-telemetry-dev.py`, and `git diff --check`.
+- Default dry-run summary now reports `device_count: 10`, `region_count: 3`, `message_rate: 100`, `messages_generated: 100`, and `total_messages: 300` for HTTP/MQTT/gRPC planning.
 
 ### File List
 
@@ -208,7 +209,28 @@ nex-agi/nex-n2-mini
 
 ### Status
 
-review
+done
+
+## Review Findings
+
+### Patch
+
+- [x] [Review][Patch] gRPC live emission should be protobuf-compatible — Implemented dynamic CommonEnvelope protobuf serialization for gRPC live emission using configured endpoint/service/method and clear dependency errors when `grpcio`/`protobuf` are unavailable.
+
+- [x] [Review][Patch] Summary omits device and region counts, and throughput is synthetic — Added `device_count`, `region_count`, `message_rate`, and measured `elapsed_seconds`; throughput now uses actual elapsed time and the summary artifact has been regenerated.
+- [x] [Review][Patch] message_rate is accepted but not enforced, and all protocols disabled can exit 0 — `message_rate` is now validated as >= 1, generation schedules exactly `message_rate` envelopes, and config validation requires at least one protocol enabled.
+- [x] [Review][Patch] Connection failures are misclassified as protocol failures — Added `TelemetryConnectionError`; HTTP/MQTT/gRPC connection failures are now counted under `connection_failures` and summarized separately.
+- [x] [Review][Patch] Oversized payload validation is incomplete — CommonEnvelope size validation now uses `payload_size_limit_bytes`; oversized envelopes fail as schema errors before live emission.
+- [x] [Review][Patch] Config parsing and validation are too permissive — Config keys are validated against the known schema, booleans are parsed explicitly, and required fields are only enforced for enabled protocols.
+- [x] [Review][Patch] Determinism and generation-failure handling are incomplete — Timestamps and idempotency keys are deterministic per sequence; generation/schema errors write a summary and exit non-zero.
+- [x] [Review][Patch] MQTT and gRPC live paths have robustness gaps — MQTT uses an explicit client id and disconnect cleanup; gRPC uses protobuf-compatible dynamic messages and closes channels in `finally`.
+- [x] [Review][Patch] Startup step drops simulator arguments — `scripts/steps/16-simulate-telemetry-dev.py` now forwards `--config` and other simulator arguments while preserving default offline behavior.
+- [x] [Review][Patch] Tests do not cover the reviewed failure paths — Added invalid config, oversized payload, deterministic timestamp, connection-failure classification, and summary-count assertions.
+- [x] [Review][Patch] Unused implementation artifacts remain — Removed the obsolete import/use paths from `scripts/telemetry_simulator.py` and kept only the active simulator implementation, startup step, docs, tests, and summary output.
+
+### Defer
+
+- [x] [Review][Defer] Committed local API key placeholder — `output/telemetry-simulator/config.yaml` no longer commits a secret-like value; live HTTP telemetry resolves `api_key` from `${HPDC_TELEMETRY_API_KEY}` using `api_key_env: HPDC_TELEMETRY_API_KEY`.
 
 ## Questions / Clarifications
 

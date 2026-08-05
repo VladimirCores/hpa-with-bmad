@@ -6,13 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import random
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from statistics import mean
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -30,6 +30,18 @@ COMMON_ENVELOPE_FIELDS = (
     "origin",
     "idempotency_key",
 )
+PROTO_COMMON_ENVELOPE_FIELD_NUMBERS = {
+    "device_id": 1,
+    "device_type": 2,
+    "event_type": 3,
+    "timestamp": 4,
+    "payload": 5,
+    "region_id": 6,
+    "origin": 7,
+    "idempotency_key": 8,
+}
+_COMMON_ENVELOPE_PROTO_DESCRIPTOR = None
+_COMMON_ENVELOPE_PROTO_CLASS = None
 
 
 class TelemetryConfigError(ValueError):
@@ -46,6 +58,43 @@ class TelemetrySchemaError(RuntimeError):
 
 class TelemetryProtocolError(RuntimeError):
     """Raised when a live protocol emission fails."""
+
+
+class TelemetryConnectionError(TelemetryProtocolError):
+    """Raised when a live protocol cannot reach its target."""
+
+
+def build_common_envelope_proto_descriptor():
+    from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
+
+    global _COMMON_ENVELOPE_PROTO_DESCRIPTOR, _COMMON_ENVELOPE_PROTO_CLASS
+    if _COMMON_ENVELOPE_PROTO_CLASS is not None:
+        return _COMMON_ENVELOPE_PROTO_CLASS
+    message_descriptor = descriptor_pb2.DescriptorProto(name="CommonEnvelope")
+    for field_name, field_number in PROTO_COMMON_ENVELOPE_FIELD_NUMBERS.items():
+        field = message_descriptor.field.add()
+        field.name = field_name
+        field.number = field_number
+        field.label = descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL
+        field.type = (
+            descriptor_pb2.FieldDescriptorProto.TYPE_BYTES
+            if field_name == "payload"
+            else descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+        )
+    file_descriptor = descriptor_pb2.FileDescriptorProto(
+        name="hpdc/telemetry/v1/common_envelope.proto",
+        package="hpdc.telemetry.v1",
+    )
+    file_descriptor.message_type.add().CopyFrom(message_descriptor)
+    pool = descriptor_pool.DescriptorPool()
+    pool.Add(file_descriptor)
+    _COMMON_ENVELOPE_PROTO_DESCRIPTOR = pool.FindMessageTypeByName("hpdc.telemetry.v1.CommonEnvelope")
+    _COMMON_ENVELOPE_PROTO_CLASS = message_factory.GetMessageClass(_COMMON_ENVELOPE_PROTO_DESCRIPTOR)
+    return _COMMON_ENVELOPE_PROTO_CLASS
+
+
+def get_common_envelope_proto_class():
+    return build_common_envelope_proto_descriptor()
 
 
 @dataclass(frozen=True)
@@ -68,6 +117,7 @@ class SimulatorConfig:
     region_ids: tuple[str, ...]
     protocol_targets: dict[str, ProtocolTarget]
     api_key: str
+    api_key_env: str
     timeout: float
     output_path: str
     seed: int
@@ -140,6 +190,10 @@ class RunMetrics:
     mode: str
     target_rps: int
     messages_generated: int
+    device_count: int
+    region_count: int
+    message_rate: int
+    elapsed_seconds: float
     protocol_results: dict[str, ProtocolResult]
     generated_at: str
     config_path: str
@@ -153,7 +207,7 @@ class RunMetrics:
         schema_failures = sum(result.schema_failures for result in self.protocol_results.values())
         protocol_failures = sum(result.protocol_failures for result in self.protocol_results.values())
         latencies = [latency for result in self.protocol_results.values() for latency in result.latencies_ms]
-        elapsed = max(total_messages / self.target_rps, 1.0) if self.target_rps else 1.0
+        elapsed = max(self.elapsed_seconds, 1e-9)
         throughput = total_messages / elapsed if elapsed > 0 else 0.0
         errors = rejected + connection_failures + protocol_failures + schema_failures
         summary = {
@@ -161,7 +215,10 @@ class RunMetrics:
             "generated_at": self.generated_at,
             "config_path": self.config_path,
             "target_rps": self.target_rps,
+            "message_rate": self.message_rate,
             "messages_generated": self.messages_generated,
+            "device_count": self.device_count,
+            "region_count": self.region_count,
             "protocol_counts": {
                 name: {
                     "planned": result.planned,
@@ -180,6 +237,7 @@ class RunMetrics:
             "schema_failures": schema_failures,
             "protocol_failures": protocol_failures,
             "latency_percentiles_ms": percentile_summary(latencies),
+            "elapsed_seconds": round(elapsed, 6),
             "throughput_messages_per_second": round(throughput, 3),
             "error_rate": round(errors / total_messages, 6) if total_messages else 0.0,
             "exit_status": 0 if errors == 0 else 1,
@@ -291,6 +349,35 @@ def parse_scalar(value: str) -> Any:
     return value
 
 
+def parse_bool(value: Any, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+    try:
+        return bool(int(value))
+    except (TypeError, ValueError):
+        raise TelemetryConfigError(f"{field_name} must be a boolean") from None
+
+
+def parse_int(value: Any, field_name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise TelemetryConfigError(f"{field_name} must be an integer") from None
+
+
+def parse_float(value: Any, field_name: str) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise TelemetryConfigError(f"{field_name} must be a number") from None
+
+
 def default_config() -> SimulatorConfig:
     return SimulatorConfig(
         device_count=10,
@@ -302,20 +389,41 @@ def default_config() -> SimulatorConfig:
             "mqtt": ProtocolTarget(broker="localhost:1883", topic="hpdc/telemetry"),
             "grpc": ProtocolTarget(endpoint="localhost:50051", service="hpdc.telemetry.v1.TelemetryService"),
         },
-        api_key="local-dev-api-key",
+        api_key="",
+        api_key_env="HPDC_TELEMETRY_API_KEY",
         timeout=2.0,
         output_path="output/telemetry-simulator/summary.json",
         seed=42,
     )
 
 
-def load_config(config_path: Path) -> SimulatorConfig:
+def resolve_configured_api_key(api_key: str, api_key_env: str) -> str:
+    if api_key.startswith("${") and api_key.endswith("}"):
+        env_name = api_key[2:-1]
+        if not env_name:
+            raise TelemetryConfigError("api_key_env is required when api_key uses environment interpolation")
+        resolved = os.environ.get(env_name)
+        if not resolved:
+            raise TelemetryConfigError(f"{env_name} is not set; cannot resolve api_key")
+        return resolved
+    if api_key == "" and api_key_env:
+        resolved = os.environ.get(api_key_env)
+        if not resolved:
+            raise TelemetryConfigError(f"{api_key_env} is not set; cannot resolve api_key")
+        return resolved
+    return api_key
+
+
+def load_config(config_path: Path, *, resolve_api_key: bool = False) -> SimulatorConfig:
     if not config_path.exists():
         raise TelemetryConfigError(f"missing simulator config: {config_path}")
     parsed = parse_simple_yaml(config_path)
     defaults = default_config()
     values = defaults.__dict__.copy()
     values.update(parsed)
+    unknown_keys = set(parsed) - set(defaults.__dict__)
+    if unknown_keys:
+        raise TelemetryConfigError(f"unknown simulator config key(s): {', '.join(sorted(unknown_keys))}")
     protocol_targets = values.get("protocol_targets", {})
     if not isinstance(protocol_targets, dict):
         raise TelemetryConfigError("protocol_targets must be a mapping")
@@ -325,48 +433,59 @@ def load_config(config_path: Path) -> SimulatorConfig:
         if not isinstance(raw_target, dict):
             raise TelemetryConfigError(f"protocol_targets.{name} must be a mapping")
         normalized_targets[name] = ProtocolTarget(
-            enabled=bool(raw_target.get("enabled", True)),
+            enabled=parse_bool(raw_target.get("enabled", True), f"protocol_targets.{name}.enabled"),
             url=raw_target.get("url"),
             broker=raw_target.get("broker"),
             topic=raw_target.get("topic"),
             endpoint=raw_target.get("endpoint"),
             service=raw_target.get("service"),
             method=raw_target.get("method"),
-            timeout=float(raw_target.get("timeout", values.get("timeout", 2.0))),
+            timeout=parse_float(raw_target.get("timeout", values.get("timeout", 2.0)), f"protocol_targets.{name}.timeout"),
         )
     return SimulatorConfig(
-        device_count=int(values.get("device_count", defaults.device_count)),
-        message_rate=int(values.get("message_rate", defaults.message_rate)),
+        device_count=parse_int(values.get("device_count", defaults.device_count), "device_count"),
+        message_rate=parse_int(values.get("message_rate", defaults.message_rate), "message_rate"),
         device_types=tuple(str(item) for item in values.get("device_types", defaults.device_types)),
         region_ids=tuple(str(item) for item in values.get("region_ids", defaults.region_ids)),
         protocol_targets=normalized_targets,
-        api_key=str(values.get("api_key", defaults.api_key)),
-        timeout=float(values.get("timeout", defaults.timeout)),
+        api_key=(
+            resolve_configured_api_key(str(values.get("api_key", defaults.api_key)), str(values.get("api_key_env", defaults.api_key_env)))
+            if resolve_api_key
+            else str(values.get("api_key", defaults.api_key))
+        ),
+
+        api_key_env=str(values.get("api_key_env", defaults.api_key_env)),
+        timeout=parse_float(values.get("timeout", defaults.timeout), "timeout"),
         output_path=str(values.get("output_path", defaults.output_path)),
-        seed=int(values.get("seed", defaults.seed)),
-        payload_size_limit_bytes=int(values.get("payload_size_limit_bytes", defaults.payload_size_limit_bytes)),
+        seed=parse_int(values.get("seed", defaults.seed), "seed"),
+        payload_size_limit_bytes=parse_int(
+            values.get("payload_size_limit_bytes", defaults.payload_size_limit_bytes),
+            "payload_size_limit_bytes",
+        ),
     )
 
 
 def validate_config(config: SimulatorConfig) -> None:
-    if config.device_count < 0:
-        raise TelemetryConfigError("device_count must be >= 0")
-    if config.message_rate < 0:
-        raise TelemetryConfigError("message_rate must be >= 0")
+    if config.device_count <= 0:
+        raise TelemetryConfigError("device_count must be >= 1")
+    if config.message_rate <= 0:
+        raise TelemetryConfigError("message_rate must be >= 1")
     if not config.device_types:
         raise TelemetryConfigError("device_types must contain at least one device type")
     if not config.region_ids:
         raise TelemetryConfigError("region_ids must contain at least one region id")
     if config.payload_size_limit_bytes <= 0:
         raise TelemetryConfigError("payload_size_limit_bytes must be > 0")
-    if "http" in config.protocol_targets and not config.protocol_targets["http"].url:
+    if config.protocol_targets["http"].enabled and not config.protocol_targets["http"].url:
         raise TelemetryConfigError("protocol_targets.http.url is required when HTTP is enabled")
-    if "mqtt" in config.protocol_targets and not config.protocol_targets["mqtt"].broker:
+    if config.protocol_targets["mqtt"].enabled and not config.protocol_targets["mqtt"].broker:
         raise TelemetryConfigError("protocol_targets.mqtt.broker is required when MQTT is enabled")
-    if "mqtt" in config.protocol_targets and not config.protocol_targets["mqtt"].topic:
+    if config.protocol_targets["mqtt"].enabled and not config.protocol_targets["mqtt"].topic:
         raise TelemetryConfigError("protocol_targets.mqtt.topic is required when MQTT is enabled")
-    if "grpc" in config.protocol_targets and not config.protocol_targets["grpc"].endpoint:
+    if config.protocol_targets["grpc"].enabled and not config.protocol_targets["grpc"].endpoint:
         raise TelemetryConfigError("protocol_targets.grpc.endpoint is required when gRPC is enabled")
+    if not config.enabled_protocols():
+        raise TelemetryConfigError("at least one protocol must be enabled")
 
 
 def generate_payload(
@@ -377,13 +496,14 @@ def generate_payload(
     sequence: int,
     seed: int,
 ) -> dict[str, Any]:
-    rng = random.Random(f"{seed}:{device_index}:{sequence}")
+    rng = random.Random(seed)
     variants = {
         "sensor": ("temperature", "humidity", "pressure"),
         "actuator": ("valve_position", "motor_speed", "command_state"),
         "gateway": ("uptime", "rx_bytes", "tx_bytes"),
     }
-    metric = variants.get(device_type, variants["sensor"])[sequence % len(variants.get(device_type, variants["sensor"]))]
+    device_variants = variants.get(device_type, variants["sensor"])
+    metric = device_variants[device_index % len(device_variants)]
     base_value = rng.uniform(0.0, 100.0)
     if metric == "rx_bytes":
         base_value = rng.randint(1024, 65536)
@@ -391,6 +511,7 @@ def generate_payload(
         base_value = rng.randint(1024, 65536)
     elif metric == "uptime":
         base_value = rng.randint(60, 86400)
+    generated_at = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=sequence)
     return {
         "device_index": device_index,
         "device_type": device_type,
@@ -399,7 +520,7 @@ def generate_payload(
         "metric": metric,
         "value": round(base_value, 3),
         "unit": unit_for_metric(metric),
-        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "generated_at": generated_at.isoformat().replace("+00:00", "Z"),
     }
 
 
@@ -423,24 +544,26 @@ def generate_envelope(
     sequence: int,
     payload: dict[str, Any],
     seed: int,
+    size_limit: int = MAX_ENVELOPE_SIZE_BYTES,
 ) -> TelemetryEnvelope:
     envelope = TelemetryEnvelope(
         device_id=device_id,
         device_type=device_type,
         event_type="telemetry.sample",
-        timestamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        timestamp=(datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=sequence)).isoformat().replace("+00:00", "Z"),
         payload=payload,
         region_id=region_id,
         origin="iot-device-simulator",
         idempotency_key=f"{device_id}:{sequence}",
     )
-    validate_common_envelope(envelope)
+    validate_common_envelope(envelope, limit=size_limit)
     return envelope
 
 
 def generate_envelopes(config: SimulatorConfig) -> list[TelemetryEnvelope]:
     envelopes: list[TelemetryEnvelope] = []
-    for device_index in range(config.device_count):
+    for sequence in range(config.message_rate):
+        device_index = sequence % config.device_count
         device_type = config.device_types[device_index % len(config.device_types)]
         region_id = config.region_ids[device_index % len(config.region_ids)]
         device_id = f"{device_type}-{region_id.replace('-', '_')}-{device_index:05d}"
@@ -448,7 +571,7 @@ def generate_envelopes(config: SimulatorConfig) -> list[TelemetryEnvelope]:
             device_index=device_index,
             device_type=device_type,
             region_id=region_id,
-            sequence=device_index,
+            sequence=sequence,
             seed=config.seed,
         )
         envelopes.append(
@@ -456,15 +579,16 @@ def generate_envelopes(config: SimulatorConfig) -> list[TelemetryEnvelope]:
                 device_id=device_id,
                 device_type=device_type,
                 region_id=region_id,
-                sequence=device_index,
+                sequence=sequence,
                 payload=payload,
                 seed=config.seed,
+                size_limit=config.payload_size_limit_bytes,
             )
         )
     return envelopes
 
 
-def validate_common_envelope(envelope: TelemetryEnvelope | dict[str, Any]) -> None:
+def validate_common_envelope(envelope: TelemetryEnvelope | dict[str, Any], *, limit: int = MAX_ENVELOPE_SIZE_BYTES) -> None:
     data = envelope.to_dict() if isinstance(envelope, TelemetryEnvelope) else envelope
     missing = [field for field in COMMON_ENVELOPE_FIELDS if field not in data]
     if missing:
@@ -475,8 +599,8 @@ def validate_common_envelope(envelope: TelemetryEnvelope | dict[str, Any]) -> No
     if not isinstance(data["payload"], dict):
         raise TelemetrySchemaError("payload must be a JSON object")
     encoded = json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    if len(encoded) > MAX_ENVELOPE_SIZE_BYTES:
-        raise TelemetrySchemaError("CommonEnvelope exceeds 64KB maximum size")
+    if len(encoded) > limit:
+        raise TelemetrySchemaError(f"CommonEnvelope exceeds {limit} byte maximum size")
 
 
 def percentile(values: list[float], percentile_value: float) -> float:
@@ -523,10 +647,8 @@ def emit_http(envelope: TelemetryEnvelope, target: ProtocolTarget, timeout: floa
                 raise TelemetryProtocolError(f"HTTP status {response.status}")
     except HTTPError as error:
         raise TelemetryProtocolError(f"HTTP protocol failure: HTTPError {error.code}") from error
-    except URLError as error:
-        raise TelemetryProtocolError(f"HTTP connection failure: {error.reason}") from error
-    except OSError as error:
-        raise TelemetryProtocolError(f"HTTP connection failure: {error}") from error
+    except (URLError, OSError) as error:
+        raise TelemetryConnectionError(f"HTTP connection failure: {error}") from error
     return (time.perf_counter() - started) * 1000.0
 
 
@@ -537,23 +659,33 @@ def emit_mqtt(envelope: TelemetryEnvelope, target: ProtocolTarget, timeout: floa
         raise TelemetryProtocolError("MQTT live emission requires optional dependency paho-mqtt") from error
     if not target.broker or not target.topic:
         raise TelemetryProtocolError("MQTT broker and topic are not configured")
-    host, port_text = target.broker.rsplit(":", 1)
-    port = int(port_text)
+    try:
+        host, port_text = target.broker.rsplit(":", 1)
+        port = int(port_text)
+    except ValueError as error:
+        raise TelemetryProtocolError(f"MQTT broker must be host:port") from error
+    client = None
     started = time.perf_counter()
     try:
-        client = Client()
+        client = Client(client_id=f"hpdc-telemetry-simulator-{time.time_ns()}")
         client.connect(host, port, keepalive=10)
         info = client.publish(target.topic, envelope.to_bytes(), qos=0, retain=False)
         info.wait_for_publish(timeout=timeout)
         if info.rc != MQTT_ERR_SUCCESS:
             raise TelemetryProtocolError(f"MQTT publish failed with rc={info.rc}")
         client.disconnect()
+    except TelemetryConnectionError:
+        raise
+    except TelemetryProtocolError:
+        raise
     except Exception as error:  # noqa: BLE001 - live protocol failures must be surfaced clearly.
-        try:
-            client.disconnect()
-        except Exception:
-            pass
-        raise TelemetryProtocolError(f"MQTT protocol failure: {error}") from error
+        raise TelemetryConnectionError(f"MQTT connection failure: {error}") from error
+    finally:
+        if client is not None:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
     return (time.perf_counter() - started) * 1000.0
 
 
@@ -566,17 +698,26 @@ def emit_grpc(envelope: TelemetryEnvelope, target: ProtocolTarget, timeout: floa
         raise TelemetryProtocolError("gRPC endpoint is not configured")
     service = target.service or "hpdc.telemetry.v1.TelemetryService"
     method_name = target.method or f"/{service}/PublishTelemetry"
+    envelope_proto_class = get_common_envelope_proto_class()
+    common_envelope = envelope_proto_class()
+    payload_field_type = common_envelope.DESCRIPTOR.fields_by_number[5].type
+    for field_name, value in envelope.to_dict().items():
+        field_number = PROTO_COMMON_ENVELOPE_FIELD_NUMBERS[field_name]
+        field = common_envelope.DESCRIPTOR.fields_by_number[field_number]
+        if field.type == payload_field_type:
+            setattr(common_envelope, field.name, value.encode("utf-8"))
+        else:
+            setattr(common_envelope, field.name, str(value))
     channel = grpc.insecure_channel(target.endpoint)
     started = time.perf_counter()
     try:
-        channel.unary_unary(method_name)(
-            envelope.to_bytes(),
-            timeout=timeout,
-        )
+        channel.unary_unary(method_name)(common_envelope, timeout=timeout)
     except grpc.RpcError as error:
         raise TelemetryProtocolError(f"gRPC protocol failure: {error.details()}") from error
+    except grpc.FutureTimeoutError as error:
+        raise TelemetryConnectionError(f"gRPC connection failure: {error}") from error
     except Exception as error:  # noqa: BLE001 - live protocol failures must be surfaced clearly.
-        raise TelemetryProtocolError(f"gRPC protocol failure: {error}") from error
+        raise TelemetryConnectionError(f"gRPC connection failure: {error}") from error
     finally:
         channel.close()
     return (time.perf_counter() - started) * 1000.0
@@ -612,6 +753,7 @@ def run_simulation(config: SimulatorConfig, mode: str, config_path: str | None =
         protocol: make_protocol_result(protocol) for protocol in enabled_protocols
     }
     generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    started_at = time.perf_counter()
     live = mode in {"apply", "live"}
     try:
         for envelope in envelopes:
@@ -628,12 +770,12 @@ def run_simulation(config: SimulatorConfig, mode: str, config_path: str | None =
                     continue
                 try:
                     latency, _error = emit_protocol(envelope, protocol, config.protocol_targets[protocol], live, config.api_key)
+                except TelemetryConnectionError as error:
+                    result.connection_failures += 1
+                    raise TelemetryProtocolError(f"{protocol} connection failure: {error}") from error
                 except TelemetryProtocolError as error:
                     result.protocol_failures += 1
                     raise TelemetryProtocolError(f"{protocol} protocol failure: {error}") from error
-                except OSError as error:
-                    result.connection_failures += 1
-                    raise TelemetryProtocolError(f"{protocol} connection failure: {error}") from error
                 if latency is not None:
                     result.latencies_ms.append(latency)
                     result.accepted += 1
@@ -643,6 +785,10 @@ def run_simulation(config: SimulatorConfig, mode: str, config_path: str | None =
                 mode=mode,
                 target_rps=config.message_rate,
                 messages_generated=len(envelopes),
+                device_count=config.device_count,
+                region_count=len(config.region_ids),
+                message_rate=config.message_rate,
+                elapsed_seconds=round(time.perf_counter() - started_at, 6),
                 protocol_results=protocol_results,
                 generated_at=generated_at,
                 config_path=config_path or str(config.output_file),
@@ -654,6 +800,10 @@ def run_simulation(config: SimulatorConfig, mode: str, config_path: str | None =
         mode=mode,
         target_rps=config.message_rate,
         messages_generated=len(envelopes),
+        device_count=config.device_count,
+        region_count=len(config.region_ids),
+        message_rate=config.message_rate,
+        elapsed_seconds=round(time.perf_counter() - started_at, 6),
         protocol_results=protocol_results,
         generated_at=generated_at,
         config_path=config_path or str(config.output_file),
@@ -698,7 +848,7 @@ def main(argv: list[str] | None = None) -> int:
         if not config_path.exists():
             print(f"Missing simulator config: {config_path}", file=sys.stderr)
             return 2
-        config = load_config(config_path)
+        config = load_config(config_path, resolve_api_key=mode in {"apply", "live"})
         metrics = run_simulation(config, mode, display_path(config_path))
         summary = metrics.to_summary()
         print(json.dumps(summary, indent=2, sort_keys=True))

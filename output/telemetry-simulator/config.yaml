@@ -26,7 +26,9 @@ protocol_targets:
     method: "/hpdc.telemetry.v1.TelemetryService/PublishTelemetry"
     enabled: true
     timeout: 2.0
-api_key: "local-dev-api-key"
+# Live HTTP telemetry requires an API key. Provide it from the environment at runtime.
+api_key: "${HPDC_TELEMETRY_API_KEY}"
+api_key_env: "HPDC_TELEMETRY_API_KEY"
 timeout: 2.0
 output_path: "output/telemetry-simulator/summary.json"
 seed: 42

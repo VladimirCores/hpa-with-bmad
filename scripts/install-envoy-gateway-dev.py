@@ -54,6 +54,11 @@ def validate_manifests() -> list[str]:
     if "hostname: \"*.hpdc.local\"" not in manifest:
         failures.append("envoy-gateway.yaml missing hpdc.local hostname")
 
+    if "name: mqtt" not in manifest:
+        failures.append("envoy-gateway.yaml missing MQTT listener")
+    if "port: 1884" not in manifest:
+        failures.append("envoy-gateway.yaml missing MQTT listener port 1884")
+
     return failures
 
 

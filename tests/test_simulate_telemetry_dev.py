@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -32,7 +33,7 @@ def write_config(path: Path, *, output_path: Path) -> None:
         "\n".join(
             [
                 "device_count: 3",
-                "message_rate: 3",
+                "message_rate: 6",
                 "device_types:",
                 "  - sensor",
                 "  - actuator",
@@ -43,14 +44,16 @@ def write_config(path: Path, *, output_path: Path) -> None:
                 "  http:",
                 "    url: \"http://localhost:9/telemetry\"",
                 "    enabled: true",
-                "  mqtt:",
-                "    broker: \"localhost:1883\"",
-                "    topic: \"hpdc/telemetry\"",
-                "    enabled: false",
-                "  grpc:",
-                "    endpoint: \"localhost:50051\"",
-                "    enabled: false",
-                "api_key: \"test-api-key\"",
+                    "  mqtt:",
+                    "    broker: \"localhost:1883\"",
+                    "    topic: \"hpdc/telemetry\"",
+                    "    enabled: false",
+                    "  grpc:",
+                    "    endpoint: \"localhost:50051\"",
+                    "    enabled: false",
+                    "api_key: \"${HPDC_TELEMETRY_API_KEY}\"",
+                    "api_key_env: \"HPDC_TELEMETRY_API_KEY\"",
+
                 f"output_path: \"{output_path.as_posix()}\"",
                 "seed: 7",
                 "",
@@ -80,6 +83,7 @@ def test_generate_payload_and_envelope() -> None:
     assert envelope.device_id == "sensor_us_east_1_00000"
     assert envelope.region_id == "payload-region"
     assert envelope.idempotency_key == "sensor_us_east_1_00000:0"
+    assert envelope.timestamp == "1970-01-01T00:00:00Z"
     validate_common_envelope(envelope)
 
 
@@ -90,11 +94,14 @@ def test_dry_run_writes_summary() -> None:
         write_config(config_path, output_path=output_path)
         metrics = run_simulation(load_config(config_path), "dry-run")
         summary = metrics.to_summary()
-        assert summary["messages_generated"] == 3
-        assert summary["total_messages"] == 3
-        assert summary["protocol_counts"]["http"]["planned"] == 3
+        assert summary["messages_generated"] == 6
+        assert summary["device_count"] == 3
+        assert summary["region_count"] == 2
+        assert summary["total_messages"] == 6
+        assert summary["protocol_counts"]["http"]["planned"] == 6
         assert summary["exit_status"] == 0
-        assert json.loads(output_path.read_text(encoding="utf-8"))["total_messages"] == 3
+        assert summary["throughput_messages_per_second"] > 0
+        assert json.loads(output_path.read_text(encoding="utf-8"))["total_messages"] == 6
 
 
 def test_missing_config_returns_config_error() -> None:
@@ -113,21 +120,111 @@ def test_invalid_envelope_rejected() -> None:
     raise AssertionError("invalid envelope should be rejected")
 
 
+def test_invalid_config_rejected() -> None:
+    with tempfile.TemporaryDirectory(prefix="hpdc-telemetry-", dir=ROOT / "output") as temp_dir:
+        config_path = Path(temp_dir) / "config.yaml"
+        output_path = Path(temp_dir) / "summary.json"
+        write_config(config_path, output_path=output_path)
+        config_path.write_text(
+            "\n".join(
+                [
+                    "device_count: 1",
+                    "message_rate: 1",
+                    "device_types:",
+                    "  - sensor",
+                    "region_ids:",
+                    "  - us-east-1",
+                    "protocol_targets:",
+                    "  http:",
+                    "    url: \"http://localhost:9/telemetry\"",
+                    "    enabled: false",
+                    "  mqtt:",
+                    "    broker: \"localhost:1883\"",
+                    "    topic: \"hpdc/telemetry\"",
+                    "    enabled: false",
+                    "  grpc:",
+                    "    endpoint: \"localhost:50051\"",
+                    "    enabled: false",
+                    "api_key: \"${HPDC_TELEMETRY_API_KEY}\"",
+                    "api_key_env: \"HPDC_TELEMETRY_API_KEY\"",
+                    f"output_path: \"{output_path.as_posix()}\"",
+                    "seed: 7",
+                    "unknown_key: true",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_config(config_path)
+        except TelemetryConfigError as error:
+            assert "unknown simulator config key" in str(error)
+            return
+        raise AssertionError("unknown config key should be rejected")
+
+
+def test_oversized_envelope_rejected() -> None:
+    with tempfile.TemporaryDirectory(prefix="hpdc-telemetry-", dir=ROOT / "output") as temp_dir:
+        config_path = Path(temp_dir) / "config.yaml"
+        output_path = Path(temp_dir) / "summary.json"
+        write_config(config_path, output_path=output_path)
+        config_path.write_text(
+            "\n".join(
+                [
+                    "device_count: 1",
+                    "message_rate: 1",
+                    "device_types:",
+                    "  - sensor",
+                    "region_ids:",
+                    "  - us-east-1",
+                    "protocol_targets:",
+                    "  http:",
+                    "    url: \"http://localhost:9/telemetry\"",
+                    "    enabled: true",
+                    "  mqtt:",
+                    "    broker: \"localhost:1883\"",
+                    "    topic: \"hpdc/telemetry\"",
+                    "    enabled: false",
+                    "  grpc:",
+                    "    endpoint: \"localhost:50051\"",
+                    "    enabled: false",
+                    "api_key: \"${HPDC_TELEMETRY_API_KEY}\"",
+                    "api_key_env: \"HPDC_TELEMETRY_API_KEY\"",
+                    f"output_path: \"{output_path.as_posix()}\"",
+                    "seed: 7",
+                    "payload_size_limit_bytes: 10",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        try:
+            run_simulation(load_config(config_path), "dry-run")
+        except TelemetrySchemaError:
+            return
+        raise AssertionError("oversized envelope should be rejected")
+
+
 def test_live_connection_failure_exits_non_zero() -> None:
     with tempfile.TemporaryDirectory(prefix="hpdc-telemetry-", dir=ROOT / "output") as temp_dir:
         config_path = Path(temp_dir) / "config.yaml"
         output_path = Path(temp_dir) / "summary.json"
         write_config(config_path, output_path=output_path)
+        env = os.environ.copy()
+        env["HPDC_TELEMETRY_API_KEY"] = "test-api-key"
         result = subprocess.run(
             [sys.executable, str(SCRIPTS / "simulate-telemetry-dev.py"), "--config", str(config_path), "--apply"],
             cwd=ROOT,
             check=False,
             capture_output=True,
             text=True,
+            env=env,
         )
         assert result.returncode != 0
         assert "Protocol error" in result.stderr
-        assert json.loads(output_path.read_text(encoding="utf-8"))["exit_status"] == 1
+        summary = json.loads(output_path.read_text(encoding="utf-8"))
+        assert summary["exit_status"] == 1
+        assert summary["connection_failures"] == 1
 
 
 def test_alias_delegates_to_same_entrypoint() -> None:
@@ -150,7 +247,7 @@ def test_alias_delegates_to_same_entrypoint() -> None:
             text=True,
         )
         assert result.returncode == 0, result.stderr
-        assert json.loads(output_path.read_text(encoding="utf-8"))["messages_generated"] == 3
+        assert json.loads(output_path.read_text(encoding="utf-8"))["messages_generated"] == 6
 
 
 def main() -> int:
@@ -159,6 +256,8 @@ def main() -> int:
     test_dry_run_writes_summary()
     test_missing_config_returns_config_error()
     test_invalid_envelope_rejected()
+    test_invalid_config_rejected()
+    test_oversized_envelope_rejected()
     test_live_connection_failure_exits_non_zero()
     test_alias_delegates_to_same_entrypoint()
     subprocess.run([sys.executable, "-m", "py_compile", str(SCRIPTS / "telemetry_simulator.py")], check=True)

@@ -63,6 +63,8 @@ python3 tests/test_install_argocd_dev.py
 python3 tests/test_install_argorollouts_dev.py
 python3 tests/test_install_argoevents_dev.py
 python3 tests/test_install_envoy_gateway_dev.py
+python3 tests/test_install_telemetry_ingestion_dev.py
+python3 tests/test_telemetry_capacity_dev.py
 python3 tests/test_install_cert_manager_dev.py
 python3 tests/test_epic3_gateway_stack_dev.py
 python3 tests/test_validate_offline_gitops_pipeline.py
@@ -88,6 +90,8 @@ python3 startup.dev.py --offline --apply
 ## Quick health check
 
 ```python
+python3 startup.dev.py --offline --dry-run --step 16-install-envoy-gateway-dev.py
+python3 startup.dev.py --offline --dry-run --step 17-install-telemetry-ingestion-dev.py
 python3 startup.dev.py --offline --dry-run --step 15-validate-offline-gitops-pipeline.py
 ```
 

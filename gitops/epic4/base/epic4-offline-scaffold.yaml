@@ -1,0 +1,839 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: hpdc-epic4
+    app.kubernetes.io/part: epic-4-offline-scaffold
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telemetry-ingestion
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-ingestion
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telemetry-processor
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-processor
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alert-handler
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: alert-handler
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: entity-handler
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: entity-handler
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: observability-handler
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: observability-handler
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: regional-api-handler
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: regional-api-handler
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-agent-handler
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: mcp-agent-handler
+    app.kubernetes.io/part: epic-4
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-common-envelope
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-common-envelope
+    app.kubernetes.io/part: epic-4
+data:
+  schema.proto: |
+    syntax = "proto3";
+    package hpdc.telemetry.v1;
+
+    message CommonEnvelope {
+      string idempotency_key = 1;
+      string device_id = 2;
+      string device_type = 3;
+      string event_type = 4;
+      int64 timestamp = 5;
+      bytes payload = 6;
+      string region_id = 7;
+      string origin = 8;
+    }
+
+    service TelemetryService {
+      rpc PublishTelemetry(CommonEnvelope) returns (TelemetryAck);
+    }
+
+    message TelemetryAck {
+      string idempotency_key = 1;
+      bool accepted = 2;
+      string error_code = 3;
+      string error_message = 4;
+    }
+  compatibility: BACKWARD
+  max_payload_bytes: "65536"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pulsar-topic-policy
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: pulsar-topic-policy
+    app.kubernetes.io/part: epic-4
+data:
+  topic_namespace: hpdc.telemetry
+  default_partitions: "12"
+  partition_keys: |
+    device_type,region_id
+  ordering_key: device_id
+  retention:
+    dev: 24h
+    staging: 7d
+    prod: configurable
+  dead_letter_policy:
+    max_redeliver_count: 3
+  persistence:
+    storage_class: hpdc-ceph
+---
+apiVersion: pulsar.streamnative.io/v1alpha1
+kind: PulsarTopic
+metadata:
+  name: telemetry-normalized
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-normalized
+    app.kubernetes.io/part: epic-4
+spec:
+  topicType: partitioned
+  partitions: 12
+  properties:
+    device_type: enabled
+    region_id: enabled
+    origin: enabled
+  retention:
+    dev: 24h
+    staging: 7d
+    prod: configurable
+---
+apiVersion: pulsar.streamnative.io/v1alpha1
+kind: PulsarTopic
+metadata:
+  name: telemetry-normalized-dev
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-normalized-dev
+    app.kubernetes.io/part: epic-4
+spec:
+  topicType: partitioned
+  partitions: 4
+  properties:
+    device_type: enabled
+    region_id: enabled
+    origin: enabled
+  retention:
+    dev: 24h
+---
+apiVersion: hpdc.io/v1
+kind: TelemetryBackpressurePolicy
+metadata:
+  name: hpdc-telemetry-backpressure-policy
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-backpressure-policy
+    app.kubernetes.io/part: epic-4
+spec:
+  max_consumer_lag: 50000
+  max_buffer_bytes: 1073741824
+  exponential_backoff:
+    initial_ms: 50
+    max_ms: 5000
+    multiplier: 2
+  drop_policy:
+    drop_when_buffer_full: true
+    reason_labels:
+      consumer_lag: enabled
+      buffer_full: enabled
+      schema_error: enabled
+  metrics:
+    ingestion_dropped_total:
+      labels:
+        reason: enabled
+        device_type: enabled
+        region_id: enabled
+  memory_ceiling:
+    hard_limit_mb: 2048
+    soft_limit_mb: 1536
+---
+apiVersion: hpdc.io/v1
+kind: PulsarFunction
+metadata:
+  name: telemetry-windowed-aggregator
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-windowed-aggregator
+    app.kubernetes.io/part: epic-4
+spec:
+  source:
+    subscriptionNamePrefix: telemetry-normalized
+  runtime: JAVA
+  user_config:
+    aggregation_window: 500ms
+    batch_size: 25000
+    flush_interval_ms: 500
+    dead_letter_queue: hpdc.telemetry.dead.letter
+  retry_policy:
+    max_retries: 3
+  sink:
+    type: jdbc
+    database: clickhouse
+    table: device_metrics
+    flush_interval_ms: 500
+    batch_size: 25000
+    ack_path: jdbc_sink
+---
+apiVersion: hpdc.io/v1
+kind: ClickHouseTable
+metadata:
+  name: device_metrics
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: device_metrics
+    app.kubernetes.io/part: epic-4
+spec:
+  database: telemetry
+  tableName: device_metrics
+  template: |
+    CREATE TABLE telemetry.device_metrics
+    (
+      device_type LowCardinality(String),
+      region_id LowCardinality(String),
+      device_id String,
+      event_type String,
+      processed_timestamp DateTime64(3, 'UTC'),
+      message_timestamp DateTime64(3, 'UTC'),
+      payload String,
+      origin String,
+      idempotency_key String,
+      ingest_timestamp DateTime64(3, 'UTC') DEFAULT now64(3)
+    )
+    ENGINE = ReplacingMergeTree(ingest_timestamp)
+    PARTITION BY toYYYYMM(processed_timestamp)
+    ORDER BY (device_type, processed_timestamp)
+  retention:
+    dev: 24h
+    staging: 7d
+    prod: configurable
+  storage:
+    storage_class: hpdc-ceph
+---
+apiVersion: hpdc.io/v1
+kind: KeyDBCache
+metadata:
+  name: hot-device-state-and-alert-context
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: hot-device-state-and-alert-context
+    app.kubernetes.io/part: epic-4
+spec:
+  default_ttl_seconds: 300
+  fallback_stores:
+    - couchdb
+    - clickhouse
+    - yugabytedb
+  cache_miss_policy:
+    propagate_cache_errors: false
+    fallback_timeout_ms: 100
+  refresh_triggers:
+    - telemetry
+    - alert_state
+    - entity_change
+  metrics:
+    cache_hit_total: enabled
+    cache_miss_total: enabled
+    cache_latency_ms_p99: enabled
+---
+apiVersion: hpdc.io/v1
+kind: SpinWasmFunction
+metadata:
+  name: event-telemetry-transform
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: event-telemetry-transform
+    app.kubernetes.io/part: epic-4
+spec:
+  topic: hpdc.telemetry.events
+  function_type: filtering
+  enrichment:
+    region_id: enabled
+    device_type: enabled
+    origin: enabled
+  field_mapping:
+    device_id: device_id
+    device_type: device_type
+    event_type: event_type
+    timestamp: timestamp
+    payload: payload
+    region_id: region_id
+  scale:
+    metric: kafka.consumer.lag
+    target_lag_per_replica: 10000
+  latency_budget_ms: 10
+---
+apiVersion: hpdc.io/v1
+kind: AlertSignalStream
+metadata:
+  name: directed-alert-signals
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: directed-alert-signals
+    app.kubernetes.io/part: epic-4
+spec:
+  topic: hpdc.alerts
+  payload_fields:
+    alert_id: required
+    device_id: required
+    severity: required
+    timestamp: required
+    metadata: required
+  routing:
+    separate_from_telemetry: true
+  error_response:
+    structured_http_error: true
+---
+apiVersion: hpdc.io/v1
+kind: AlertStateMachine
+metadata:
+  name: alert-state-machine
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: alert-state-machine
+    app.kubernetes.io/part: epic-4
+spec:
+  valid_path:
+    - initial
+    - acknowledged
+    - investigating
+    - resolved
+    - closed
+  persistence:
+    couchdb: true
+    keydb: true
+  latency_targets:
+    couchdb_write_ms: 100
+    keydb_update_ms: 50
+  invalid_transition_response:
+    http_status: 409
+    include_current_state: true
+  audit:
+    actor: required
+    timestamp: required
+    change_diff: required
+---
+apiVersion: hpdc.io/v1
+kind: AlertResponseEngine
+metadata:
+  name: alert-response-engine
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: alert-response-engine
+    app.kubernetes.io/part: epic-4
+spec:
+  device_communication_latency_ms: 200
+  webhook_delivery_latency_ms: 500
+  webhook_attempts: 3
+  webhook_backoff: exponential
+  workflow_start: required
+  correlation_id: alert_id
+  ai_suggestion_policy:
+    low_confidence: escalate_to_manual_review
+    sensitive_actions: require_human_approval
+---
+apiVersion: hpdc.io/v1
+kind: AlertAuditTrail
+metadata:
+  name: alert-audit-trail
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: alert-audit-trail
+    app.kubernetes.io/part: epic-4
+spec:
+  actions:
+    - acknowledge
+    - investigate
+    - add_note
+    - resolve
+  concurrent_edit_policy:
+    prevent_same_state_update: true
+  visibility:
+    authorized_users: true
+    latest_state: true
+    audit_history: true
+---
+apiVersion: hpdc.io/v1
+kind: LlmDecisionSupport
+metadata:
+  name: llm-decision-support
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: llm-decision-support
+    app.kubernetes.io/part: epic-4
+spec:
+  provider: configured
+  response_scope: actionable_recommendations_only
+  sensitive_action_policy:
+    execute_without_approval: false
+  logging:
+    input: true
+    output: true
+    decision_context: true
+---
+apiVersion: hpdc.io/v1
+kind: EntityStore
+metadata:
+  name: entity-hierarchy-store
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: entity-hierarchy-store
+    app.kubernetes.io/part: epic-4
+spec:
+  stores:
+    couchdb:
+      document_hierarchy: true
+      document_crud: true
+    arcadedb:
+      graph_lineage: true
+      relationship_data: true
+    yugabytedb:
+      internal_transactional_state: true
+  stateful_storage:
+    ceph_backed: true
+---
+apiVersion: hpdc.io/v1
+kind: EntityCrud
+metadata:
+  name: entity-crud-and-bulk-operations
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: entity-crud-and-bulk-operations
+    app.kubernetes.io/part: epic-4
+spec:
+  entity_types:
+    - company
+    - client
+    - device
+    - asset
+  bulk_limit: 1000
+  mutation_logging:
+    actor: required
+    timestamp: required
+    change_diff: required
+  latency_budget_ms: 200
+---
+apiVersion: hpdc.io/v1
+kind: EntityChangeFeed
+metadata:
+  name: entity-change-feed
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: entity-change-feed
+    app.kubernetes.io/part: epic-4
+spec:
+  sources:
+    - couchdb._changes
+    - yugabytedb.cdc
+  reaction_time_ms: 500
+  workflow:
+    knative: true
+    restate: true
+    exactly_once: true
+  retry_policy:
+    automatic_retry: true
+    dead_letter_queue: hpdc.entity.dead.letter
+---
+apiVersion: hpdc.io/v1
+kind: HasuraGraphQL
+metadata:
+  name: cross-store-entity-graphql
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: cross-store-entity-graphql
+    app.kubernetes.io/part: epic-4
+spec:
+  endpoint: /gql
+  joins:
+    couchdb_entities: true
+    yugabytedb_resources: true
+    clickhouse_telemetry: true
+  latency_budget_ms: 2000
+  permissions:
+    role_model: configured
+---
+apiVersion: hpdc.io/v1
+kind: ObservabilityPipeline
+metadata:
+  name: epic4-observability-pipeline
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: epic4-observability-pipeline
+    app.kubernetes.io/part: epic-4
+spec:
+  metrics_cluster:
+    victoriametrics:
+      components:
+        - vmstorage
+        - vminsert
+        - vmselect
+      retention:
+        dev: 24h
+        staging: 7d
+        prod: configurable
+  logs:
+    vmlog: true
+    search_within_seconds: 5
+  traces:
+    opentelemetry_collector: true
+    backend: victoriametrics
+  dashboards:
+    grafana:
+      platform_health: true
+      telemetry_throughput: true
+      alert_statistics: true
+      business_metrics: true
+  alertmanager:
+    routing: configured
+    stale_metric_warning_minutes: 5
+---
+apiVersion: hpdc.io/v1
+kind: ToolUIRoute
+metadata:
+  name: grafana-hubble-tool-ui-routes
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: grafana-hubble-tool-ui-routes
+    app.kubernetes.io/part: epic-4
+spec:
+  routes:
+    - host: grafana.hpdc.local
+      service: grafana
+      native_auth: true
+    - host: hubble.hpdc.local
+      service: hubble
+      native_auth: true
+  authz:
+    casdoor_casbin_ext_authz: false
+  tls:
+    termination: envoy_gateway
+---
+apiVersion: hpdc.io/v1
+kind: ClusterMesh
+metadata:
+  name: regional-clustermesh
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: regional-clustermesh
+    app.kubernetes.io/part: epic-4
+spec:
+  protocol: WireGuard
+  discovery:
+    cross_cluster: true
+    manual_per_service_discovery: false
+  traffic:
+    encrypted: true
+---
+apiVersion: hpdc.io/v1
+kind: RegionalDataSovereignty
+metadata:
+  name: regional-data-sovereignty
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: regional-data-sovereignty
+    app.kubernetes.io/part: epic-4
+spec:
+  regional_stores:
+    couchdb: true
+    yugabytedb: true
+    clickhouse: true
+    arcadedb: true
+    keydb: true
+    postgresql: true
+  replication:
+    default: disabled
+    explicit_configuration_required: true
+---
+apiVersion: hpdc.io/v1
+kind: RegionalApiHub
+metadata:
+  name: regional-apis
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: regional-apis
+    app.kubernetes.io/part: epic-4
+spec:
+  central_hub:
+    stores_regional_data: false
+    per_region_drilldown: true
+  auth:
+    region_scoped: true
+  aggregate_metrics: true
+---
+apiVersion: hpdc.io/v1
+kind: MCPToolRegistry
+metadata:
+  name: platform-capabilities-mcp-tools
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: platform-capabilities-mcp-tools
+    app.kubernetes.io/part: epic-4
+spec:
+  tools:
+    query_databases: true
+    call_apis: true
+    trigger_workflows: true
+  validation:
+    security_policy: required
+  logging:
+    agent_id: required
+    tool_name: required
+    parameters: required
+    result: required
+---
+apiVersion: hpdc.io/v1
+kind: AgentCommunication
+metadata:
+  name: authenticated-agent-communication
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: authenticated-agent-communication
+    app.kubernetes.io/part: epic-4
+spec:
+  registration:
+    registered_agents_required: true
+  channel:
+    authenticated: true
+  impersonation:
+    unauthorized_prevented: true
+    discovery: registered_agents_only
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: telemetry-normalizer
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: telemetry-normalizer
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: telemetry-normalizer
+  ports:
+    - name: http
+      port: 8080
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulsar-functions
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: pulsar-functions
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: pulsar-functions
+  ports:
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-sink
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: clickhouse-sink
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: clickhouse-sink
+  ports:
+    - name: jdbc
+      port: 8123
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keydb-cache
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: keydb-cache
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: keydb-cache
+  ports:
+    - name: redis
+      port: 6379
+    - name: metrics
+      port: 9121
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spin-functions
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: spin-functions
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: spin-functions
+  ports:
+    - name: http
+      port: 3000
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-api
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: alert-api
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: alert-api
+  ports:
+    - name: http
+      port: 8080
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: entity-api
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: entity-api
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: entity-api
+  ports:
+    - name: http
+      port: 8080
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: observability-ui
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: observability-ui
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: observability-ui
+  ports:
+    - name: http
+      port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: regional-apis
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: regional-apis
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: regional-apis
+  ports:
+    - name: http
+      port: 8080
+    - name: metrics
+      port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-tools
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: mcp-tools
+    app.kubernetes.io/part: epic-4
+spec:
+  selector:
+    app.kubernetes.io/name: mcp-tools
+  ports:
+    - name: http
+      port: 8080
+    - name: metrics
+      port: 9090
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: spin-functions-lag
+  namespace: hpdc-epic4
+  labels:
+    app.kubernetes.io/name: spin-functions-lag
+    app.kubernetes.io/part: epic-4
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: spin-functions
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: kafka_consumer_lag
+        target:
+          type: AverageValue
+          averageValue: 10000

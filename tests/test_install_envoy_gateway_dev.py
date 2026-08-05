@@ -26,6 +26,11 @@ def validate() -> None:
     assert "kind: GatewayClass" in manifest
     assert "kind: Gateway" in manifest
     assert "kind: HTTPRoute" in manifest
+    assert "name: mqtt" in manifest
+    assert "port: 1884" in manifest
+    assert "name: pulsar-telemetry-ingestion" in manifest
+    assert "port: 8080" in manifest
+    assert "../../../telemetry-ingestion/base" in (ROOT / "gitops/envoy-gateway/overlays/dev/kustomization.yaml").read_text(encoding="utf-8")
 
 
 def test_install_envoy_gateway_dev() -> None:

@@ -1,0 +1,139 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pulsar-telemetry-ingestion
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: pulsar-telemetry-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-ingestion-capacity
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: telemetry-ingestion-capacity
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  capacity.yaml: |
+    default: 5000
+    deviceTypes:
+      actuator: 25000
+      gateway: 10000
+      sensor: 25000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulsar-telemetry-ingestion
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: pulsar-telemetry-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: http
+    - name: grpc
+      port: 6669
+      protocol: TCP
+      targetPort: grpc
+    - name: mqtt
+      port: 1884
+      protocol: TCP
+      targetPort: mqtt
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hpdc-telemetry-http-ingestion
+  namespace: telemetry-ingestion
+  annotations:
+    gateway.envoyproxy.io/rate-limit: '{"requestsPerUnit":100000,"unit":"second"}'
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-http-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  parentRefs:
+    - name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - "*.hpdc.local"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /telemetry
+      backendRefs:
+        - name: pulsar-telemetry-ingestion
+          port: 8080
+          weight: 1
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: hpdc-telemetry-grpc-ingestion
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-grpc-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  parentRefs:
+    - name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - "*.hpdc.local"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /hpdc.telemetry.v1.TelemetryService
+      backendRefs:
+        - name: pulsar-telemetry-ingestion
+          port: 6669
+          weight: 1
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  name: hpdc-telemetry-mqtt-ingestion
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-mqtt-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  parentRefs:
+    - name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: mqtt
+  rules:
+    - backendRefs:
+        - name: pulsar-telemetry-ingestion
+          port: 1884
+          weight: 1

@@ -16,6 +16,9 @@ STEP_DESCRIPTION = "Validate HPDC telemetry simulator and acceptance harness."
 
 def main() -> int:
     args = ["--offline"]
+    for arg in sys.argv[1:]:
+        if arg not in {"--offline", "--dry-run", "--check", "--apply"}:
+            args.append(arg)
     if "--check" in sys.argv:
         args.append("--check")
     elif "--apply" in sys.argv:

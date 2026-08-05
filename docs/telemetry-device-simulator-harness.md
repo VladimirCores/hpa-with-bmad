@@ -44,6 +44,8 @@ python3 scripts/simulate_telemetry_dev.py --offline --dry-run
 
 All project automation scripts are Python 3.
 
+All protocol targets must be disabled explicitly to fail configuration validation; at least one protocol must be enabled for a live run.
+
 ## Configuration
 
 `output/telemetry-simulator/config.yaml` controls the validation run.
@@ -51,7 +53,7 @@ All project automation scripts are Python 3.
 | Field | Description |
 | --- | --- |
 | `device_count` | Number of deterministic simulated devices. |
-| `message_rate` | Target messages per second for throughput reporting. |
+| `message_rate` | Target messages to generate per validation run; must be at least 1. |
 | `device_types` | Device profile names used for varied payload generation. |
 | `region_ids` | Region IDs used for device and telemetry partitioning. |
 | `protocol_targets.http.url` | Envoy Gateway `/telemetry` endpoint for HTTP live emission. |
@@ -63,7 +65,8 @@ All project automation scripts are Python 3.
 | `protocol_targets.grpc.service` | gRPC service path prefix. |
 | `protocol_targets.grpc.method` | Full gRPC method path. |
 | `protocol_targets.grpc.enabled` | Whether gRPC is included in the run. |
-| `api_key` | Local API key used for Envoy Gateway HTTP telemetry validation. |
+| `api_key` | HTTP API key source for Envoy Gateway validation. Commit `${HPDC_TELEMETRY_API_KEY}` and provide the actual key from the environment for live runs. |
+| `api_key_env` | Environment variable name used to resolve `api_key` during live runs. Defaults to `HPDC_TELEMETRY_API_KEY`. |
 | `timeout` | Default protocol timeout in seconds. |
 | `output_path` | JSON summary output path. |
 | `seed` | Determinism seed for varied but repeatable payloads. |
@@ -88,7 +91,7 @@ The original payload object is preserved inside `payload`; the simulator wraps i
 
 ### HTTP
 
-Live HTTP emission posts JSON envelopes to the configured Envoy Gateway `/telemetry` endpoint with `X-API-Key`, `Content-Type: application/json`, and `X-Telemetry-Origin`. HTTP errors, connection failures, and protocol errors cause a non-zero exit.
+Live HTTP emission posts JSON envelopes to the configured Envoy Gateway `/telemetry` endpoint with `X-API-Key`, `Content-Type: application/json`, and `X-Telemetry-Origin`. The committed config uses `${HPDC_TELEMETRY_API_KEY}`; live runs require that environment variable to be set. HTTP errors, connection failures, and protocol errors cause a non-zero exit.
 
 ### MQTT
 
@@ -96,14 +99,15 @@ Live MQTT emission requires the optional `paho-mqtt` dependency. If `paho-mqtt` 
 
 ### gRPC
 
-Live gRPC emission requires the optional `grpcio` dependency. If `grpcio` is unavailable, dry-run and check modes still work, while live gRPC emission exits non-zero with a clear dependency error.
+Live gRPC emission requires the optional `grpcio` dependency and serializes each CommonEnvelope into a protobuf-compatible dynamic `CommonEnvelope` message before calling the configured unary method. If `grpcio` or `protobuf` is unavailable, dry-run and check modes still work, while live gRPC emission exits non-zero with a clear dependency error.
 
 ## Metrics and summary
 
 Each run writes a JSON summary containing:
 
+- configured device, region, and message-rate counts
 - protocol counts for HTTP, MQTT, and gRPC
-- total, accepted, and rejected messages
+- total, accepted, rejected, and schema-failed messages
 - connection, schema, and protocol failure counts
 - target RPS and measured throughput
 - p50, p95, and p99 latency percentiles
