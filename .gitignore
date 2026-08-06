@@ -15,3 +15,13 @@ output/startup.dev.log
 .opencode
 !README.md
 _bmad/render/
+
+# Python bytecode caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.venv/
+venv/
