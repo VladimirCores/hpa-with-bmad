@@ -48,11 +48,19 @@ spec:
         - name: preload
           image: docker:2.41-cli
           imagePullPolicy: IfNotPresent
-              command:
-                - sh
-                - -c
-                - |
-                  set -eu
-                  echo "Preload offline image cache into Harbor from local manifest."
-                  cat /offline-image-cache/images.yaml
-                  echo "Harbor ingestion manifest recorded locally."
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              echo "Preload offline image cache into Harbor from local manifest."
+              cat /offline-image-cache/images.yaml
+              echo "Harbor ingestion manifest recorded locally."
+          volumeMounts:
+            - name: offline-image-cache
+              mountPath: /offline-image-cache
+              readOnly: true
+      volumes:
+        - name: offline-image-cache
+          configMap:
+            name: offline-image-cache

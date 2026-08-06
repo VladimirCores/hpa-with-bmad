@@ -32,3 +32,11 @@ data:
                   echo "Preload offline image cache into Harbor from local manifest."
                   cat /offline-image-cache/images.yaml
                   echo "Harbor ingestion manifest recorded locally."
+              volumeMounts:
+                - name: offline-image-cache
+                  mountPath: /offline-image-cache
+                  readOnly: true
+          volumes:
+            - name: offline-image-cache
+              configMap:
+                name: offline-image-cache

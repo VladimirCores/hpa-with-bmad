@@ -52,3 +52,15 @@ so that GitOps pipelines can build and deploy without internet access.
 ## Change Log
 
 - Added offline Harbor cache preload validation and ingestion manifest recording.
+
+## Review Findings
+
+- [x] [Review][Patch] GitOps preload YAML is invalid — `preload-images.yaml` and `preload-images-job.yaml` have over-indented `command:` blocks that break YAML parsing.
+- [x] [Review][Patch] Preload Job does not mount the offline image ConfigMap — manifests reference `/offline-image-cache/images.yaml` without `volumeMounts` or `volumes`.
+- [x] [Review][Patch] `--apply` is misleading and not operationally safe — it only writes the ingestion manifest and does not preload images into Harbor.
+- [x] [Review][Patch] Generated ingestion manifest omits targets for non-Harbor dependency images without documenting that they are expected-tag-only planning records.
+- [x] [Review][Patch] Redis cache marker is inconsistent with `cache-images.txt` and generated manifest.
+- [x] [Review][Patch] Story documentation names the wrong script filename.
+- [x] [Review][Patch] Tests mutate repository marker and cache-list files during failure-path tests.
+- [x] [Review][Patch] Tests only assert representative dry-run/manifest records instead of every cached image and expected tag.
+- [x] [Review][Patch] Docs overstate the implementation as Harbor preload when the current change records ingestion metadata only.

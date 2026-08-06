@@ -22,8 +22,10 @@ harbor_ingestion:
       expected_tag: v2.11.3
       target: harbor.local/harbor/harbor-chartmuseum:v2.11.3
     - name: redis:7.2-alpine
-      source: output/harbor/images/harbor-redis-v1.23
+      source: output/harbor/images/redis-7.2-alpine
       expected_tag: 7.2-alpine
+      target: harbor.local/library/redis:7.2-alpine
     - name: postgres:15-alpine
-      source: output/harbor/images/harbor-postgresql-v15
+      source: output/harbor/images/postgres-15-alpine
       expected_tag: 15-alpine
+      target: harbor.local/library/postgres:15-alpine

@@ -15,8 +15,8 @@ HARBOR_INGESTION_MANIFEST = ROOT / "output" / "harbor" / "harbor-ingestion-manif
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "preload"
 IMAGE_SOURCE_ALIASES = {
-    "redis:7.2-alpine": "output/harbor/images/harbor-redis-v1.23",
-    "postgres:15-alpine": "output/harbor/images/harbor-postgresql-v15",
+    "redis:7.2-alpine": "output/harbor/images/redis-7.2-alpine",
+    "postgres:15-alpine": "output/harbor/images/postgres-15-alpine",
 }
 
 
@@ -29,7 +29,11 @@ class ImageRecord:
 
 
 def ensure_files(root: Path = ROOT) -> None:
-    missing = [path for path in (root / HARBOR_MARKER.relative_to(root), root / IMAGE_LIST.relative_to(root)) if not path.exists()]
+    required_paths = (
+        root / "output" / "harbor" / "images" / "harbor-core-v2.11.3",
+        root / "output" / "harbor" / "cache-images.txt",
+    )
+    missing = [path for path in required_paths if not path.exists()]
     if missing:
         missing_text = ", ".join(str(path.relative_to(root)) for path in missing)
         raise RuntimeError(f"Missing Harbor cache prerequisites: {missing_text}")
@@ -47,6 +51,8 @@ def validate_manifests(root: Path = ROOT) -> list[str]:
     for path in required:
         if not path.exists():
             failures.append(str(path.relative_to(root)))
+    if failures:
+        return failures
 
     preload = (root / "gitops" / "harbor" / "base" / "preload-images.yaml").read_text(encoding="utf-8")
     overlay = (root / "gitops" / "harbor" / "overlays" / "preload" / "kustomization.yaml").read_text(encoding="utf-8")
@@ -74,19 +80,23 @@ def split_image_name(image: str) -> tuple[str, str]:
     return name, tag
 
 
-def source_for_image(image: str) -> Path:
+def source_for_image(image: str, root: Path = ROOT) -> Path:
     if image in IMAGE_SOURCE_ALIASES:
-        return ROOT / IMAGE_SOURCE_ALIASES[image]
+        return root / IMAGE_SOURCE_ALIASES[image]
     name, tag = split_image_name(image)
     slug = name.rsplit("/", 1)[-1].replace(":", "-")
-    return ROOT / "output" / "harbor" / "images" / f"{slug}-{tag}"
+    return root / "output" / "harbor" / "images" / f"{slug}-{tag}"
 
 
-def target_for_image(image: str) -> str | None:
+def target_for_image(image: str) -> str:
     name, tag = split_image_name(image)
     if name.startswith("harbor/"):
         return f"harbor.local/{name}:{tag}"
-    return None
+    if name == "redis":
+        return f"harbor.local/library/redis:{tag}"
+    if name == "postgres":
+        return f"harbor.local/library/postgres:{tag}"
+    return f"harbor.local/{name}:{tag}"
 
 
 def load_image_records(root: Path = ROOT) -> list[ImageRecord]:
@@ -97,7 +107,7 @@ def load_image_records(root: Path = ROOT) -> list[ImageRecord]:
         if not image:
             continue
         name, tag = split_image_name(image)
-        source = source_for_image(image)
+        source = source_for_image(image, root=root)
         if not source.exists():
             raise RuntimeError(f"Offline image cache marker not found: {source.relative_to(root)}")
         records.append(ImageRecord(name=name, tag=tag, source=source, target=target_for_image(image)))
@@ -116,8 +126,7 @@ def write_ingestion_manifest(records: list[ImageRecord], root: Path = ROOT) -> P
         lines.append(f"    - name: {record.name}:{record.tag}")
         lines.append(f"      source: {record.source.relative_to(root)}")
         lines.append(f"      expected_tag: {record.tag}")
-        if record.target:
-            lines.append(f"      target: {record.target}")
+        lines.append(f"      target: {record.target}")
     manifest_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return manifest_path
 
@@ -126,43 +135,44 @@ def print_image_records(records: list[ImageRecord], root: Path = ROOT) -> None:
     print("Images to preload:")
     for record in records:
         print(f"- {record.name}:{record.tag} expected_tag={record.tag}")
-        if record.target:
-            print(f"  target={record.target}")
+        print(f"  target={record.target}")
     manifest_path = write_ingestion_manifest(records, root)
     print(f"Harbor ingestion manifest: {manifest_path.relative_to(root)}")
 
 
-def main() -> int:
+def main(root: Path = ROOT) -> int:
     parser = argparse.ArgumentParser(description="Preload offline image cache into Harbor")
+    parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--offline", action="store_true", default=True)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
+    root = args.root
 
     try:
-        ensure_files()
-        failures = validate_manifests()
+        ensure_files(root)
+        failures = validate_manifests(root)
         if failures:
             for failure in failures:
                 print(f"- {failure}")
             return 1
 
-        records = load_image_records()
+        records = load_image_records(root)
         if args.check:
-            write_ingestion_manifest(records)
+            manifest_path = write_ingestion_manifest(records, root=root)
             print("Preload Harbor cache validation passed.")
-            print(f"Harbor ingestion manifest: {HARBOR_INGESTION_MANIFEST.relative_to(ROOT)}")
+            print(f"Harbor ingestion manifest: {manifest_path.relative_to(root)}")
             return 0
 
         if args.apply:
-            write_ingestion_manifest(records)
-            print("Preload Harbor cache apply requested.")
-            print(f"Harbor ingestion manifest: {HARBOR_INGESTION_MANIFEST.relative_to(ROOT)}")
+            manifest_path = write_ingestion_manifest(records, root=root)
+            print("Harbor ingestion manifest recorded.")
+            print(f"Harbor ingestion manifest: {manifest_path.relative_to(root)}")
             return 0
 
         if args.dry_run:
-            print_image_records(records)
+            print_image_records(records, root=root)
             return 0
     except (RuntimeError, ValueError) as error:
         print(str(error), file=sys.stderr)
