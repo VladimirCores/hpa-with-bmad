@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-06T15:56:51Z
+# last_updated: 2026-08-06T16:00:00Z
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-06T15:56:51Z
+last_updated: 2026-08-06T16:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -57,7 +57,7 @@ development_status:
   1-5-enable-cilium-mtls-mesh-with-spiffe-spire: backlog
   epic-1-retrospective: optional
 
-  epic-2: in_progress
+  epic-2: done
   2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: done
   2-2-preload-offline-image-cache-into-harbor: done
   2-3-refresh-cached-images-on-version-or-digest-change: done
@@ -99,7 +99,7 @@ development_status:
   4-10-validate-end-to-end-telemetry-pipeline-performance: done
   epic-4-retrospective: optional
 
-  epic-5: backlog
+  epic-5: in_progress
   5-1-ingest-alert-signals-through-directed-kafka-streams: backlog
   5-2-persist-alert-state-machine-transitions: backlog
   5-3-trigger-automated-alert-responses: backlog
