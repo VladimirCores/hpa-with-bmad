@@ -14,3 +14,21 @@ data:
       name: preload-offline-image-cache
     spec:
       backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: preload-offline-image-cache
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: preload
+              image: docker:2.41-cli
+              imagePullPolicy: IfNotPresent
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  echo "Preload offline image cache into Harbor from local manifest."
+                  cat /offline-image-cache/images.yaml
+                  echo "Harbor ingestion manifest recorded locally."

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: '2026-08-05T08:15:14Z'
-last_updated: '2026-08-05T09:00:00Z'
+last_updated: '2026-08-06T00:00:00Z'
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -56,7 +56,7 @@ development_status:
   epic-1-retrospective: optional
   epic-2: done
   2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: done
-  2-2-preload-offline-image-cache-into-harbor: ready-for-dev
+  2-2-preload-offline-image-cache-into-harbor: review
   2-3-refresh-cached-images-on-version-or-digest-change: ready-for-dev
   2-4-provision-local-git-mirror-for-offline-gitops: ready-for-dev
   2-5-provision-spegel-p2p-image-distribution: ready-for-dev

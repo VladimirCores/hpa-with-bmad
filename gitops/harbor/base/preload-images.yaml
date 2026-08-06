@@ -8,22 +8,24 @@ metadata:
     app.kubernetes.io/part-of: hpdc-platform
 data:
   images.yaml: |
+    offline: true
     images:
       - name: harbor/harbor-core:v2.11.3
         source: output/harbor/images/harbor-core-v2.11.3
         target: harbor.local/harbor/harbor-core:v2.11.3
       - name: harbor/harbor-registry:v2.11.3
         source: output/harbor/images/harbor-registry-v2.11.3
-        target: harbor.local/harbor/harbor-registry:v2.11.3
+        target: harbor.local/harbor/harbor-registry-v2.11.3
       - name: harbor/harbor-jobservice:v2.11.3
         source: output/harbor/images/harbor-jobservice-v2.11.3
-        target: harbor.local/harbor/harbor-jobservice:v2.11.3
+        target: harbor.local/harbor/harbor-jobservice-v2.11.3
       - name: harbor/harbor-trivy-adapter:v2.11.3
         source: output/harbor/images/harbor-trivy-adapter-v2.11.3
         target: harbor.local/harbor/harbor-trivy-adapter:v2.11.3
       - name: harbor/harbor-chartmuseum:v2.11.3
         source: output/harbor/images/harbor-chartmuseum-v2.11.3
-        target: harbor.local/harbor/harbor-chartmuseum:v2.11.3
+        target: harbor.local/harbor/harbor-chartmuseum-v2.11.3
+
 
 ---
 apiVersion: batch/v1
@@ -46,8 +48,11 @@ spec:
         - name: preload
           image: docker:2.41-cli
           imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -c
-            - |
-              echo "Preload offline image cache into Harbor from local manifest."
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  echo "Preload offline image cache into Harbor from local manifest."
+                  cat /offline-image-cache/images.yaml
+                  echo "Harbor ingestion manifest recorded locally."
