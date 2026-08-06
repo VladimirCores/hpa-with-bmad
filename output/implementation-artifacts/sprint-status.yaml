@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-06T08:46:58Z
+# last_updated: 2026-08-06T15:56:51Z
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-06T08:46:58Z
+last_updated: 2026-08-06T15:56:51Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -59,7 +59,7 @@ development_status:
 
   epic-2: in_progress
   2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: done
-  2-2-preload-offline-image-cache-into-harbor: review
+  2-2-preload-offline-image-cache-into-harbor: done
   2-3-refresh-cached-images-on-version-or-digest-change: done
   2-4-provision-local-git-mirror-for-offline-gitops: done
   2-5-provision-spegel-p2p-image-distribution: done

@@ -1,6 +1,6 @@
 # Story 2.2: Preload Offline Image Cache into Harbor
 
-Status: review
+Status: done
 
 Baseline commit: 6d71180de70ebe43174094a1b0a8d3b2b311c88b
 
