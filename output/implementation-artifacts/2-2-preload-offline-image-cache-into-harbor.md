@@ -40,14 +40,17 @@ so that GitOps pipelines can build and deploy without internet access.
 
 ## Files
 
-- `scripts/preload-harbor-cache.py`
 - `scripts/preload_harbor_cache.py`
+- `scripts/steps/07-preload-harbor-cache.py`
+- `scripts/preload-harbor-cache.py`
 - `gitops/harbor/base/preload-images.yaml`
 - `gitops/harbor/base/preload-images-job.yaml`
 - `gitops/harbor/overlays/preload/kustomization.yaml`
 - `docs/harbor-image-cache.md`
 - `tests/test_preload_harbor_cache.py`
 - `output/harbor/harbor-ingestion-manifest.yaml`
+- `output/harbor/images/redis-7.2-alpine`
+- `output/harbor/images/postgres-15-alpine`
 
 ## Change Log
 
@@ -64,3 +67,7 @@ so that GitOps pipelines can build and deploy without internet access.
 - [x] [Review][Patch] Tests mutate repository marker and cache-list files during failure-path tests.
 - [x] [Review][Patch] Tests only assert representative dry-run/manifest records instead of every cached image and expected tag.
 - [x] [Review][Patch] Docs overstate the implementation as Harbor preload when the current change records ingestion metadata only.
+- [x] [Review][Patch] CLI defaults make `--offline` effectively no-op and allow mutually exclusive modes to override each other.
+- [x] [Review][Patch] Image parsing accepted missing tags and custom temp roots could fail before missing prerequisite reporting.
+- [x] [Review][Patch] Failure-path tests did not cover custom roots, missing per-image markers, missing tags, or manifest source assertions.
+- [x] [Review][Patch] Script description still said Harbor preload instead of recording ingestion metadata.
