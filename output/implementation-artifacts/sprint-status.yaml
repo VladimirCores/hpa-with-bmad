@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-07T13:00:00Z
+last_updated: 2026-08-07T14:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -114,7 +114,7 @@ development_status:
   6-4-expose-cross-store-queries-through-hasura-graphql: done
   epic-6-retrospective: optional
 
-  epic-7: in-progress
+  epic-7: done
   7-1-deploy-victoriametrics-metrics-cluster: done
   7-2-collect-logs-with-vmlog: done
   7-3-export-distributed-traces-with-opentelemetry-collector: done
