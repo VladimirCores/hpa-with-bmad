@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clustermesh
+  labels:
+    app.kubernetes.io/name: clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+
+---
+apiVersion: hpdc.io/v1
+kind: ClusterMesh
+metadata:
+  name: regional-clustermesh
+  namespace: clustermesh
+  labels:
+    app.kubernetes.io/name: regional-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+spec:
+  protocol: WireGuard
+  discovery:
+    cross_cluster: true
+    manual_per_service_discovery: false
+  traffic:
+    encrypted: true
+  regions:
+    - region-1
+    - region-2
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clustermesh-config
+  namespace: clustermesh
+  labels:
+    app.kubernetes.io/name: clustermesh-config
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+data:
+  wireguard.yaml: |
+    encryption:
+      type: wireguard
+      interface: cilium_wg0
+      nodeEncryption: true
+  clustermesh.yaml: |
+    clusters:
+      - name: region-1
+        service: cluster-service-region-1.clustermesh.svc
+        port: 2379
+      - name: region-2
+        service: cluster-service-region-2.clustermesh.svc
+        port: 2379
+
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumClusterWideConfig
+metadata:
+  name: hpdc-clustermesh
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+spec:
+  encryption:
+    type: wireguard
+    nodeEncryption: true
+  clustermesh:
+    enable: true
+    config:
+      clusters:
+        - name: region-1
+          service: cluster-service-region-1.clustermesh.svc
+          port: 2379
+        - name: region-2
+          service: cluster-service-region-2.clustermesh.svc
+          port: 2379
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-service-region-1
+  namespace: clustermesh
+  labels:
+    app.kubernetes.io/name: cluster-service-region-1
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+    io.cilium/cluster: region-1
+spec:
+  clusterIP: None
+  selector:
+    io.cilium/cluster: region-1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-service-region-2
+  namespace: clustermesh
+  labels:
+    app.kubernetes.io/name: cluster-service-region-2
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+    io.cilium/cluster: region-2
+spec:
+  clusterIP: None
+  selector:
+    io.cilium/cluster: region-2
