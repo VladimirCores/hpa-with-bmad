@@ -42,19 +42,19 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-07T16:00:00Z
+last_updated: 2026-08-07T17:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
 story_location: output/implementation-artifacts
 
 development_status:
-  epic-1: backlog
+  epic-1: done
   1-1-bootstrap-monorepo-structure-dev-tooling: done
   1-2-provision-offline-talos-dev-cluster-with-persistent-qemu-disks: done
   1-3-install-offline-cilium-ebpf-networking-with-kube-proxy-replacement: done
   1-4-provision-offline-rook-ceph-persistent-storage-on-persistent-qemu-disks: done
-  1-5-enable-cilium-mtls-mesh-with-spiffe-spire: backlog
+  1-5-enable-cilium-mtls-mesh-with-spiffe-spire: done
   epic-1-retrospective: optional
 
   epic-2: done
