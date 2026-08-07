@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmlogs-config
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmlogs-config
+    app.kubernetes.io/component: vmlogs
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  vmlogs.yaml: |
+    search_within_seconds: 5
+    indexed_fields:
+      - namespace
+      - app
+      - level
+      - host
+    ingestion_endpoint: /insert/loki/api/v1/push
+    query_endpoint: /select/loki/api/v1/query
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmlogs
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmlogs
+    app.kubernetes.io/component: vmlogs
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmlogs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vmlogs
+        app.kubernetes.io/component: vmlogs
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+        - name: vmlogs
+          image: victoriametrics/victoria-logs:latest
+          args:
+            - -search.maxQueryDuration=5s
+          ports:
+            - name: http
+              containerPort: 9428
+          readinessProbe:
+            httpGet:
+              path: /select/loki/api/v1/query
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmlogs
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmlogs
+    app.kubernetes.io/component: vmlogs
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app.kubernetes.io/name: vmlogs
+  ports:
+    - name: http
+      port: 9428
+      targetPort: http
