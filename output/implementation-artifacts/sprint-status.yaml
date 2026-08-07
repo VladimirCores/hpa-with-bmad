@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-07T12:00:00Z
+last_updated: 2026-08-07T13:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -107,11 +107,11 @@ development_status:
   5-5-provide-basic-llm-decision-support-for-alerts: done
   epic-5-retrospective: optional
 
-  epic-6: in-progress
+  epic-6: done
   6-1-store-entity-hierarchy-across-couchdb-arcadedb-and-yugabytedb: done
   6-2-provide-entity-crud-and-bulk-operations: done
   6-3-react-to-entity-change-feeds-with-knative-restate: done
-  6-4-expose-cross-store-queries-through-hasura-graphql: backlog
+  6-4-expose-cross-store-queries-through-hasura-graphql: done
   epic-6-retrospective: optional
 
   epic-7: backlog
