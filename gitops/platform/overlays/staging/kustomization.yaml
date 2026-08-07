@@ -4,4 +4,4 @@ resources:
   - ../../base/platform-scaffold.yaml
 namespace: hpdc-platform
 commonLabels:
-  environment: prod
+  environment: staging

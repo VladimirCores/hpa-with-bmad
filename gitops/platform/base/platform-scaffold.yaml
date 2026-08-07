@@ -1,82 +1,82 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: hpdc-epic4
+  name: hpdc-platform
   labels:
-    app.kubernetes.io/name: hpdc-epic4
-    app.kubernetes.io/part: epic-4-offline-scaffold
+    app.kubernetes.io/name: hpdc-platform
+    app.kubernetes.io/part: platform-offline-scaffold
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: telemetry-ingestion
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-ingestion
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: telemetry-processor
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-processor
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: alert-handler
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: alert-handler
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: entity-handler
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: entity-handler
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: observability-handler
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: observability-handler
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: regional-api-handler
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: regional-api-handler
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: mcp-agent-handler
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: mcp-agent-handler
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: telemetry-common-envelope
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-common-envelope
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 data:
   schema.proto: |
     syntax = "proto3";
@@ -110,10 +110,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: pulsar-topic-policy
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: pulsar-topic-policy
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 data:
   topic_namespace: hpdc.telemetry
   default_partitions: "12"
@@ -133,10 +133,10 @@ apiVersion: pulsar.streamnative.io/v1alpha1
 kind: PulsarTopic
 metadata:
   name: telemetry-normalized
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-normalized
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   topicType: partitioned
   partitions: 12
@@ -153,10 +153,10 @@ apiVersion: pulsar.streamnative.io/v1alpha1
 kind: PulsarTopic
 metadata:
   name: telemetry-normalized-dev
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-normalized-dev
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   topicType: partitioned
   partitions: 4
@@ -171,10 +171,10 @@ apiVersion: hpdc.io/v1
 kind: TelemetryBackpressurePolicy
 metadata:
   name: hpdc-telemetry-backpressure-policy
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: hpdc-telemetry-backpressure-policy
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   max_consumer_lag: 50000
   max_buffer_bytes: 1073741824
@@ -202,10 +202,10 @@ apiVersion: hpdc.io/v1
 kind: PulsarFunction
 metadata:
   name: telemetry-windowed-aggregator
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-windowed-aggregator
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   source:
     subscriptionNamePrefix: telemetry-normalized
@@ -229,10 +229,10 @@ apiVersion: hpdc.io/v1
 kind: ClickHouseTable
 metadata:
   name: device_metrics
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: device_metrics
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   database: telemetry
   tableName: device_metrics
@@ -264,10 +264,10 @@ apiVersion: hpdc.io/v1
 kind: KeyDBCache
 metadata:
   name: hot-device-state-and-alert-context
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: hot-device-state-and-alert-context
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   default_ttl_seconds: 300
   fallback_stores:
@@ -290,10 +290,10 @@ apiVersion: hpdc.io/v1
 kind: SpinWasmFunction
 metadata:
   name: event-telemetry-transform
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: event-telemetry-transform
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   topic: hpdc.telemetry.events
   function_type: filtering
@@ -317,10 +317,10 @@ apiVersion: hpdc.io/v1
 kind: AlertSignalStream
 metadata:
   name: directed-alert-signals
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: directed-alert-signals
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   topic: hpdc.alerts
   payload_fields:
@@ -338,10 +338,10 @@ apiVersion: hpdc.io/v1
 kind: AlertStateMachine
 metadata:
   name: alert-state-machine
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: alert-state-machine
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   valid_path:
     - initial
@@ -367,10 +367,10 @@ apiVersion: hpdc.io/v1
 kind: AlertResponseEngine
 metadata:
   name: alert-response-engine
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: alert-response-engine
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   device_communication_latency_ms: 200
   webhook_delivery_latency_ms: 500
@@ -386,10 +386,10 @@ apiVersion: hpdc.io/v1
 kind: AlertAuditTrail
 metadata:
   name: alert-audit-trail
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: alert-audit-trail
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   actions:
     - acknowledge
@@ -407,10 +407,10 @@ apiVersion: hpdc.io/v1
 kind: LlmDecisionSupport
 metadata:
   name: llm-decision-support
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: llm-decision-support
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   provider: configured
   response_scope: actionable_recommendations_only
@@ -425,10 +425,10 @@ apiVersion: hpdc.io/v1
 kind: EntityStore
 metadata:
   name: entity-hierarchy-store
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: entity-hierarchy-store
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   stores:
     couchdb:
@@ -446,10 +446,10 @@ apiVersion: hpdc.io/v1
 kind: EntityCrud
 metadata:
   name: entity-crud-and-bulk-operations
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: entity-crud-and-bulk-operations
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   entity_types:
     - company
@@ -467,10 +467,10 @@ apiVersion: hpdc.io/v1
 kind: EntityChangeFeed
 metadata:
   name: entity-change-feed
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: entity-change-feed
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   sources:
     - couchdb._changes
@@ -488,10 +488,10 @@ apiVersion: hpdc.io/v1
 kind: HasuraGraphQL
 metadata:
   name: cross-store-entity-graphql
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: cross-store-entity-graphql
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   endpoint: /gql
   joins:
@@ -505,11 +505,11 @@ spec:
 apiVersion: hpdc.io/v1
 kind: ObservabilityPipeline
 metadata:
-  name: epic4-observability-pipeline
-  namespace: hpdc-epic4
+  name: platform-observability-pipeline
+  namespace: hpdc-platform
   labels:
-    app.kubernetes.io/name: epic4-observability-pipeline
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/name: platform-observability-pipeline
+    app.kubernetes.io/part: platform
 spec:
   metrics_cluster:
     victoriametrics:
@@ -541,10 +541,10 @@ apiVersion: hpdc.io/v1
 kind: ToolUIRoute
 metadata:
   name: grafana-hubble-tool-ui-routes
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: grafana-hubble-tool-ui-routes
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   routes:
     - host: grafana.hpdc.local
@@ -562,10 +562,10 @@ apiVersion: hpdc.io/v1
 kind: ClusterMesh
 metadata:
   name: regional-clustermesh
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: regional-clustermesh
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   protocol: WireGuard
   discovery:
@@ -578,10 +578,10 @@ apiVersion: hpdc.io/v1
 kind: RegionalDataSovereignty
 metadata:
   name: regional-data-sovereignty
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: regional-data-sovereignty
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   regional_stores:
     couchdb: true
@@ -598,10 +598,10 @@ apiVersion: hpdc.io/v1
 kind: RegionalApiHub
 metadata:
   name: regional-apis
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: regional-apis
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   central_hub:
     stores_regional_data: false
@@ -614,10 +614,10 @@ apiVersion: hpdc.io/v1
 kind: MCPToolRegistry
 metadata:
   name: platform-capabilities-mcp-tools
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: platform-capabilities-mcp-tools
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   tools:
     query_databases: true
@@ -635,10 +635,10 @@ apiVersion: hpdc.io/v1
 kind: AgentCommunication
 metadata:
   name: authenticated-agent-communication
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: authenticated-agent-communication
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   registration:
     registered_agents_required: true
@@ -652,10 +652,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: telemetry-normalizer
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: telemetry-normalizer
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: telemetry-normalizer
@@ -669,10 +669,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pulsar-functions
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: pulsar-functions
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: pulsar-functions
@@ -684,10 +684,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: clickhouse-sink
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: clickhouse-sink
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: clickhouse-sink
@@ -701,10 +701,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: keydb-cache
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: keydb-cache
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: keydb-cache
@@ -718,10 +718,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: spin-functions
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: spin-functions
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: spin-functions
@@ -735,10 +735,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: alert-api
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: alert-api
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: alert-api
@@ -752,10 +752,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: entity-api
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: entity-api
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: entity-api
@@ -769,10 +769,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: observability-ui
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: observability-ui
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: observability-ui
@@ -784,10 +784,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: regional-apis
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: regional-apis
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: regional-apis
@@ -801,10 +801,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mcp-tools
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: mcp-tools
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   selector:
     app.kubernetes.io/name: mcp-tools
@@ -818,10 +818,10 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: spin-functions-lag
-  namespace: hpdc-epic4
+  namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: spin-functions-lag
-    app.kubernetes.io/part: epic-4
+    app.kubernetes.io/part: platform
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

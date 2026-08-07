@@ -1,4 +1,0 @@
-resources:
-  - ../../base/epic4-offline-scaffold.yaml
-
-namespace: hpdc-epic4
