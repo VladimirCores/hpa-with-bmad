@@ -1,0 +1,34 @@
+apiVersion: hpdc.io/v1
+kind: AlertAuditTrail
+metadata:
+  name: default-alert-audit-trail
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: default-alert-audit-trail
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-handling
+spec:
+  actions:
+    - acknowledge
+    - investigate
+    - add_note
+    - resolve
+    - close
+  concurrent_edit_policy:
+    prevent_same_state_update: true
+  visibility:
+    authorized_users: true
+    latest_state: true
+    audit_history: true
+  retention:
+    entries: 10000
+    history_days: 90
+  actor_validation:
+    required: true
+    unauthorized_response:
+      http_status: 403
+      record_attempt: true
+  invalid_transition_response:
+    http_status: 409
+    include_current_state: true
+    record_attempt: true

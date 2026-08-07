@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-handler-api
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: alert-handler-api
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-handling
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alert-handler-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alert-handler-api
+        app.kubernetes.io/part-of: hpdc-platform
+        app.kubernetes.io/component: alert-handling
+    spec:
+      serviceAccountName: alert-handler
+      containers:
+        - name: alert-handler
+          image: hpdc.local/alert-handler:0.1.0
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: AUDIT_LOG_PATH
+              value: /var/log/alerts/audit.ndjson
+            - name: STATE_STORE
+              value: couchdb
+          volumeMounts:
+            - name: audit-log
+              mountPath: /var/log/alerts
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: audit-log
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-handler-api
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: alert-handler-api
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-handling
+spec:
+  selector:
+    app.kubernetes.io/name: alert-handler-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

@@ -1,0 +1,68 @@
+apiVersion: hpdc.io/v1
+kind: AlertHandlerActions
+metadata:
+  name: default-alert-handler-actions
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: default-alert-handler-actions
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-handling
+spec:
+  allowed_transitions:
+    initial:
+      - acknowledged
+      - closed
+    acknowledged:
+      - investigating
+      - resolved
+      - closed
+    investigating:
+      - resolved
+      - acknowledged
+      - closed
+    resolved:
+      - closed
+      - reopened
+    closed:
+      []
+  actions:
+    acknowledge:
+      from: [initial, investigating]
+      to: acknowledged
+      requires_reason: false
+      roles: [oncall, platform-engineer, admin]
+    investigate:
+      from: [acknowledged]
+      to: investigating
+      requires_reason: false
+      roles: [oncall, platform-engineer, admin]
+    add_note:
+      from: [initial, acknowledged, investigating, resolved]
+      to: same
+      requires_reason: false
+      roles: [oncall, platform-engineer, admin, observer]
+    resolve:
+      from: [acknowledged, investigating]
+      to: resolved
+      requires_reason: true
+      roles: [oncall, platform-engineer, admin]
+    close:
+      from: [resolved, initial, acknowledged, investigating]
+      to: closed
+      requires_reason: true
+      roles: [admin]
+    reopen:
+      from: [resolved, closed]
+      to: initial
+      requires_reason: true
+      roles: [oncall, platform-engineer, admin]
+  roles:
+    oncall: [acknowledge, investigate, add_note, resolve]
+    platform-engineer: [acknowledge, investigate, add_note, resolve]
+    admin: [acknowledge, investigate, add_note, resolve, close, reopen]
+    observer: [add_note]
+  users:
+    alice@hpdc: oncall
+    bob@hpdc: platform-engineer
+    carol@hpdc: admin
+    dave@hpdc: observer
