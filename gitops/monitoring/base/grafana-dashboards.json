@@ -1,0 +1,192 @@
+{
+  "dashboards": [
+    {
+      "uid": "platform-health",
+      "title": "Platform Health",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Node Health",
+          "type": "stat",
+          "gridPos": {"x": 0, "y": 0, "w": 4, "h": 4},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "count(kube_node_status_condition{condition='Ready',status='true'})",
+              "legendFormat": "Ready Nodes"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "none"}}
+        },
+        {
+          "id": 2,
+          "title": "Cluster CPU Usage",
+          "type": "timeseries",
+          "gridPos": {"x": 4, "y": 0, "w": 8, "h": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(rate(container_cpu_usage_seconds_total[5m]))",
+              "legendFormat": "CPU"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Cluster Memory Usage",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 0, "w": 8, "h": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(container_memory_working_set_bytes)",
+              "legendFormat": "Memory"
+            }
+          ]
+        }
+      ],
+      "time": {"from": "now-24h", "to": "now"}
+    },
+    {
+      "uid": "telemetry-throughput",
+      "title": "Telemetry Throughput",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Ingestion Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(rate(telemetry_ingestion_total[5m]))",
+              "legendFormat": "Events/s"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Processing Lag",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(telemetry_processing_lag)",
+              "legendFormat": "Lag"
+            }
+          ]
+        }
+      ],
+      "time": {"from": "now-24h", "to": "now"}
+    },
+    {
+      "uid": "alert-statistics",
+      "title": "Alert Statistics",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Alerts by State",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(alert_state) by (state)",
+              "legendFormat": "{{state}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Alert Resolution Time",
+          "type": "stat",
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "avg(alert_resolution_time_seconds)",
+              "legendFormat": "Mean"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}}
+        }
+      ],
+      "time": {"from": "now-24h", "to": "now"}
+    },
+    {
+      "uid": "business-metrics",
+      "title": "Business Metrics",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Alert Throughput",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 8, "h": 6},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(rate(alert_audit_actions_total[5m]))",
+              "legendFormat": "Actions/s"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Device Coverage",
+          "type": "stat",
+          "gridPos": {"x": 8, "y": 0, "w": 4, "h": 6},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "count(entity_state)",
+              "legendFormat": "Devices"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "none"}}
+        },
+        {
+          "id": 3,
+          "title": "SLA Compliance",
+          "type": "stat",
+          "gridPos": {"x": 12, "y": 0, "w": 4, "h": 6},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(sla_compliance_total) / clamp_min(sum(sla_requests_total), 1)",
+              "legendFormat": "SLA %"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "percentunit"}}
+        },
+        {
+          "id": 4,
+          "title": "Cost per Cluster",
+          "type": "stat",
+          "gridPos": {"x": 16, "y": 0, "w": 4, "h": 6},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "sum(cost_per_cluster_usd)",
+              "legendFormat": "USD"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+        }
+      ],
+      "time": {"from": "now-24h", "to": "now"}
+    }
+  ]
+}
