@@ -1,0 +1,235 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: entity-store
+  labels:
+    app.kubernetes.io/name: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: hpdc-entity-ceph
+  labels:
+    app.kubernetes.io/name: hpdc-entity-ceph
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+provisioner: rook-ceph.rbd.csi.ceph.com
+parameters:
+  clusterID: rook-ceph
+  pool: replicapool
+  imageFormat: "2"
+  csi.storage.k8s.io/fstype: ext4
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+
+---
+apiVersion: hpdc.io/v1
+kind: EntityStore
+metadata:
+  name: entity-hierarchy-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: entity-hierarchy-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  stores:
+    couchdb:
+      document_hierarchy: true
+      document_crud: true
+    arcadedb:
+      graph_lineage: true
+      relationship_data: true
+    yugabytedb:
+      internal_transactional_state: true
+  stateful_storage:
+    ceph_backed: true
+    storage_class: hpdc-entity-ceph
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: couchdb-entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: couchdb-entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  database: entity_hierarchy
+  document_types: |
+    company
+    client
+    device
+    asset
+  schema_validation: per_type
+  change_feed: /entity_hierarchy/_changes?feed=continuous&include_docs=true
+  storage_class: hpdc-entity-ceph
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arcadedb-entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: arcadedb-entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  database: entity_graph
+  schema_validation: vertex_edge
+  traversal_capabilities: |
+    shortest_path
+    neighbor_discovery
+  traversal_latency_budget_ms: 100
+  graph_scale_nodes: "10000"
+  storage_class: hpdc-entity-ceph
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yugabytedb-entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: yugabytedb-entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  database: entity_system
+  schema_validation: relational
+  sql_interface: enabled
+  tables: |
+    internal_resources
+    entity_state
+  storage_class: hpdc-entity-ceph
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: couchdb-entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: couchdb-entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: couchdb-entity-store
+  ports:
+    - name: http
+      port: 5984
+      protocol: TCP
+      targetPort: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: arcadedb-entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: arcadedb-entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: arcadedb-entity-store
+  ports:
+    - name: http
+      port: 2480
+      protocol: TCP
+      targetPort: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yugabytedb-entity-store
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: yugabytedb-entity-store
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: yugabytedb-entity-store
+  ports:
+    - name: postgres
+      port: 5433
+      protocol: TCP
+      targetPort: postgres
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: couchdb-entity-data
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: couchdb-entity-data
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hpdc-entity-ceph
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: arcadedb-entity-data
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: arcadedb-entity-data
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hpdc-entity-ceph
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: yugabytedb-entity-data
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: yugabytedb-entity-data
+    app.kubernetes.io/component: entity-store
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hpdc-entity-ceph
+  resources:
+    requests:
+      storage: 20Gi
