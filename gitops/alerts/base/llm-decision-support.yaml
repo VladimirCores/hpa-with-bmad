@@ -1,0 +1,29 @@
+apiVersion: hpdc.io/v1
+kind: LlmDecisionSupport
+metadata:
+  name: default-llm-decision-support
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: default-llm-decision-support
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: llm-decision-support
+spec:
+  provider: configured
+  response_scope: actionable_recommendations_only
+  sensitive_action_policy:
+    execute_without_approval: false
+  confidence:
+    auto_execute_threshold: 0.85
+    manual_review_threshold: 0.5
+  logging:
+    input: true
+    output: true
+    decision_context: true
+  approval:
+    required_for: [restart_deployment, scale_deployment, delete_pod, increase_hpa_target]
+    allow_sensitive_auto_execute: false
+  approvers:
+    - alice@hpdc
+    - carol@hpdc
+  rate_limits:
+    max_recommendations_per_minute: 60

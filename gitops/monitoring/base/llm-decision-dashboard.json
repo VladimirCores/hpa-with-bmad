@@ -1,0 +1,87 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "llm-decision",
+    "title": "LLM Decision Support",
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Recommendations by Decision",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus"},
+            "expr": "sum(rate(llm_decision_recommendations_total[5m])) by (decision)",
+            "legendFormat": "{{decision}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Recommendation Confidence",
+        "type": "timeseries",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus"},
+            "expr": "histogram_quantile(0.50, sum(rate(llm_decision_confidence_bucket[5m])) by (le))",
+            "legendFormat": "p50"
+          },
+          {
+            "datasource": {"type": "prometheus"},
+            "expr": "histogram_quantile(0.95, sum(rate(llm_decision_confidence_bucket[5m])) by (le))",
+            "legendFormat": "p95"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Pending Approvals",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 8, "w": 4, "h": 4},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus"},
+            "expr": "sum(llm_decision_pending_approvals)",
+            "legendFormat": "Pending"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "none"}}
+      },
+      {
+        "id": 4,
+        "title": "Approval Rate",
+        "type": "stat",
+        "gridPos": {"x": 4, "y": 8, "w": 4, "h": 4},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus"},
+            "expr": "sum(rate(llm_decision_approvals_total[1h])) / clamp_min(sum(rate(llm_decision_pending_approvals[1h])), 1)",
+            "legendFormat": "Approval Rate"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "percentunit"}}
+      },
+      {
+        "id": 5,
+        "title": "Unauthorized Approval Attempts",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 8, "w": 4, "h": 4},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus"},
+            "expr": "sum(increase(llm_decision_approvals_total{result='unauthorized'}[24h]))",
+            "legendFormat": "Unauthorized (24h)"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "none"}}
+      }
+    ],
+    "time": {"from": "now-24h", "to": "now"}
+  }
+}

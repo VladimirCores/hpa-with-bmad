@@ -103,7 +103,8 @@ development_status:
   5-1-ingest-alert-signals-through-directed-kafka-streams: done
   5-2-persist-alert-state-machine-transitions: done
   5-3-trigger-automated-alert-responses: done
-  5-4-manage-human-alert-handling-with-audit-trail: backlog
+  5-4-manage-human-alert-handling-with-audit-trail: done
+  5-5-provide-basic-llm-decision-support-for-alerts: done
   5-5-provide-basic-llm-decision-support-for-alerts: backlog
   epic-5-retrospective: optional
 

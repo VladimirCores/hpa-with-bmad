@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-decision-support-api
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: llm-decision-support-api
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: llm-decision-support
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llm-decision-support-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: llm-decision-support-api
+        app.kubernetes.io/part-of: hpdc-platform
+        app.kubernetes.io/component: llm-decision-support
+    spec:
+      serviceAccountName: alert-handler
+      containers:
+        - name: llm-decision-support
+          image: hpdc.local/llm-decision-support:0.1.0
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: DECISION_LOG_PATH
+              value: /var/log/alerts/decisions.ndjson
+            - name: PROVIDER
+              value: configured
+          volumeMounts:
+            - name: decision-log
+              mountPath: /var/log/alerts
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: decision-log
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-decision-support-api
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: llm-decision-support-api
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: llm-decision-support
+spec:
+  selector:
+    app.kubernetes.io/name: llm-decision-support-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

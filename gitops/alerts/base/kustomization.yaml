@@ -8,3 +8,5 @@ resources:
   - alert-response-engine.yaml
   - alert-response-function.yaml
   - alert-workflows.yaml
+  - llm-decision-support.yaml
+  - llm-decision-support-api.yaml
