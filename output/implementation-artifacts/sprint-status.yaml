@@ -109,7 +109,7 @@ development_status:
 
   epic-6: in-progress
   6-1-store-entity-hierarchy-across-couchdb-arcadedb-and-yugabytedb: done
-  6-2-provide-entity-crud-and-bulk-operations: backlog
+  6-2-provide-entity-crud-and-bulk-operations: done
   6-3-react-to-entity-change-feeds-with-knative-restate: backlog
   6-4-expose-cross-store-queries-through-hasura-graphql: backlog
   epic-6-retrospective: optional
