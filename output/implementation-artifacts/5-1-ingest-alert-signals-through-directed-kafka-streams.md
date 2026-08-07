@@ -26,7 +26,9 @@ so that alerts are queued reliably for Pulsar-based processing.
 
 ## Files
 
-- `scripts/kafka-produce-alert.sh` (new)
+- `scripts/kafka-produce-alert.py` (new)
+- `scripts/steps/19-kafka-alert-ingestion.py` (new)
 - `gitops/kafka/base/kafka-alerts.yaml` (new)
 - `gitops/kafka/overlays/dev/kustomization.yaml` (new)
+- `gitops/monitoring/base/kafka-alert-dashboard.json` (new)
 - `tests/test_kafka_alert_ingest.py` (new)
