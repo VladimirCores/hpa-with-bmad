@@ -100,7 +100,7 @@ development_status:
   epic-4-retrospective: optional
 
   epic-5: in_progress
-  5-1-ingest-alert-signals-through-directed-kafka-streams: backlog
+  5-1-ingest-alert-signals-through-directed-kafka-streams: in_progress
   5-2-persist-alert-state-machine-transitions: backlog
   5-3-trigger-automated-alert-responses: backlog
   5-4-manage-human-alert-handling-with-audit-trail: backlog

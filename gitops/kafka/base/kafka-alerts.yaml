@@ -1,0 +1,129 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: alerts.incoming
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: alerts-incoming
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    segment.bytes: "1073741824"
+  topicName: alerts.incoming
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: alerts.warning
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: alerts-warning
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  partitions: 6
+  replicas: 3
+  config:
+    retention.ms: 604800000
+  topicName: alerts.warning
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: alerts.critical
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: alerts-critical
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 604800000
+  topicName: alerts.critical
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: alerts.state
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: alerts-state
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  partitions: 3
+  config:
+    retention.ms: 604800000
+    cleanup.policy: compact
+    min.cleanable.delta.ms: "1000"
+    segment.bytes: "1073741824"
+  topicName: alerts.state
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: alerts.dlq
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: alerts-dlq
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000
+  topicName: alerts.dlq
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-schema
+  namespace: kafka
+  labels:
+    app.kubernetes.io/name: alert-schema
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  _alertSchema.yaml: |
+    id: https://hpdc.io/schemas/alert/v1
+    $schema: "http://json-schema.org/draft-07/schema#"
+    type: object
+    required:
+      - alert_id
+      - source
+      - severity
+      - timestamp
+      - message
+      - context
+    properties:
+      alert_id:
+        type: string
+        description: "Unique alert identifier (UUID v7)"
+        pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      source:
+        type: string
+        description: "Component emitting the alert"
+      severity:
+        type: string
+        enum: [critical, warning, info]
+      timestamp:
+        type: string
+        format: date-time
+      message:
+        type: string
+        maxLength: 1000
+      context:
+        type: object
+        additionalProperties: true
+      correlation_id:
+        type: string
+        description: "Optional trace/span correlation ID"
+      deduplication_key:
+        type: string
+        description: "Key for deduplication within 60s window"
