@@ -3,10 +3,10 @@
   "config_path": "output/telemetry-simulator/config.yaml",
   "connection_failures": 0,
   "device_count": 10,
-  "elapsed_seconds": 0.000458,
+  "elapsed_seconds": 0.000465,
   "error_rate": 0.0,
   "exit_status": 0,
-  "generated_at": "2026-08-05T08:52:27Z",
+  "generated_at": "2026-08-07T08:03:42Z",
   "latency_percentiles_ms": {
     "p50": 0.0,
     "p95": 0.0,
@@ -14,7 +14,7 @@
   },
   "message_rate": 100,
   "messages_generated": 100,
-  "mode": "dry-run",
+  "mode": "check",
   "protocol_counts": {
     "grpc": {
       "accepted": 0,
@@ -46,6 +46,6 @@
   "rejected_messages": 0,
   "schema_failures": 0,
   "target_rps": 100,
-  "throughput_messages_per_second": 655021.834,
+  "throughput_messages_per_second": 645161.29,
   "total_messages": 300
 }
