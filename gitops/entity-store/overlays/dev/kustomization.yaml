@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base/entity-store.yaml
   - ../../base/entity-crud.yaml
+  - ../../base/entity-change-feed.yaml
 namespace: entity-store
 commonLabels:
   environment: dev

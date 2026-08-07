@@ -1,0 +1,78 @@
+apiVersion: hpdc.io/v1
+kind: EntityChangeFeed
+metadata:
+  name: entity-change-feed
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: entity-change-feed
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: entity-store
+spec:
+  sources:
+    - couchdb._changes
+    - yugabytedb.cdc
+  reaction_time_ms: 500
+  workflow:
+    knative: true
+    restate: true
+    exactly_once: true
+  idempotency:
+    key: source_change_id
+    deduplication: enabled
+  retry_policy:
+    automatic_retry: true
+    max_attempts: 3
+    dead_letter_queue: hpdc.entity.dead.letter
+
+---
+apiVersion: hpdc.io/v1
+kind: EntityChangeDedupe
+metadata:
+  name: entity-change-dedupe
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: entity-change-dedupe
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: entity-store
+spec:
+  virtual_objects: restate
+  dedupe_key: source_change_id
+  processed_window: 24h
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: entity-change-feed-config
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: entity-change-feed-config
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: entity-store
+data:
+  sources: |
+    - couchdb._changes
+    - yugabytedb.cdc
+  reaction_time_ms: "500"
+  workflow: knative+restate
+  exactly_once: "true"
+  dedupe_key: source_change_id
+  dead_letter_queue: hpdc.entity.dead.letter
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: entity-change-processor
+  namespace: entity-store
+  labels:
+    app.kubernetes.io/name: entity-change-processor
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: entity-store
+spec:
+  selector:
+    app.kubernetes.io/name: entity-change-processor
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
