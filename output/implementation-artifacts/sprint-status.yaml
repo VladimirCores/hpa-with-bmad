@@ -128,7 +128,7 @@ development_status:
   8-3-query-regional-apis-for-cross-region-visibility: done
   epic-8-retrospective: optional
 
-  epic-9: backlog
-  9-1-expose-platform-capabilities-as-mcp-tools: backlog
+  epic-9: in-progress
+  9-1-expose-platform-capabilities-as-mcp-tools: done
   9-2-enable-agent-to-agent-communication: backlog
   epic-9-retrospective: optional
