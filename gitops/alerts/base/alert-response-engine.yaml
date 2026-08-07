@@ -1,0 +1,37 @@
+apiVersion: hpdc.io/v1
+kind: AlertResponseEngine
+metadata:
+  name: default-alert-response-engine
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: default-alert-response-engine
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-responses
+spec:
+  # Actions that can be triggered automatically
+  enabled_actions:
+    restart_deployment:
+      description: "Restart Kubernetes Deployment"
+      requires_approval: false
+      latency_target_ms: 5000
+    delete_pod:
+      description: "Delete specific Pod"
+      requires_approval: false
+      latency_target_ms: 2000
+    scale_deployment:
+      description: "Scale Deployment replicas"
+      requires_approval: false
+      latency_target_ms: 3000
+    increase_hpa_target:
+      description: "Increase HPA target value"
+      requires_approval: false
+      latency_target_ms: 1000
+  # Rate limiting to prevent cascade
+  rate_limits:
+    max_actions_per_minute: 100
+    max_actions_per_alert: 3
+  # Health check configuration
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 10

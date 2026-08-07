@@ -1,0 +1,81 @@
+apiVersion: hpdc.io/v1
+kind: AlertWorkflow
+metadata:
+  name: default-alert-workflows
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: default-alert-workflows
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-workflows
+spec:
+  # Workflow definitions for common alert remediation patterns
+  workflows:
+    - id: restart-service
+      name: "Restart Service on Failure"
+      description: "Automatically restart a Deployment when the service becomes unhealthy"
+      trigger:
+        alert_type: "service_down"
+        severity: "critical"
+        cooldown_minutes: 5
+      actions:
+        - type: restart_deployment
+          target_selector: "deployment={{alert.context.deployment_name}}"
+          namespace: "{{alert.context.namespace}}"
+      conditions:
+        - "{{alert.context.restart_count | default(0) < 3}}"
+      on_success:
+        - update_alert: {state: "resolved", reason: "auto_restart_success"}
+      on_failure:
+        - update_alert: {state: "awaiting_approval", reason: "restart_failed"}
+        - notification: {channel: "slack:ops-alerts"}
+
+    - id: scale-up-memory
+      name: "Scale Up Memory-Intensive Workloads"
+      description: "Increase CPU/Memory for memory-pressure alerts"
+      trigger:
+        alert_type: "memory_pressure"
+        severity: "warning"
+        cooldown_minutes: 10
+      actions:
+        - type: increase_hpa_target
+          target_selector: "hpa={{alert.context.hpa_name}}"
+          namespace: "{{alert.context.namespace}}"
+          metric: "memory"
+          adjustment: "+50"
+          max_replicas: 100
+      conditions:
+        - "{{alert.context.current_replicas < 50}}"
+      on_success:
+        - update_alert: {state: "resolved", reason: "scale_up_success"}
+      on_failure:
+        - fallback_action: {type: "notify", channel: "slack:oncall"}
+
+    - id: pod-delete-for-node-failure
+      name: "Delete Pods on Node Failure"
+      description: "Evict pods from failing nodes"
+      trigger:
+        alert_type: "node_unreachable"
+        severity: "warning"
+        cooldown_minutes: 1
+      actions:
+        - type: delete_pod
+          target_selector: "pod={{alert.context.pod_name}}"
+          namespace: "{{alert.context.namespace}}"
+          node: "{{alert.context.node_name}}"
+      batch_size: 10
+      on_success:
+        - update_alert: {state: "resolved", reason: "pod_evicted"}
+  # Default workflow for unhandled alerts
+  default_action: "notify_with_context"
+  notification_templates:
+    slack: |
+      ⚠️ *Alert:* {{alert.name}}
+      *Severity:* {{alert.severity}}
+      *Source:* {{alert.source}}
+      *Context:* {{alert.context}}
+      *Response:* {{workflow.name}} (pending approval)
+    email: |
+      Alert: {{alert.name}} ({{alert.severity}})
+      Source: {{alert.source}}
+      Context: {{alert.context}}
+      Workflow: {{workflow.name}}

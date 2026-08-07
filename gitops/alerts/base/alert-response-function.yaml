@@ -1,0 +1,60 @@
+apiVersion: pulsar.streamnative.io/v1alpha1
+kind: PulsarFunction
+metadata:
+  name: alert-response-function
+  namespace: hpdc-alerts
+  labels:
+    app.kubernetes.io/name: alert-response-function
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: alert-responses
+spec:
+  source:
+    subscriptionNamePrefix: alerts.state
+    typeName: AlertStateMachine
+  sink:
+    type: kubernetes_job
+    namespace: hpdc-alerts
+    job_template: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: alert-action-{{alerting.alert_id}}
+      spec:
+        backoffLimit: 2
+        template:
+          spec:
+            serviceAccountName: alert-response-trigger
+            containers:
+              - name: executor
+                image: bitnami/kubectl:latest
+                command: ["/bin/sh", "-c"]
+                args:
+                  - |
+                    echo "Executing alert action: {{alerting.action}}"
+                    if [[ "{{alerting.action}}" == "restart_deployment" ]]; then
+                      kubectl rollout restart deployment/{{alerting.target}} -n {{alerting.namespace}}
+                    elif [[ "{{alerting.action}}" == "scale_deployment" ]]; then
+                      kubectl scale deployment/{{alerting.target}} --replicas={{alerting.replicas}} -n {{alerting.namespace}}
+                    elif [[ "{{alerting.action}}" == "delete_pod" ]]; then
+                      kubectl delete pod {{alerting.target}} -n {{alerting.namespace}}
+                    fi
+          restartPolicy: Never
+  runtime: GO
+  user_config:
+    max_retry_attempts: 3
+    retry_interval_ms: 5000
+    job_ttl_seconds: 3600
+    timeout_seconds: 30
+  autoCommit: true
+  inputs:
+    - topics:
+        - name: alerts.state
+          type: PARTITIONED
+          partition_key: alert_id
+  windowing:
+    kind: COOKIE
+    length: 5000ms
+  dead_letter_queue: hpdc-alerts.alerts.dlq
+  metrics:
+    enabled: true
+    expose_internal: true
