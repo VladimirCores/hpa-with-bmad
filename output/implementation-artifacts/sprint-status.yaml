@@ -114,8 +114,8 @@ development_status:
   6-4-expose-cross-store-queries-through-hasura-graphql: done
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-deploy-victoriametrics-metrics-cluster: backlog
+  epic-7: in-progress
+  7-1-deploy-victoriametrics-metrics-cluster: done
   7-2-collect-logs-with-vmlog: backlog
   7-3-export-distributed-traces-with-opentelemetry-collector: backlog
   7-4-configure-grafana-dashboards-and-alertmanager: backlog

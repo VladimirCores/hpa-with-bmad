@@ -1,0 +1,250 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: victoria-metrics
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: victoria-metrics
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: hpdc.io/v1
+kind: ObservabilityPipeline
+metadata:
+  name: platform-observability-pipeline
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: platform-observability-pipeline
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  metrics_cluster:
+    victoriametrics:
+      components:
+        - vmstorage
+        - vminsert
+        - vmselect
+      retention:
+        dev: 24h
+        staging: 7d
+        prod: configurable
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: victoria-metrics-retention
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: victoria-metrics-retention
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  retention.yaml: |
+    dev: 24h
+    staging: 7d
+    prod: configurable
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vmstorage
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmstorage
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  serviceName: vmstorage
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmstorage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vmstorage
+        app.kubernetes.io/component: victoria-metrics
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      serviceAccountName: victoria-metrics
+      containers:
+        - name: vmstorage
+          image: victoriametrics/vmstorage:latest
+          args:
+            - -retentionPeriod=24h
+          ports:
+            - name: http
+              containerPort: 8482
+            - name: vminsert
+              containerPort: 8400
+            - name: vmselect
+              containerPort: 8401
+          volumeMounts:
+            - name: vmstorage-data
+              mountPath: /victoria-metrics-data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+      volumes:
+        - name: vmstorage-data
+          emptyDir: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vminsert
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vminsert
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vminsert
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vminsert
+        app.kubernetes.io/component: victoria-metrics
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      serviceAccountName: victoria-metrics
+      containers:
+        - name: vminsert
+          image: victoriametrics/vminsert:latest
+          args:
+            - -storageNode=vmstorage:8400
+          ports:
+            - name: http
+              containerPort: 8480
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmselect
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmselect
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmselect
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vmselect
+        app.kubernetes.io/component: victoria-metrics
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      serviceAccountName: victoria-metrics
+      containers:
+        - name: vmselect
+          image: victoriametrics/vmselect:latest
+          args:
+            - -storageNode=vmstorage:8401
+          ports:
+            - name: http
+              containerPort: 8481
+          readinessProbe:
+            httpGet:
+              path: /select/0/prometheus/api/v1/status/buildinfo
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmstorage
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmstorage
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app.kubernetes.io/name: vmstorage
+  ports:
+    - name: http
+      port: 8482
+      targetPort: http
+    - name: vminsert
+      port: 8400
+      targetPort: vminsert
+    - name: vmselect
+      port: 8401
+      targetPort: vmselect
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vminsert
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vminsert
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app.kubernetes.io/name: vminsert
+  ports:
+    - name: http
+      port: 8480
+      targetPort: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmselect
+  namespace: victoria-metrics
+  labels:
+    app.kubernetes.io/name: vmselect
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app.kubernetes.io/name: vmselect
+  ports:
+    - name: http
+      port: 8481
+      targetPort: http
