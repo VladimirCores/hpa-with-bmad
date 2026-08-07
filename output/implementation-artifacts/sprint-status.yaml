@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-07T14:00:00Z
+last_updated: 2026-08-07T15:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -122,10 +122,10 @@ development_status:
   7-5-expose-grafana-and-hubble-tool-uis-via-envoy-gateway: done
   epic-7-retrospective: optional
 
-  epic-8: in-progress
+  epic-8: done
   8-1-establish-cross-cluster-service-discovery-with-clustermesh: done
   8-2-enforce-regional-data-sovereignty: done
-  8-3-query-regional-apis-for-cross-region-visibility: backlog
+  8-3-query-regional-apis-for-cross-region-visibility: done
   epic-8-retrospective: optional
 
   epic-9: backlog
