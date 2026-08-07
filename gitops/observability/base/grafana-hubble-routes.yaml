@@ -1,0 +1,85 @@
+apiVersion: hpdc.io/v1
+kind: ToolUIRoute
+metadata:
+  name: grafana-hubble-tool-ui-routes
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: grafana-hubble-tool-ui-routes
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: ui
+spec:
+  routes:
+    - host: grafana.hpdc.local
+      service: grafana
+      native_auth: true
+    - host: hubble.hpdc.local
+      service: hubble-ui
+      native_auth: true
+  authz:
+    casdoor_casbin_ext_authz: false
+  tls:
+    termination: envoy_gateway
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hpdc-edge-grafana-hubble-host-routes
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/name: hpdc-edge-grafana-hubble-host-routes
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: ui
+  annotations:
+    gateway.envoyproxy.io/native-auth: "true"
+    gateway.envoyproxy.io/casbin-enforced: "false"
+spec:
+  parentRefs:
+    - name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - "grafana.hpdc.local"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: grafana
+          namespace: observability
+          port: 80
+          kind: Service
+          weight: 1
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hpdc-edge-hubble-host-route
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/name: hpdc-edge-hubble-host-route
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: ui
+  annotations:
+    gateway.envoyproxy.io/native-auth: "true"
+    gateway.envoyproxy.io/casbin-enforced: "false"
+spec:
+  parentRefs:
+    - name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - "hubble.hpdc.local"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: hubble-ui
+          namespace: observability
+          port: 80
+          kind: Service
+          weight: 1
