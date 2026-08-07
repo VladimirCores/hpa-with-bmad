@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: regional-sovereignty
+  labels:
+    app.kubernetes.io/name: regional-sovereignty
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+
+---
+apiVersion: hpdc.io/v1
+kind: RegionalDataSovereignty
+metadata:
+  name: regional-data-sovereignty
+  namespace: regional-sovereignty
+  labels:
+    app.kubernetes.io/name: regional-data-sovereignty
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+spec:
+  regional_stores:
+    couchdb: true
+    yugabytedb: true
+    clickhouse: true
+    arcadedb: true
+    keydb: true
+    postgresql: true
+  replication:
+    default: disabled
+    explicit_configuration_required: true
+  regions:
+    - name: region-1
+      stores:
+        - couchdb
+        - yugabytedb
+        - clickhouse
+        - arcadedb
+        - keydb
+        - postgresql
+    - name: region-2
+      stores:
+        - couchdb
+        - yugabytedb
+        - clickhouse
+        - arcadedb
+        - keydb
+        - postgresql
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: regional-route-config
+  namespace: regional-sovereignty
+  labels:
+    app.kubernetes.io/name: regional-route-config
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+data:
+  routes.yaml: |
+    - region: region-1
+      couchdb: couchdb.region-1.svc:5984
+      yugabytedb: yugabytedb.region-1.svc:5433
+      clickhouse: clickhouse.region-1.svc:8123
+      arcadedb: arcadedb.region-1.svc:2480
+      keydb: keydb.region-1.svc:6379
+      postgresql: postgresql.region-1.svc:5432
+    - region: region-2
+      couchdb: couchdb.region-2.svc:5984
+      yugabytedb: yugabytedb.region-2.svc:5433
+      clickhouse: clickhouse.region-2.svc:8123
+      arcadedb: arcadedb.region-2.svc:2480
+      keydb: keydb.region-2.svc:6379
+      postgresql: postgresql.region-2.svc:5432
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: replication-policy-config
+  namespace: regional-sovereignty
+  labels:
+    app.kubernetes.io/name: replication-policy-config
+    app.kubernetes.io/part-of: hpdc-platform
+    app.kubernetes.io/component: multi-region
+data:
+  policy.yaml: |
+    default_replication: disabled
+    explicit_configuration_required: true
+    allowed_after_approval: true
+    require_region_scoped_credentials: true

@@ -124,7 +124,7 @@ development_status:
 
   epic-8: in-progress
   8-1-establish-cross-cluster-service-discovery-with-clustermesh: done
-  8-2-enforce-regional-data-sovereignty: backlog
+  8-2-enforce-regional-data-sovereignty: done
   8-3-query-regional-apis-for-cross-region-visibility: backlog
   epic-8-retrospective: optional
 
