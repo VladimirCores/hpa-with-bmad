@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base/victoria-metrics.yaml
   - ../../base/vmlogs.yaml
+  - ../../base/otel-collector.yaml
 namespace: victoria-metrics
 commonLabels:
   environment: dev

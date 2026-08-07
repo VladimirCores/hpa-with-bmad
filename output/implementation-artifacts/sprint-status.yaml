@@ -117,7 +117,7 @@ development_status:
   epic-7: in-progress
   7-1-deploy-victoriametrics-metrics-cluster: done
   7-2-collect-logs-with-vmlog: done
-  7-3-export-distributed-traces-with-opentelemetry-collector: backlog
+  7-3-export-distributed-traces-with-opentelemetry-collector: done
   7-4-configure-grafana-dashboards-and-alertmanager: backlog
   7-5-expose-grafana-and-hubble-tool-uis-via-envoy-gateway: backlog
   epic-7-retrospective: optional
