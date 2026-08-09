@@ -21,6 +21,17 @@ provisioned:
       - "hpdc-telemetry-http-api-key-authn (X-API-Key, secretRef telemetry-api-key): /telemetry"
       - "hpdc-telemetry-grpc-api-key-authn (telemetry-api-key store)"
       - "events-key authenticates only /events; telemetry-key authenticates only /telemetry (R-009)"
+  harbor-image-cache:
+    value: harbor-2.11.3
+    images:
+      - name: harbor/harbor-core:v2.11.3
+        source: output/harbor/images/harbor-core-v2.11.3
+        digest: sha256:offline-core
+        changed: false
+      - name: harbor/harbor-registry:v2.11.3
+        source: output/harbor/images/harbor-registry-v2.11.3
+        digest: sha256:offline-registry
+        changed: false
   envoy-gateway: {}
   casbin-rbac: {}
   casbin-rebac: {}

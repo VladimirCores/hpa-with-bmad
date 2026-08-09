@@ -7,18 +7,23 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import record
+
 ROOT = Path(__file__).resolve().parents[1]
 HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / "harbor-core-v2.11.3"
-METADATA = ROOT / "output" / "harbor" / "image-cache-metadata.yaml"
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "refresh"
+
+
+def metadata() -> dict | None:
+    return record("harbor-image-cache")
 
 
 def ensure_files() -> None:
     if not HARBOR_MARKER.exists():
         raise RuntimeError(f"Harbor image cache marker not found: {HARBOR_MARKER}")
-    if not METADATA.exists():
-        raise RuntimeError(f"Harbor image cache metadata not found: {METADATA}")
+    if metadata() is None:
+        raise RuntimeError("Harbor image cache metadata not found in output/provisioned.yaml")
 
 
 def validate_manifests() -> list[str]:
@@ -28,13 +33,14 @@ def validate_manifests() -> list[str]:
         if not path.exists():
             failures.append(str(path.relative_to(ROOT)))
     refresh = (HARBOR_BASE / "image-cache-refresh.yaml").read_text(encoding="utf-8")
-    metadata = METADATA.read_text(encoding="utf-8")
+    images = (metadata() or {}).get("images") or []
     if "kind: ConfigMap" not in refresh or "harbor-image-cache-refresh" not in refresh:
         failures.append("image-cache-refresh.yaml missing ConfigMap")
     if "digest:" not in refresh or "changed: false" not in refresh:
         failures.append("image-cache-refresh.yaml missing digest/change fields")
-    if "name: harbor/harbor-core:v2.11.3" not in metadata or "digest: sha256:offline-core" not in metadata:
-        failures.append("metadata missing Harbor core digest")
+    core = next((image for image in images if image.get("name") == "harbor/harbor-core:v2.11.3"), None)
+    if core is None or core.get("digest") != "sha256:offline-core":
+        failures.append("provisioned.yaml harbor-image-cache missing Harbor core digest")
     return failures
 
 

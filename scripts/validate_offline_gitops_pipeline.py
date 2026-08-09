@@ -7,7 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from _provisioned import value
+from _provisioned import record, value
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
@@ -24,7 +24,6 @@ REQUIRED = [
     ROOT / "gitops/argo-rollouts/base/argorollouts.yaml",
     ROOT / "gitops/argo-events/base/argoevents.yaml",
     ROOT / "output/harbor/cache-images.txt",
-    ROOT / "output/harbor/image-cache-metadata.yaml",
     ROOT / "output/spegel/images/spegel-v0.4.0",
     ROOT / "output/provisioned.yaml",
 ]
@@ -38,6 +37,9 @@ def validate() -> list[str]:
     for component in ["git-mirror", "kargo", "argocd", "argo-rollouts", "argo-events"]:
         if value(component) is None:
             failures.append(f"provisioned: {component}")
+    images = (record("harbor-image-cache") or {}).get("images") or []
+    if not any(image.get("name") == "harbor/harbor-core:v2.11.3" for image in images):
+        failures.append("provisioned: harbor-image-cache core image")
     return failures
 
 

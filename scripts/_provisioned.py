@@ -39,3 +39,9 @@ def value(component: str) -> str | None:
     if isinstance(entry, dict):
         return entry.get("value")
     return None
+
+
+def record(component: str) -> dict | None:
+    """Return the full footprint entry recorded for ``component``, if any."""
+    entry = load().get(component)
+    return entry if isinstance(entry, dict) else None

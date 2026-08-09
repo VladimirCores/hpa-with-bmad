@@ -10,6 +10,12 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from _provisioned import record  # noqa: E402
+
 PROVISIONED_COMPONENTS = ["git-mirror", "kargo", "argocd", "argo-rollouts", "argo-events"]
 
 
@@ -36,7 +42,6 @@ def validate() -> None:
         "gitops/cert-manager/base/cert-manager.yaml",
         "gitops/cert-manager/overlays/dev/kustomization.yaml",
         "output/harbor/cache-images.txt",
-        "output/harbor/image-cache-metadata.yaml",
         "output/spegel/images/spegel-v0.4.0",
         "output/provisioned.yaml",
     ]
@@ -48,6 +53,8 @@ def validate() -> None:
     assert set(PROVISIONED_COMPONENTS) <= set(provisioned), "provisioned.yaml missing components"
     for component in PROVISIONED_COMPONENTS:
         assert provisioned[component].get("value"), f"provisioned.yaml: {component} has no value"
+    images = (record("harbor-image-cache") or {}).get("images") or []
+    assert any(image.get("name") == "harbor/harbor-core:v2.11.3" for image in images), "provisioned.yaml: harbor-image-cache missing core"
     assert "kind: Rollout" in (ROOT / "gitops/argo-rollouts/base/argorollouts.yaml").read_text(encoding="utf-8")
     assert "kind: Workflow" in (ROOT / "gitops/argo-events/base/argoevents.yaml").read_text(encoding="utf-8")
     assert "kind: HTTPRoute" in (ROOT / "gitops/envoy-gateway/base/envoy-gateway.yaml").read_text(encoding="utf-8")
