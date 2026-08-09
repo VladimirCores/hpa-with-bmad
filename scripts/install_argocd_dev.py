@@ -7,15 +7,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-ARGOCD_MARKER = ROOT / "output" / "argo-cd" / "applicationsets.txt"
 ARGOCD_BASE = ROOT / "gitops" / "argo-cd" / "base"
 ARGOCD_OVERLAY = ROOT / "gitops" / "argo-cd" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
-    if not ARGOCD_MARKER.exists():
-        raise RuntimeError(f"Argo CD marker not found: {ARGOCD_MARKER}")
+    require("argocd")
 
 
 def validate_manifests() -> list[str]:

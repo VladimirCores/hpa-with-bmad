@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-INFISICAL_MARKER = ROOT / "output" / "infisical" / "infisical-workspaces.txt"
 INFISICAL_BASE = ROOT / "gitops" / "infisical" / "base"
 INFISICAL_OVERLAY = ROOT / "gitops" / "infisical" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "infisical-secrets-management.md"
 
 
 def ensure_files() -> None:
-    if not INFISICAL_MARKER.exists():
-        raise RuntimeError(f"Infisical workspace marker not found: {INFISICAL_MARKER}")
+    require("infisical")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Infisical documentation missing: {ROUTE_TABLE}")
 

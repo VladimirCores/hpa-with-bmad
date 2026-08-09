@@ -7,8 +7,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-CERT_MANAGER_MARKER = ROOT / "output" / "cert-manager" / "cert-manager-workspaces.txt"
 CERT_MANAGER_BASE = ROOT / "gitops" / "cert-manager" / "base"
 CERT_MANAGER_OVERLAY = ROOT / "gitops" / "cert-manager" / "overlays" / "dev"
 ENVOY_MANIFEST = ROOT / "gitops" / "envoy-gateway" / "base" / "envoy-gateway.yaml"
@@ -16,8 +17,7 @@ ROUTE_TABLE = ROOT / "docs" / "cert-manager-tls-termination.md"
 
 
 def ensure_files() -> None:
-    if not CERT_MANAGER_MARKER.exists():
-        raise RuntimeError(f"cert-manager workspace marker not found: {CERT_MANAGER_MARKER}")
+    require("cert-manager")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"TLS termination documentation missing: {ROUTE_TABLE}")
 

@@ -7,7 +7,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+
+def _load_provisioned() -> dict:
+    data = yaml.safe_load((ROOT / "output" / "provisioned.yaml").read_text(encoding="utf-8"))
+    return data["provisioned"]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -20,7 +28,8 @@ def validate() -> None:
     assert "name: git-mirror" in mirror
     assert "alpine/git:2.45.2" in mirror
     assert "storageClassName: rook-ceph-rbd" in mirror
-    assert (ROOT / "output/git/mirror-repositories.txt").read_text(encoding="utf-8").strip() == "git-mirror"
+    provisioned = _load_provisioned()
+    assert provisioned["git-mirror"]["value"] == "git-mirror"
 
 
 def main() -> int:

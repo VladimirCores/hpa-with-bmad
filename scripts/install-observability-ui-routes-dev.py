@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-OBSERVABILITY_MARKER = ROOT / "output" / "observability" / "observability-ui-workspaces.txt"
 OBSERVABILITY_BASE = ROOT / "gitops" / "observability" / "base"
 OBSERVABILITY_OVERLAY = ROOT / "gitops" / "observability" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "observability-ui-routes-via-envoy-gateway.md"
 
 
 def ensure_files() -> None:
-    if not OBSERVABILITY_MARKER.exists():
-        raise RuntimeError(f"Observability UI workspace marker not found: {OBSERVABILITY_MARKER}")
+    require("observability-ui")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Observability UI documentation missing: {ROUTE_TABLE}")
 

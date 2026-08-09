@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-CASBIN_REBACK_MARKER = ROOT / "output" / "casbin" / "casbin-rebac-workspaces.txt"
 CASBIN_REBACK_BASE = ROOT / "gitops" / "casbin" / "base"
 CASBIN_REBACK_OVERLAY = ROOT / "gitops" / "casbin" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "casbin-rebac-policies.md"
 
 
 def ensure_files() -> None:
-    if not CASBIN_REBACK_MARKER.exists():
-        raise RuntimeError(f"Casbin ReBAC workspace marker not found: {CASBIN_REBACK_MARKER}")
+    require("casbin-rebac")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Casbin ReBAC documentation missing: {ROUTE_TABLE}")
 

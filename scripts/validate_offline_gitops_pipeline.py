@@ -7,6 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import value
+
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
     ROOT / "gitops/harbor/base/harbor.yaml",
@@ -23,12 +25,8 @@ REQUIRED = [
     ROOT / "gitops/argo-events/base/argoevents.yaml",
     ROOT / "output/harbor/cache-images.txt",
     ROOT / "output/harbor/image-cache-metadata.yaml",
-    ROOT / "output/git/mirror-repositories.txt",
     ROOT / "output/spegel/images/spegel-v0.4.0",
-    ROOT / "output/kargo/kargo-workspaces.txt",
-    ROOT / "output/argo-cd/applicationsets.txt",
-    ROOT / "output/argo-rollouts/rollouts.txt",
-    ROOT / "output/argo-events/events.txt",
+    ROOT / "output/provisioned.yaml",
 ]
 
 
@@ -37,6 +35,9 @@ def validate() -> list[str]:
     for path in REQUIRED:
         if not path.exists():
             failures.append(str(path.relative_to(ROOT)))
+    for component in ["git-mirror", "kargo", "argocd", "argo-rollouts", "argo-events"]:
+        if value(component) is None:
+            failures.append(f"provisioned: {component}")
     return failures
 
 

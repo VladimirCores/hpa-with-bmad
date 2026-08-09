@@ -2,6 +2,6 @@
 
 Run `python3 startup.dev.py --offline --dry-run --step 14-install-argoevents-dev.py` to validate Argo Events and workflow scaffolding.
 
-Required file:
+Required footprint:
 
-- `output/argo-events/events.txt`
+- `output/provisioned.yaml` → `provisioned.argo-events.value`

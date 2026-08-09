@@ -7,15 +7,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require, value
+
 ROOT = Path(__file__).resolve().parents[1]
-GIT_MIRROR = ROOT / "output" / "git" / "mirror-repositories.txt"
 GIT_BASE = ROOT / "gitops" / "git" / "base"
 GIT_OVERLAY = ROOT / "gitops" / "git" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
-    if not GIT_MIRROR.exists():
-        raise RuntimeError(f"Git mirror repository list not found: {GIT_MIRROR}")
+    require("git-mirror")
 
 
 def validate_manifests() -> list[str]:
@@ -62,7 +62,7 @@ def main() -> int:
         print("Local Git mirror apply requested.")
         return 0
     if args.dry_run:
-        repos = [line.strip() for line in GIT_MIRROR.read_text(encoding="utf-8").splitlines() if line.strip()]
+        repos = [repo for repo in (value("git-mirror") or "").splitlines() if repo]
         print("Local Git mirror dry-run passed.")
         print(f"Repositories mirrored: {len(repos)}")
         for repo in repos:

@@ -7,8 +7,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-TELEMETRY_MARKER = ROOT / "output" / "telemetry-ingestion" / "telemetry-ingestion-workspaces.txt"
 TELEMETRY_BASE = ROOT / "gitops" / "telemetry-ingestion" / "base"
 TELEMETRY_OVERLAY = ROOT / "gitops" / "telemetry-ingestion" / "overlays" / "dev"
 ENVOY_GATEWAY = ROOT / "gitops" / "envoy-gateway" / "base" / "envoy-gateway.yaml"
@@ -17,7 +18,8 @@ ROUTE_TABLE = ROOT / "docs" / "telemetry-ingestion-route.md"
 
 
 def ensure_files() -> None:
-    for path in [TELEMETRY_MARKER, TELEMETRY_BASE / "telemetry-ingestion.yaml", TELEMETRY_OVERLAY / "kustomization.yaml", ENVOY_GATEWAY, API_KEY_AUTHN, ROUTE_TABLE]:
+    require("telemetry-ingestion")
+    for path in [TELEMETRY_BASE / "telemetry-ingestion.yaml", TELEMETRY_OVERLAY / "kustomization.yaml", ENVOY_GATEWAY, API_KEY_AUTHN, ROUTE_TABLE]:
         if not path.exists():
             raise RuntimeError(f"required file missing: {path.relative_to(ROOT)}")
 

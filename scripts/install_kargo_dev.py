@@ -7,15 +7,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-KARGO_MARKER = ROOT / "output" / "kargo" / "kargo-workspaces.txt"
 KARGO_BASE = ROOT / "gitops" / "kargo" / "base"
 KARGO_OVERLAY = ROOT / "gitops" / "kargo" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
-    if not KARGO_MARKER.exists():
-        raise RuntimeError(f"Kargo workspace marker not found: {KARGO_MARKER}")
+    require("kargo")
 
 
 def validate_manifests() -> list[str]:

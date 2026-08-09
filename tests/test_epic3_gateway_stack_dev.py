@@ -7,7 +7,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+PROVISIONED_COMPONENTS = [
+    "api-key-authn",
+    "casdoor",
+    "casbin-rbac",
+    "casbin-rebac",
+    "casbin-abac",
+    "infisical",
+    "openapi",
+    "backstage",
+    "tool-ui",
+    "observability-ui",
+]
 REQUIRED = [
     "gitops/security/base/api-key-authn.yaml",
     "gitops/security/overlays/dev/kustomization.yaml",
@@ -39,22 +53,16 @@ REQUIRED = [
     "docs/backstage-developer-portal.md",
     "docs/tool-ui-routes-via-envoy-gateway.md",
     "docs/observability-ui-routes-via-envoy-gateway.md",
-    "output/security/api-key-authn-workspaces.txt",
-    "output/casdoor/casdoor-workspaces.txt",
-    "output/casbin/casbin-rbac-workspaces.txt",
-    "output/casbin/casbin-rebac-workspaces.txt",
-    "output/casbin/casbin-abac-workspaces.txt",
-    "output/infisical/infisical-workspaces.txt",
-    "output/openapi/openapi-workspaces.txt",
-    "output/backstage/backstage-workspaces.txt",
-    "output/tool-ui/tool-ui-workspaces.txt",
-    "output/observability/observability-ui-workspaces.txt",
 ]
 
 
 def test_epic3_gateway_stack() -> None:
     missing = [path for path in REQUIRED if not (ROOT / path).exists()]
     assert not missing, missing
+
+    data = yaml.safe_load((ROOT / "output/provisioned.yaml").read_text(encoding="utf-8"))
+    provisioned = data["provisioned"]
+    assert set(PROVISIONED_COMPONENTS) <= set(provisioned), "provisioned.yaml missing components"
 
     api_key = (ROOT / "gitops/security/base/api-key-authn.yaml").read_text(encoding="utf-8")
     assert "SecurityPolicy" in api_key

@@ -7,7 +7,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+
+def _load_provisioned() -> dict:
+    data = yaml.safe_load((ROOT / "output" / "provisioned.yaml").read_text(encoding="utf-8"))
+    return data["provisioned"]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -19,7 +27,8 @@ def validate() -> None:
     assert "kind: Rollout" in rollouts and "name: rollout-demo" in rollouts
     assert "strategy:" in rollouts and "canary:" in rollouts
     assert "pause: {duration: 30s}" in rollouts
-    assert (ROOT / "output/argo-rollouts/rollouts.txt").read_text(encoding="utf-8").strip() == "rollout-demo"
+    provisioned = _load_provisioned()
+    assert provisioned["argo-rollouts"]["value"] == "rollout-demo"
 
 
 def main() -> int:

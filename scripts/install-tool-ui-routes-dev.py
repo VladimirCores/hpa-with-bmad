@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-TOOL_UI_MARKER = ROOT / "output" / "tool-ui" / "tool-ui-workspaces.txt"
 TOOL_UI_BASE = ROOT / "gitops" / "tool-ui" / "base"
 TOOL_UI_OVERLAY = ROOT / "gitops" / "tool-ui" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "tool-ui-routes-via-envoy-gateway.md"
 
 
 def ensure_files() -> None:
-    if not TOOL_UI_MARKER.exists():
-        raise RuntimeError(f"Tool UI workspace marker not found: {TOOL_UI_MARKER}")
+    require("tool-ui")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Tool UI documentation missing: {ROUTE_TABLE}")
 

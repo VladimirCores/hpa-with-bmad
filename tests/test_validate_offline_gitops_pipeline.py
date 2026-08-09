@@ -7,7 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+PROVISIONED_COMPONENTS = ["git-mirror", "kargo", "argocd", "argo-rollouts", "argo-events"]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -34,15 +37,17 @@ def validate() -> None:
         "gitops/cert-manager/overlays/dev/kustomization.yaml",
         "output/harbor/cache-images.txt",
         "output/harbor/image-cache-metadata.yaml",
-        "output/git/mirror-repositories.txt",
         "output/spegel/images/spegel-v0.4.0",
-        "output/kargo/kargo-workspaces.txt",
-        "output/argo-cd/applicationsets.txt",
-        "output/argo-rollouts/rollouts.txt",
-        "output/argo-events/events.txt",
+        "output/provisioned.yaml",
     ]
     missing = [path for path in required if not (ROOT / path).exists()]
     assert not missing, missing
+
+    data = yaml.safe_load((ROOT / "output/provisioned.yaml").read_text(encoding="utf-8"))
+    provisioned = data["provisioned"]
+    assert set(PROVISIONED_COMPONENTS) <= set(provisioned), "provisioned.yaml missing components"
+    for component in PROVISIONED_COMPONENTS:
+        assert provisioned[component].get("value"), f"provisioned.yaml: {component} has no value"
     assert "kind: Rollout" in (ROOT / "gitops/argo-rollouts/base/argorollouts.yaml").read_text(encoding="utf-8")
     assert "kind: Workflow" in (ROOT / "gitops/argo-events/base/argoevents.yaml").read_text(encoding="utf-8")
     assert "kind: HTTPRoute" in (ROOT / "gitops/envoy-gateway/base/envoy-gateway.yaml").read_text(encoding="utf-8")

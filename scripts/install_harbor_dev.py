@@ -33,8 +33,8 @@ def ensure_offline_image_cache() -> None:
         ROOT / "output" / "harbor" / "images" / f"harbor-jobservice-v{HARBOR_VERSION}",
         ROOT / "output" / "harbor" / "images" / f"harbor-trivy-adapter-v{HARBOR_VERSION}",
         ROOT / "output" / "harbor" / "images" / f"harbor-chartmuseum-v{HARBOR_VERSION}",
-        ROOT / "output" / "harbor" / "images" / "harbor-redis-v1.23",
-        ROOT / "output" / "harbor" / "images" / "harbor-postgresql-v15",
+        ROOT / "output" / "harbor" / "images" / "redis-7.2-alpine",
+        ROOT / "output" / "harbor" / "images" / "postgres-15-alpine",
     ]
     missing = [path for path in required if not path.exists()]
     if not missing:

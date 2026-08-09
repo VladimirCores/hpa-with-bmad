@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-CASBIN_ABAC_MARKER = ROOT / "output" / "casbin" / "casbin-abac-workspaces.txt"
 CASBIN_ABAC_BASE = ROOT / "gitops" / "casbin" / "base"
 CASBIN_ABAC_OVERLAY = ROOT / "gitops" / "casbin" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "casbin-abac-policies.md"
 
 
 def ensure_files() -> None:
-    if not CASBIN_ABAC_MARKER.exists():
-        raise RuntimeError(f"Casbin ABAC workspace marker not found: {CASBIN_ABAC_MARKER}")
+    require("casbin-abac")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Casbin ABAC documentation missing: {ROUTE_TABLE}")
 

@@ -7,8 +7,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-OPENAPI_MARKER = ROOT / "output" / "openapi" / "openapi-workspaces.txt"
 OPENAPI_BASE = ROOT / "gitops" / "openapi" / "base"
 OPENAPI_OVERLAY = ROOT / "gitops" / "openapi" / "overlays" / "dev"
 SPEC = ROOT / "specs" / "api" / "hpdc-edge-api.yaml"
@@ -16,8 +17,7 @@ ROUTE_TABLE = ROOT / "docs" / "openapi-specification-governance.md"
 
 
 def ensure_files() -> None:
-    if not OPENAPI_MARKER.exists():
-        raise RuntimeError(f"OpenAPI workspace marker not found: {OPENAPI_MARKER}")
+    require("openapi")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"OpenAPI documentation missing: {ROUTE_TABLE}")
     if not SPEC.exists():

@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-BACKSTAGE_MARKER = ROOT / "output" / "backstage" / "backstage-workspaces.txt"
 BACKSTAGE_BASE = ROOT / "gitops" / "backstage" / "base"
 BACKSTAGE_OVERLAY = ROOT / "gitops" / "backstage" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "backstage-developer-portal.md"
 
 
 def ensure_files() -> None:
-    if not BACKSTAGE_MARKER.exists():
-        raise RuntimeError(f"Backstage workspace marker not found: {BACKSTAGE_MARKER}")
+    require("backstage")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Backstage documentation missing: {ROUTE_TABLE}")
 

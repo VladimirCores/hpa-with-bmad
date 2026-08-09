@@ -7,20 +7,28 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
     "gitops/cert-manager/base/cert-manager.yaml",
     "gitops/cert-manager/overlays/dev/kustomization.yaml",
     "docs/cert-manager-tls-termination.md",
     "output/implementation-artifacts/3-2-configure-tls-termination-with-cert-manager.md",
-    "output/cert-manager/cert-manager-workspaces.txt",
+    "output/provisioned.yaml",
     "gitops/envoy-gateway/base/envoy-gateway.yaml",
 ]
+
+
+def _load_provisioned() -> dict:
+    data = yaml.safe_load((ROOT / "output/provisioned.yaml").read_text(encoding="utf-8"))
+    return data["provisioned"]
 
 
 def test_cert_manager_tls_termination() -> None:
     missing = [path for path in REQUIRED if not (ROOT / path).exists()]
     assert not missing, missing
+    assert "cert-manager" in _load_provisioned()
     manifest = (ROOT / "gitops/cert-manager/base/cert-manager.yaml").read_text(encoding="utf-8")
     for kind in ["Namespace", "ServiceAccount", "ClusterRole", "ClusterRoleBinding", "Deployment", "Service", "ClusterIssuer", "Certificate"]:
         assert f"kind: {kind}" in manifest, kind

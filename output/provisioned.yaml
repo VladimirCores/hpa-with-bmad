@@ -1,0 +1,37 @@
+# Single provisioning-footprint registry for the HPDC dev cluster.
+#
+# Replaces the per-component `output/<component>/*-workspaces.txt`
+# markers. Install scripts gate on `require("<component>")` via
+# scripts/_provisioned.py; acceptance tests assert the same keys.
+version: 1
+provisioned:
+  argocd:
+    value: argocd
+  argo-events:
+    value: offline-gitops
+  argo-rollouts:
+    value: rollout-demo
+  kargo:
+    value: kargo
+  git-mirror:
+    value: git-mirror
+  api-key-authn:
+    notes:
+      - "hpdc-edge-domain-routes apiKeyAuth (X-API-Key, secretRef events-api-key): /data, /api, /events"
+      - "hpdc-telemetry-http-api-key-authn (X-API-Key, secretRef telemetry-api-key): /telemetry"
+      - "hpdc-telemetry-grpc-api-key-authn (telemetry-api-key store)"
+      - "events-key authenticates only /events; telemetry-key authenticates only /telemetry (R-009)"
+  envoy-gateway: {}
+  casbin-rbac: {}
+  casbin-rebac: {}
+  casbin-abac: {}
+  casdoor: {}
+  cert-manager: {}
+  infisical: {}
+  openapi: {}
+  backstage: {}
+  tool-ui: {}
+  observability-ui: {}
+  telemetry-ingestion: {}
+  telemetry-validation: {}
+  cilium-mtls: {}

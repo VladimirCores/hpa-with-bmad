@@ -7,15 +7,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-ARGO_ROLLOUTS_MARKER = ROOT / "output" / "argo-rollouts" / "rollouts.txt"
 ARGO_ROLLOUTS_BASE = ROOT / "gitops" / "argo-rollouts" / "base"
 ARGO_ROLLOUTS_OVERLAY = ROOT / "gitops" / "argo-rollouts" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
-    if not ARGO_ROLLOUTS_MARKER.exists():
-        raise RuntimeError(f"Argo Rollouts marker not found: {ARGO_ROLLOUTS_MARKER}")
+    require("argo-rollouts")
 
 
 def validate_manifests() -> list[str]:

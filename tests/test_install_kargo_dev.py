@@ -7,7 +7,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+
+def _load_provisioned() -> dict:
+    data = yaml.safe_load((ROOT / "output" / "provisioned.yaml").read_text(encoding="utf-8"))
+    return data["provisioned"]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -20,7 +28,8 @@ def validate() -> None:
     assert "kind: Stage" in kargo and "name: dev" in kargo
     assert "kind: Freight" in kargo and "name: offline-dev" in kargo
     assert "git://git-mirror/git-mirror" in kargo
-    assert (ROOT / "output/kargo/kargo-workspaces.txt").read_text(encoding="utf-8").strip() == "kargo"
+    provisioned = _load_provisioned()
+    assert provisioned["kargo"]["value"] == "kargo"
 
 
 def main() -> int:

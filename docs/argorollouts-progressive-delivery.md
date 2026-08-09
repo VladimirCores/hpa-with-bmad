@@ -2,6 +2,6 @@
 
 Run `python3 startup.dev.py --offline --dry-run --step 13-install-argorollouts-dev.py` to validate Argo Rollouts progressive delivery scaffolding.
 
-Required file:
+Required footprint:
 
-- `output/argo-rollouts/rollouts.txt`
+- `output/provisioned.yaml` → `provisioned.argo-rollouts.value`

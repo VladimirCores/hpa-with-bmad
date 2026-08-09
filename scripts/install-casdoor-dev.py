@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-CASDOOR_MARKER = ROOT / "output" / "casdoor" / "casdoor-workspaces.txt"
 CASDOOR_BASE = ROOT / "gitops" / "casdoor" / "base"
 CASDOOR_OVERLAY = ROOT / "gitops" / "casdoor" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "casdoor-jwt-authn.md"
 
 
 def ensure_files() -> None:
-    if not CASDOOR_MARKER.exists():
-        raise RuntimeError(f"Casdoor workspace marker not found: {CASDOOR_MARKER}")
+    require("casdoor")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Casdoor documentation missing: {ROUTE_TABLE}")
 

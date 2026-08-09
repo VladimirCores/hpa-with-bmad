@@ -7,15 +7,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-ARGO_EVENTS_MARKER = ROOT / "output" / "argo-events" / "events.txt"
 ARGO_EVENTS_BASE = ROOT / "gitops" / "argo-events" / "base"
 ARGO_EVENTS_OVERLAY = ROOT / "gitops" / "argo-events" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
-    if not ARGO_EVENTS_MARKER.exists():
-        raise RuntimeError(f"Argo Events marker not found: {ARGO_EVENTS_MARKER}")
+    require("argo-events")
 
 
 def validate_manifests() -> list[str]:

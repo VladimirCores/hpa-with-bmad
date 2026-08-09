@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-SECURITY_MARKER = ROOT / "output" / "security" / "api-key-authn-workspaces.txt"
 SECURITY_BASE = ROOT / "gitops" / "security" / "base"
 SECURITY_OVERLAY = ROOT / "gitops" / "security" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "api-key-auth-messaging-routes.md"
 
 
 def ensure_files() -> None:
-    if not SECURITY_MARKER.exists():
-        raise RuntimeError(f"API-key auth workspace marker not found: {SECURITY_MARKER}")
+    require("api-key-authn")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"API-key auth documentation missing: {ROUTE_TABLE}")
 

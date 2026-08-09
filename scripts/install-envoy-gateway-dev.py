@@ -7,16 +7,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from _provisioned import require
+
 ROOT = Path(__file__).resolve().parents[1]
-ENVOY_MARKER = ROOT / "output" / "envoy-gateway" / "envoy-gateway-workspaces.txt"
 ENVOY_BASE = ROOT / "gitops" / "envoy-gateway" / "base"
 ENVOY_OVERLAY = ROOT / "gitops" / "envoy-gateway" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "envoy-gateway-edge-routing.md"
 
 
 def ensure_files() -> None:
-    if not ENVOY_MARKER.exists():
-        raise RuntimeError(f"Envoy Gateway workspace marker not found: {ENVOY_MARKER}")
+    require("envoy-gateway")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Envoy Gateway route table documentation missing: {ROUTE_TABLE}")
 
@@ -37,13 +37,15 @@ def validate_manifests() -> list[str]:
     required_routes = [
         "value: /data",
         "value: /api",
-        "value: /gql",
         "value: /events",
-        "value: /telemetry",
     ]
     for route in required_routes:
         if route not in manifest:
             failures.append(f"envoy-gateway.yaml missing route {route}")
+
+    for route in ["value: /gql", "value: /telemetry"]:
+        if route in manifest:
+            failures.append(f"envoy-gateway.yaml must not route {route} (moved to its own route in 10.2)")
 
     if "image: docker.io/envoyproxy/gateway:v1.8.3" not in manifest:
         failures.append("envoy-gateway.yaml missing pinned Envoy Gateway image")
