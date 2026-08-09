@@ -2,3 +2,15 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base/infisical.yaml
+  - ../../base/infisical-secret.yaml
+
+# Dev explicitly binds the dev environment; the base InfisicalSecret stays on the
+# production envSlug so a future prod overlay cannot silently pull dev credentials.
+patches:
+  - target:
+      kind: InfisicalSecret
+      name: hpdc-production-secrets
+    patch: |-
+      - op: replace
+        path: /spec/authentication/universalAuth/secretsScope/envSlug
+        value: dev

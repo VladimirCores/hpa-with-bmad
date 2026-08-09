@@ -1,5 +1,7 @@
 # 3.10 Configure OpenAPI Specification Governance
 
+Status: done
+
 Implemented OpenAPI governance for HPDC edge APIs.
 
 ## Completed

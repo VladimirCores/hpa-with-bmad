@@ -1,5 +1,7 @@
 # 3.3 Configure API-Key Auth for Messaging Routes
 
+Status: done
+
 Implemented Envoy Gateway API-key authentication for messaging routes.
 
 ## Completed

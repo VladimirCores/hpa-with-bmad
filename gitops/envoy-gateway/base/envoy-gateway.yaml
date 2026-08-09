@@ -350,27 +350,9 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /gql
-      backendRefs:
-        - name: hasura
-          port: 8080
-          kind: Service
-          weight: 1
-    - matches:
-        - path:
-            type: PathPrefix
             value: /events
       backendRefs:
         - name: kafka
           port: 9094
-          kind: Service
-          weight: 1
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /telemetry
-      backendRefs:
-        - name: pulsar-telemetry-ingestion
-          port: 8080
           kind: Service
           weight: 1

@@ -1,6 +1,6 @@
 # Story 5-1: Ingest Alert Signals Through Directed Kafka Streams
 
-Status: in_progress
+Status: done
 
 Baseline commit: c97407f
 

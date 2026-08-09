@@ -1,5 +1,7 @@
 # 3.11 Provision Backstage Developer Portal and Golden Path Templates
 
+Status: done
+
 Implemented Backstage developer portal scaffolding.
 
 ## Completed

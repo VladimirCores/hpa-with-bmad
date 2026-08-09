@@ -1,5 +1,7 @@
 # 3.5 Configure Casbin RBAC Policies
 
+Status: done
+
 Implemented Casbin RBAC enforcement for domain routes.
 
 ## Completed

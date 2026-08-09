@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 HARBOR_VERSION = "2.11.3"
 
@@ -39,8 +41,24 @@ def validate_manifests() -> None:
     assert "kind: PersistentVolumeClaim" in pvcs
     assert "storageClassName: rook-ceph-rbd" in pvcs
     assert "../../base/harbor.yaml" in overlay
-    assert "../../base/harbor-values.yaml" in overlay
+    assert "../../base/harbor-values.yaml" not in overlay
+    assert "kind: ConfigMap" in harbor and "name: harbor-values" in harbor and "harbor-values.yaml: |" in harbor
     assert "../../base/harbor-pvcs.yaml" in overlay
+
+    embed = next(
+        (
+            d
+            for d in yaml.safe_load_all(harbor)
+            if isinstance(d, dict)
+            and d.get("kind") == "ConfigMap"
+            and d.get("metadata", {}).get("name") == "harbor-values"
+        ),
+        None,
+    )
+    assert embed is not None, "harbor-values ConfigMap missing from harbor.yaml"
+    assert yaml.safe_load(embed["data"]["harbor-values.yaml"]) == yaml.safe_load(values), (
+        "harbor-values ConfigMap embed must match gitops/harbor/base/harbor-values.yaml (single source of truth)"
+    )
 
 
 def test_check_mode() -> None:

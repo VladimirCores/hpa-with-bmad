@@ -8,6 +8,6 @@ namespace: hpdc-alerts-dev
 
 namePrefix: dev-
 labels:
-  - includeExpressions:
+  - pairs:
       namespace: hpdc-alerts-dev
       app.kubernetes.io/part-of: hpdc-platform

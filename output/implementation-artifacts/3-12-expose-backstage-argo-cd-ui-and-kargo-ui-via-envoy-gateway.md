@@ -1,5 +1,7 @@
 # 3.12 Expose Backstage, Argo CD UI, and Kargo UI via Envoy Gateway
 
+Status: done
+
 Implemented tool UI exposure through Envoy Gateway.
 
 ## Completed

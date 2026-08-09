@@ -1,5 +1,7 @@
 # 3.6 Configure Casbin ReBAC Policies
 
+Status: done
+
 Implemented Casbin relationship-based access control.
 
 ## Completed

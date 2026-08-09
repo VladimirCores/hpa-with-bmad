@@ -1,5 +1,7 @@
 # 3.8 Configure Infisical Secrets Management
 
+Status: done
+
 Implemented Infisical secrets management.
 
 ## Completed

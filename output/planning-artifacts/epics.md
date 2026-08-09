@@ -295,6 +295,8 @@ So that inter-service traffic is encrypted and authenticated without relying on 
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on any failure
 
+**Implementation notes:** This story owns the Cilium mTLS/SPIRE manifest and installer (`gitops/cilium/base/cilium-mtls.yaml`, `scripts/install-cilium-mtls-dev.py`). Epic 3 Story 3.9 revalidates the same manifest for FR-45 — do not fork a second mTLS manifest under Epic 3.
+
 ### Epic 2: GitOps Delivery Pipeline
 
 Platform Engineer and Developer can deliver workloads end-to-end through Git → Kargo → Argo CD with progressive delivery, and fully air-gapped delivery via local Harbor registry, Spegel P2P distribution, and local Git mirror.
@@ -661,6 +663,8 @@ So that plaintext HTTP inside the cluster is rejected and service traffic is aut
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on any failure
 
+**Implementation notes:** FR-45 (mTLS) is owned by this epic. The enforcement manifest is implemented once in **Epic 1 Story 1.5** (`gitops/cilium/base/cilium-mtls.yaml`, `scripts/install-cilium-mtls-dev.py`); this story revalidates that the same manifest satisfies FR-45 rather than re-implementing it. Keep the mTLS implementation in Story 1.5 and do not fork a second manifest here.
+
 ### Story 3.10: Configure OpenAPI Specification Governance
 
 As a Platform Administrator,
@@ -715,25 +719,6 @@ So that tool users have a consistent ingress entry point without redundant platf
 **And** TLS termination is active
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on any failure
-
-### Story 3.13: Expose Grafana and Hubble UI via Envoy Gateway
-
-As a Platform Administrator,
-I want Grafana and Hubble UI exposed through Envoy Gateway routes with native tool auth,
-So that observability users have a consistent ingress entry point without redundant platform auth.
-
-**Acceptance Criteria:**
-
-**Given** Envoy Gateway from Story 3.1 is installed
-**And** TLS termination from Story 3.2 is configured
-**And** Grafana and Hubble from Epic 7 are installed
-**When** I apply the tool UI route manifest from GitOps
-**Then** `grafana.hpdc.local` and `hubble.hpdc.local` routes are exposed through Envoy Gateway
-**And** each tool’s native auth handles access
-**And** Casdoor/Casbin ext_authz is not enforced on tool UI routes
-**And** TLS termination is active
-**And** the process is deferred until Epic 7 tools are installed
-**And** the script exits with a non-zero status on failure
 
 ### Epic 4: Real-Time Telemetry Ingestion & Processing
 
@@ -1277,3 +1262,66 @@ So that coordinated decision-making and task delegation can happen without unaut
 **And** agent registration and discovery work as configured
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on failure
+
+### Story 9.3: Provide Full LLM Decision-Support Engine
+
+As a Platform Administrator,
+I want a full LLM decision-support engine with per-use-case model selection,
+So that operators receive actionable recommendations across alerts, entities, and workflows with complete auditability.
+
+**Acceptance Criteria:**
+
+**Given** LLM provider endpoints are configured per use case
+**When** I request decision support for a platform decision
+**Then** the engine selects the model appropriate to the use case (alert analysis, entity guidance, workflow optimization)
+**And** the response is constrained to actionable recommendations only
+**And** the engine refuses to autonomously execute sensitive actions without approval
+**And** ambiguous or low-confidence suggestions are escalated for manual review instead of executed
+**And** every LLM interaction is logged with input, output, decision context, and model used
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+## Epic 10: Production Hardening
+
+Close the verified hardening gaps surfaced by the P0 ATDD acceptance audits: full per-route security-policy coverage, malformed GitOps YAML, and overlay drift — keeping validation offline/GitOps-safe.
+
+**FRs covered:** FR-37, FR-38, FR-40, FR-44, FR-45
+**NFRs covered:** NFR17, NFR18, NFR21
+**Additional requirements:** Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
+
+### Story 10.1: Harden Edge Gateway Security Coverage and Fix GitOps Drift
+
+As a Platform Engineer,
+I want every edge route covered by an explicit security policy and the GitOps tree free of malformed YAML and overlay drift,
+So that the P0 route-audit and secret-scan acceptance contracts hold and no route bypasses authentication.
+
+**Acceptance Criteria:**
+
+**Given** the edge gateway routes declared in GitOps
+**When** the P0 route-table audit runs
+**Then** every `hpdc-edge` attached route has a SecurityPolicy whose targetRef resolves to it
+**And** the `hpdc-graphql-gateway` and `hpdc-telemetry-http-ingestion` routes are covered
+**And** the `envoy-ui-routes.yaml` overlay reference matches the base it extends
+**And** the harbor base manifest parses as valid YAML
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 10.2: Harden Route-Policy Live Config, GitOps Build Validity, Secret Isolation, and Test-Suite Robustness
+
+As a Platform Engineer,
+I want the route-policy set to be live (no shadowed SecurityPolicies, in-tree JWKS host), the GitOps tree to actually build, secret stores to enforce key-level isolation, and the P0 suite to catch regressions it currently misses,
+So that production onboarding does not silently deploy dead auth config or a non-building GitOps tree, and R-009/R-008/R-001 contracts hold.
+
+**Acceptance Criteria:**
+
+**Given** the `hpdc-edge-domain-routes` HTTPRoute and the SecurityPolicy set
+**When** the route-table audit runs with path-level awareness
+**Then** `/data`, `/api`, and `/events` carry path-level apiKeyAuth on `hpdc-edge-domain-routes`, and the duplicated `/gql` and `/telemetry` matches are removed from that route (owned by `hpdc-graphql-gateway` and `hpdc-telemetry-http-ingestion`)
+**And** no SecurityPolicy targets a route whose traffic is shadowed by an identical PathPrefix + wildcard hostname route
+**And** the JWKS host `casdoor.hpdc.local` resolves in-tree via an HTTPRoute
+**And** every overlay builds with `kustomize build --load-restrictor=LoadRestrictionsNone`
+**And** `events-key` authenticates only `/events` and `telemetry-key` only `/telemetry` (R-009)
+**And** the prod-named InfisicalSecret does not embed the dev `envSlug`
+**And** the P0 suite adds a structural GitOps build-validity check, duplicate-key YAML detection, and strict `main()` tuple guards
+**And** all existing P0 checks stay GREEN with validation remaining offline/GitOps-safe

@@ -4,7 +4,7 @@ baseline_commit: f2fbd10
 
 # Story 4.2: Accept Telemetry Through MQTT, HTTP, and gRPC Routes
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -177,7 +177,7 @@ nex-agi/nex-n2-mini
 
 ### Status
 
-ready-for-dev
+done
 
 ## Review Findings
 

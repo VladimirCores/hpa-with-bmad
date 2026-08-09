@@ -48,9 +48,9 @@ data:
     projectCreationRestriction: anyonewithaccount
     registryCredentialSecretName: harbor-dev-secrets
     registryStorageProviderName: local
-registryStorageDeleteEnabled: true
-storageClassName: rook-ceph-rbd
-registryHttpSecret: HarborRegistryHttpSecret12345
+    registryStorageDeleteEnabled: true
+    storageClassName: rook-ceph-rbd
+    registryHttpSecret: HarborRegistryHttpSecret12345
     registryStorageGoogleCredentials: '{"type":"service_account","project_id":"hpdc-offline"}'
     trivy:
       enabled: true

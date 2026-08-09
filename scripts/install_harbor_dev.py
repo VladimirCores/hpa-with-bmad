@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 HARBOR_VERSION = "2.11.3"
 HARBOR_IMAGE = ROOT / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}"
@@ -90,8 +92,26 @@ def validate_manifests() -> list[str]:
         failures.append("harbor-pvcs.yaml missing Rook-Ceph PVC storageClass")
     if "../../base/harbor.yaml" not in overlay:
         failures.append("Harbor overlay missing harbor.yaml")
-    if "../../base/harbor-values.yaml" not in overlay:
-        failures.append("Harbor overlay missing harbor-values.yaml")
+    if "../../base/harbor-values.yaml" in overlay:
+        failures.append("Harbor overlay still lists harbor-values.yaml as a kustomize resource (AC 4: values source is not a resource)")
+    if "kind: ConfigMap" not in harbor or "name: harbor-values" not in harbor or "harbor-values.yaml: |" not in harbor:
+        failures.append("harbor.yaml missing the harbor-values ConfigMap values source")
+    embed = next(
+        (
+            d
+            for d in yaml.safe_load_all(harbor)
+            if isinstance(d, dict)
+            and d.get("kind") == "ConfigMap"
+            and d.get("metadata", {}).get("name") == "harbor-values"
+        ),
+        None,
+    )
+    if embed is None:
+        failures.append("harbor-values ConfigMap missing from harbor.yaml")
+    elif yaml.safe_load(embed["data"]["harbor-values.yaml"]) != yaml.safe_load(values):
+        failures.append(
+            "harbor-values ConfigMap embed drifted from gitops/harbor/base/harbor-values.yaml (single source of truth)"
+        )
     if "../../base/harbor-pvcs.yaml" not in overlay:
         failures.append("Harbor overlay missing harbor-pvcs.yaml")
     return failures

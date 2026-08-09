@@ -4,14 +4,21 @@ This story configures Envoy Gateway API-key authentication for machine-only mess
 
 ## Routes
 
-- `/events` requires `X-API-Key` from `security/messaging-api-keys`
-- `/telemetry` requires `X-API-Key` from `security/messaging-api-keys`
+- `/data`, `/api`, `/events` require `X-API-Key` from `security/events-api-key` (`events-key`, dev value `hpdc-events-dev-key`)
+- `/telemetry` requires `X-API-Key` from `security/telemetry-api-key` (`telemetry-key`, dev value `hpdc-telemetry-dev-key`)
+- gRPC `hpdc.telemetry.v1.TelemetryService` requires `X-API-Key` from `security/telemetry-api-key`
+
+## Key-level isolation (R-009)
+
+- `events-key` authenticates the messaging/domain route (`/data`, `/api`, `/events`) only.
+- `telemetry-key` authenticates the telemetry routes (`/telemetry`, gRPC) only.
+- No shared store accepts either key on both paths: the events store holds only `events-key`, the telemetry store holds only `telemetry-key`.
 
 ## Exclusions
 
-- Casdoor and Casbin are not used for `/events` or `/telemetry`.
+- Casdoor and Casbin are not used for `/events`, `/telemetry`, `/data`, or `/api`.
 
 ## GitOps paths
 
-- Base manifest: `gitops/security/base/api-key-authn.yaml`
+- Base manifests: `gitops/security/base/api-key-authn.yaml`, `gitops/security/base/telemetry-http-api-key-authn.yaml`
 - Dev overlay: `gitops/security/overlays/dev/kustomization.yaml`

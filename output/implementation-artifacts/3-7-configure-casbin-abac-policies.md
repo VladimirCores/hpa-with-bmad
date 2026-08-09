@@ -1,5 +1,7 @@
 # 3.7 Configure Casbin ABAC Policies
 
+Status: done
+
 Implemented Casbin attribute-based access control.
 
 ## Completed

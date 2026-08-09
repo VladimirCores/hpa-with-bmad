@@ -1,5 +1,7 @@
 # 3.9 Configure mTLS Mesh Enforcement with Cilium
 
+Status: done
+
 Implemented through the existing Cilium mTLS mesh configuration.
 
 ## Completed

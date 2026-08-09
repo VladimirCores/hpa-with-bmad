@@ -29,11 +29,12 @@ def validate_manifests() -> list[str]:
             failures.append(str(path.relative_to(ROOT)))
 
     manifest = (SECURITY_BASE / "api-key-authn.yaml").read_text(encoding="utf-8")
+    telemetry_http = (SECURITY_BASE / "telemetry-http-api-key-authn.yaml").read_text(encoding="utf-8")
     required_fragments = [
         "kind: SecurityPolicy",
-        "name: messaging-api-keys",
+        "name: events-api-key",
+        "name: telemetry-api-key",
         "value: /events",
-        "value: /telemetry",
         "name: X-API-Key",
     ]
     for fragment in required_fragments:
@@ -42,6 +43,10 @@ def validate_manifests() -> list[str]:
 
     if "name: hpdc-messaging-api-key-authn" not in manifest:
         failures.append("api-key-authn.yaml missing hpdc-messaging-api-key-authn policy")
+    if "value: /telemetry" not in telemetry_http:
+        failures.append("telemetry-http-api-key-authn.yaml missing /telemetry method")
+    if "name: telemetry-api-key" not in telemetry_http:
+        failures.append("telemetry-http-api-key-authn.yaml missing telemetry-api-key store")
 
     return failures
 
@@ -76,7 +81,7 @@ def main() -> int:
         return 0
     if args.dry_run:
         print("API-key auth dry-run passed.")
-        print("X-API-Key validation is configured for /events and /telemetry.")
+        print("X-API-Key validation is configured for /data, /api, and /events (events-api-key) and /telemetry (telemetry-api-key).")
         print(f"GitOps overlay: {SECURITY_OVERLAY.relative_to(ROOT)}")
         return 0
     print("API-key auth requires --dry-run or --apply.", file=sys.stderr)

@@ -1,5 +1,7 @@
 # 3.1 Install Envoy Gateway Edge Routing
 
+Status: done
+
 Implemented GitOps manifests for Envoy Gateway edge routing.
 
 ## Completed

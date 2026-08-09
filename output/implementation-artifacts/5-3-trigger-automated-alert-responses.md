@@ -1,6 +1,6 @@
 # Story 5-3: Trigger Automated Alert Responses
 
-Status: in_progress
+Status: done
 
 Baseline commit: 5327adf
 

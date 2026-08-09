@@ -1,5 +1,7 @@
 # 3.2 Configure TLS Termination with cert-manager
 
+Status: done
+
 Implemented cert-manager TLS termination for Envoy Gateway.
 
 ## Completed

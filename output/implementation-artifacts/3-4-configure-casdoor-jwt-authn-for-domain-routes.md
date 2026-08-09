@@ -1,5 +1,7 @@
 # 3.4 Configure Casdoor JWT AuthN for Domain Routes
 
+Status: done
+
 Implemented centralized Casdoor identity configuration for domain routes.
 
 ## Completed

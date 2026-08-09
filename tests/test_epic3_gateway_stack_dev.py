@@ -58,10 +58,16 @@ def test_epic3_gateway_stack() -> None:
 
     api_key = (ROOT / "gitops/security/base/api-key-authn.yaml").read_text(encoding="utf-8")
     assert "SecurityPolicy" in api_key
-    assert "messaging-api-keys" in api_key
+    assert "events-api-key" in api_key
+    assert "telemetry-api-key" in api_key
     assert "X-API-Key" in api_key
     assert "value: /events" in api_key
-    assert "value: /telemetry" in api_key
+    assert "value: /data" in api_key
+    assert "value: /api" in api_key
+
+    telemetry_http = (ROOT / "gitops/security/base/telemetry-http-api-key-authn.yaml").read_text(encoding="utf-8")
+    assert "value: /telemetry" in telemetry_http
+    assert "telemetry-api-key" in telemetry_http
 
     casdoor = (ROOT / "gitops/casdoor/base/casdoor.yaml").read_text(encoding="utf-8")
     assert "casdoor/casdoor:v5.19.0" in casdoor

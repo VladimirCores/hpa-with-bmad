@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - ../../base/observability-ui-routes.yaml
   - ../../base/grafana-hubble-routes.yaml
+  - ../../base/envoy-ui-routes.yaml

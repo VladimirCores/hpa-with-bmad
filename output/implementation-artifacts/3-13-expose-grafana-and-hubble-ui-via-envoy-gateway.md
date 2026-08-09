@@ -1,5 +1,7 @@
 # 3.13 Expose Grafana and Hubble UI via Envoy Gateway
 
+Status: done
+
 Implemented observability UI exposure through Envoy Gateway route scaffolding.
 
 ## Completed

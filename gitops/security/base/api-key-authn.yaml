@@ -10,14 +10,26 @@ metadata:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: messaging-api-keys
+  name: events-api-key
   namespace: security
   labels:
-    app.kubernetes.io/name: messaging-api-keys
+    app.kubernetes.io/name: events-api-key
     app.kubernetes.io/part-of: hpdc-platform
 type: Opaque
 stringData:
   events-key: hpdc-events-dev-key
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: telemetry-api-key
+  namespace: security
+  labels:
+    app.kubernetes.io/name: telemetry-api-key
+    app.kubernetes.io/part-of: hpdc-platform
+type: Opaque
+stringData:
   telemetry-key: hpdc-telemetry-dev-key
 
 ---
@@ -38,19 +50,25 @@ spec:
   localJWTProviders: []
   jwt: []
   apiKeyAuth:
-    - name: messaging-api-keys
+    - name: events-api-key
       secretRef:
-        name: messaging-api-keys
+        name: events-api-key
       methods:
         - path:
             type: PathPrefix
-            value: /events
+            value: /data
           parameter:
             type: Header
             name: X-API-Key
         - path:
             type: PathPrefix
-            value: /telemetry
+            value: /api
+          parameter:
+            type: Header
+            name: X-API-Key
+        - path:
+            type: PathPrefix
+            value: /events
           parameter:
             type: Header
             name: X-API-Key
@@ -73,9 +91,9 @@ spec:
   localJWTProviders: []
   jwt: []
   apiKeyAuth:
-    - name: messaging-api-keys
+    - name: telemetry-api-key
       secretRef:
-        name: messaging-api-keys
+        name: telemetry-api-key
       methods:
         - path:
             type: PathPrefix
