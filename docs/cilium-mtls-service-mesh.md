@@ -11,19 +11,19 @@ Cilium mTLS uses SPIFFE identities and SPIRE to issue workload certificates. In 
 From the repository root:
 
 ```python
-python3 startup.dev.py --offline --dry-run --step 04-install-cilium-mtls-dev.py
+python3 scripts/startup.dev.py --offline --dry-run --step 04-install-cilium-mtls-dev.py
 ```
 
 To apply the GitOps overlay to the Talos cluster after Story 1.3 and Story 1.4 are complete:
 
 ```python
-python3 startup.dev.py --offline --apply --step 04-install-cilium-mtls-dev.py
+python3 scripts/startup.dev.py --offline --apply --step 04-install-cilium-mtls-dev.py
 ```
 
 Validation mode:
 
 ```python
-python3 startup.dev.py --offline --check --step 04-install-cilium-mtls-dev.py
+python3 scripts/startup.dev.py --offline --check --step 04-install-cilium-mtls-dev.py
 ```
 
 ## Required Offline Artifacts

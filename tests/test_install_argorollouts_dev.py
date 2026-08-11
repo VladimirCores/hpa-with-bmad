@@ -33,8 +33,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "13-install-argorollouts-dev.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "13-install-argorollouts-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "13-install-argorollouts-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "13-install-argorollouts-dev.py"])
     print("Argo Rollouts validation passed.")
     return 0
 

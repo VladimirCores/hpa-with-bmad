@@ -140,7 +140,8 @@ Minimal fixtures only (TDD red phase — full factories come at green phase):
 | `hpdc_test_client` (EventsClient, TelemetryClient, ClickHouseProbe) | All API scaffolds | B-001 cluster for live checks; client itself is dev-side |
 | `api_key_fixture` (X-API-Key for /events, /telemetry) | P0-001..003 | ✅ BUILT 2026-08-11 (manifest parity guard) |
 | `jwt_fixture` (Casdoor 7 roles) | P0-012, P0-013, P0-024 | ✅ BUILT 2026-08-11 (RS256 + JWKS + `verify_jwt`) |
-| `pulsar_consumer_harness` | P0-002, P0-004, P0-007, P0-008 | B-003 |
+| `pulsar_consumer_harness` (message-arrival + latency) | P0-002, P0-004, P0-007, P0-008 | ✅ BUILT 2026-08-11 (remote HTTP + local NDJSON backend; live broker still B-001) |
+| `LoadHarness` (k6 soak, NFR1/NFR3) | P0-023 | ✅ BUILT 2026-08-11 (k6 script + local sim fallback; full soak needs B-001) |
 | `clickhouse_probe` | P0-002, P0-008, P0-023 | B-001 |
 | `live_cluster` (`admin@hpa-dev`) | P0-017, P0-018, P0-016, P0-022 live probes | B-001 |
 
@@ -151,11 +152,18 @@ Minimal fixtures only (TDD red phase — full factories come at green phase):
 Backend-only project — no browser mocks. External-service mocks are documented
 as green-phase harness contracts:
 
-### Pulsar/Kafka Consumer Harness (B-003)
+### Pulsar/Kafka Consumer Harness (B-003) — ✅ BUILT 2026-08-11
 
-- Consume `telemetry` partitioned topics + `alert` topics; assert message arrival with `pulsar-consumer-harness`.
+- `pulsar_consumer_harness()` / `kafka_consumer_harness()` in
+  `tests/atdd/support/consumer_harness.py`.
+- Consume `telemetry` partitioned topics + `alert` topics; assert message
+  arrival (`assert_arrival`) and arrival-within-latency budget
+  (`assert_arrival_within_latency`).
+- Remote backend: `HPDC_CONSUMER_HARNESS_URL` / `HPDC_KAFKA_CONSUMER_HARNESS_URL`
+  (`GET /consume/{topic}?key=`); local backend: NDJSON topic store for offline dev.
 - **Success:** enriched alert event received within expected latency.
 - **Failure:** no message within timeout → test fails.
+- 12 offline contract tests: `tests/atdd/support/test_consumer_harness.py`.
 
 ### ClickHouse Probe
 
@@ -194,7 +202,7 @@ lands, `data-testid` attributes will be specified for the login/SSO flows.
 - [x] Implement alert state machine (initial → open → acknowledged → resolved)
 - [x] Implement idempotency key dedupe (duplicate delivery → single processing)
 - [x] Implement Pulsar alert routing with enriched events
-- [x] Build `pulsar_consumer_harness` (B-003)
+- [x] Build `pulsar_consumer_harness` (B-003) — ✅ BUILT 2026-08-11 (offline contract, 12 tests)
 - [x] ✅ Test passes (green phase)
 
 **Estimated Effort:** 16-20 hours
@@ -203,7 +211,7 @@ lands, `data-testid` attributes will be specified for the login/SSO flows.
 
 - [x] Manifest contracts: gitops/alerts stages (handler API, audit trail, response engine, workflows, LLM decision support, response function, ClickHouseTable + idempotency_key) all present and wired to the journey contracts
 - [ ] Chain ingest → decision support → dispatch → ClickHouse persistence (live journey bodies)
-- [ ] Provision live cluster (B-001) + Pulsar/Kafka consumer harness (B-003)
+- [ ] Provision live cluster (B-001) + wire consumer harness (B-003 built, needs live broker)
 - [x] ✅ 1/5 checks pass (green phase, partial — live journey stays skipped as RED contract, B-001)
 
 **Estimated Effort:** 12-16 hours
@@ -249,8 +257,9 @@ lands, `data-testid` attributes will be specified for the login/SSO flows.
 
 ### Test: P0-023 — performance/soak (`test_p0_performance.py`)
 
-- [ ] 100K RPS sustained 24h, 99.9% delivery (NFR3/R-004)
-- [ ] Provision k6 load harness (B-005)
+- [x] `LoadHarness` (k6 soak script + local sim fallback) — ✅ BUILT 2026-08-11 (7 tests)
+- [ ] 100K RPS sustained 24h, 99.9% delivery (NFR3/R-004) — k6 binary + live cluster required
+- [ ] Provision k6 load harness (B-005) — harness built; run `k6 run` against live gateway
 - [ ] ✅ Test passes (green phase) — note: nightly/soak tier
 
 **Estimated Effort:** 16-20 hours
@@ -420,7 +429,7 @@ sssssssssssssssssssssssssssssssssssssssss [100%]
 - P0-004..008: consumer harness absent; alert pipeline endpoints 404
 - P0-009..011/014: entity endpoints/harness absent
 - P0-012/013/015/024: Casdoor fixtures absent (B-002)
-- P0-023: k6 harness absent (B-005)
+- P0-023: k6 harness absent (B-005) — ✅ harness built 2026-08-11; full soak still gated on k6 + live cluster
 - P0-025/026: deferred (blocked: B-002 + no UI harness)
 
 ---

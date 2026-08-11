@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = [
-    ROOT / "startup.dev.py",
+    ROOT / "scripts/startup.dev.py",
     ROOT / "scripts" / "steps" / "03-install-cilium-dev.py",
     ROOT / "gitops" / "cilium" / "base" / "cilium.yaml",
     ROOT / "gitops" / "cilium" / "base" / "cilium-l2-policy.yaml",

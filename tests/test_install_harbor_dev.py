@@ -62,14 +62,14 @@ def validate_manifests() -> None:
 
 
 def test_check_mode() -> None:
-    result = run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "06-install-harbor-dev.py"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "06-install-harbor-dev.py"])
     assert result.returncode == 0
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert "Harbor bootstrap scaffold validation passed." in log
 
 
 def test_dry_run_mode() -> None:
-    result = run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "06-install-harbor-dev.py"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "06-install-harbor-dev.py"])
     assert result.returncode == 0
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert f"Harbor version: {HARBOR_VERSION}" in log
@@ -83,7 +83,7 @@ def test_missing_harbor_cache_fails() -> None:
         marker.unlink()
     try:
         result = subprocess.run(
-            [sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "06-install-harbor-dev.py"],
+            [sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "06-install-harbor-dev.py"],
             cwd=ROOT,
             check=False,
             capture_output=True,

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "alert-handler.py"
+SCRIPT = ROOT / "scripts" / "services" / "alert-handler.py"
 
 STEP_NAME = "20-alert-human-handling.py"
 STEP_DESCRIPTION = "Setup human alert handling API and audit trail for Epic 5."

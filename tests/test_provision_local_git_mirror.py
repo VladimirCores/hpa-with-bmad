@@ -34,8 +34,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "09-provision-local-git-mirror.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "09-provision-local-git-mirror.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "09-provision-local-git-mirror.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "09-provision-local-git-mirror.py"])
     print("Local Git mirror validation passed.")
     return 0
 

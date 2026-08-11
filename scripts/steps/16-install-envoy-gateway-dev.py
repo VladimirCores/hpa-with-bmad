@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-envoy-gateway-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-envoy-gateway-dev.py"
 
 STEP_NAME = "16-install-envoy-gateway-dev.py"
 STEP_DESCRIPTION = "Install Envoy Gateway edge routing"

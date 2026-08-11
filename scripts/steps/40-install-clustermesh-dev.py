@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-clustermesh-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-clustermesh-dev.py"
 
 STEP_NAME = "40-install-clustermesh-dev.py"
 STEP_DESCRIPTION = "Install HPDC Cilium ClusterMesh cross-cluster service discovery"

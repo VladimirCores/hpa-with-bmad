@@ -13,7 +13,7 @@ REQUIRED = [
     "gitops/platform/overlays/dev/kustomization.yaml",
     "gitops/platform/overlays/staging/kustomization.yaml",
     "gitops/platform/overlays/prod/kustomization.yaml",
-    "scripts/validate-platform-dev.py",
+    "scripts/gitops/validate-platform-dev.py",
     "scripts/steps/29-install-platform-dev.py",
     "scripts/steps/30-validate-platform-dev.py",
 ]
@@ -66,7 +66,7 @@ def test_validate_platform_dev() -> None:
 
 def main() -> int:
     validate()
-    subprocess.run([sys.executable, "scripts/validate-platform-dev.py", "--offline", "--dry-run", "--check"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "scripts/gitops/validate-platform-dev.py", "--offline", "--dry-run", "--check"], cwd=ROOT, check=True)
     print("Platform offline GitOps scaffold validation passed.")
     return 0
 

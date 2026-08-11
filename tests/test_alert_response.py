@@ -54,7 +54,7 @@ def test_dry_run_trigger() -> None:
         "context": {"deployment_name": "nginx", "namespace": "default"}
     })
     result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "alert-response-trigger.py"), "--dry-run", alert],
+        [sys.executable, str(ROOT / "scripts" / "services" / "alert-response-trigger.py"), "--dry-run", alert],
         capture_output=True, text=True
     )
     assert result.returncode == 0

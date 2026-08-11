@@ -7,8 +7,10 @@ import sys
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+GITOPS_DIR = SCRIPTS_DIR / "gitops"
+for entry in (SCRIPTS_DIR, GITOPS_DIR):
+    if str(entry) not in sys.path:
+        sys.path.insert(0, str(entry))
 
 from preload_harbor_cache import main as record_main
 

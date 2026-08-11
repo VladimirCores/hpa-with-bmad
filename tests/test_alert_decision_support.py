@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "alert-decision-support.py"
+SCRIPT = ROOT / "scripts" / "services" / "alert-decision-support.py"
 
 
 def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:

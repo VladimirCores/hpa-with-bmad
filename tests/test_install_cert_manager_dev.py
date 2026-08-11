@@ -44,7 +44,7 @@ def test_cert_manager_tls_termination() -> None:
 
 def main() -> int:
     test_cert_manager_tls_termination()
-    subprocess.run([sys.executable, "scripts/install-cert-manager-dev.py", "--offline", "--dry-run"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "scripts/gitops/install-cert-manager-dev.py", "--offline", "--dry-run"], cwd=ROOT, check=True)
     print("cert-manager TLS termination validation passed.")
     return 0
 

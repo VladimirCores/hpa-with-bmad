@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "alert-decision-support.py"
+SCRIPT = ROOT / "scripts" / "services" / "alert-decision-support.py"
 
 STEP_NAME = "21-llm-decision-support.py"
 STEP_DESCRIPTION = "Setup basic LLM decision support for alerts."

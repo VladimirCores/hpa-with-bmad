@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-a2a-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-a2a-dev.py"
 
 STEP_NAME = "44-install-a2a-dev.py"
 STEP_DESCRIPTION = "Install HPDC authenticated agent-to-agent (A2A) communication"

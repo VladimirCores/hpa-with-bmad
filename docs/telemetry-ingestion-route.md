@@ -31,6 +31,6 @@ HTTP capacity failures must return `429 Too Many Requests` when the device-type 
 
 ```python
 python3 tests/test_install_telemetry_ingestion_dev.py
-python3 scripts/install-telemetry-ingestion-dev.py --offline --dry-run
-python3 startup.dev.py --offline --dry-run --step 17-install-telemetry-ingestion-dev.py
+python3 scripts/gitops/install-telemetry-ingestion-dev.py --offline --dry-run
+python3 scripts/startup.dev.py --offline --dry-run --step 17-install-telemetry-ingestion-dev.py
 ```

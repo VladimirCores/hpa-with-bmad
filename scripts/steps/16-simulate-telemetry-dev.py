@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "simulate-telemetry-dev.py"
+SCRIPT = ROOT / "scripts" / "telemetry" / "simulate-telemetry-dev.py"
 
 STEP_NAME = "16-simulate-telemetry-dev.py"
 STEP_DESCRIPTION = "Validate HPDC telemetry simulator and acceptance harness."

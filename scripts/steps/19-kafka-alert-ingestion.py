@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "kafka-produce-alert.py"
+SCRIPT = ROOT / "scripts" / "services" / "kafka-produce-alert.py"
 
 STEP_NAME = "19-kafka-alert-ingestion.py"
 STEP_DESCRIPTION = "Setup Kafka alert ingestion topics and schema for Epic 5."

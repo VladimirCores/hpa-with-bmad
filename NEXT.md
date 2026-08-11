@@ -3,7 +3,7 @@
 **Last session:** 2026-08-11
 **PRD status:** Finalized (48 FRs, 5 UJs)
 **Architecture spine status:** Finalized (13 ADs, 48 FRs mapped, reviewer gate passed)
-**Delivery status:** Epics 1–10 implemented + retrospective'd (sweep committed), ATDD green phase (124 passed, 7 skipped), B-002 identity fixtures built
+**Delivery status:** Epics 1–10 implemented + retrospective'd (sweep committed), ATDD green phase (143 passed, 7 skipped), B-002/B-003/B-005 harnesses built
 **Outstanding work:** 23 retro action items + live-cluster verification register (10 entries) + setup/provisioning completion
 
 ---
@@ -12,10 +12,10 @@
 
 - **Epics 1–10:** all story-tracked and implemented; all 10 retrospectives done (`epic-{1..10}-retrospective: done` in `output/implementation-artifacts/sprint-status.yaml`).
 - **Retro sweep committed:** `efa3372` — consolidated 23-item action table at `output/implementation-artifacts/action-items-2026-08-11.md`.
-- **Setup fix committed:** `3cb2605` — `startup.dev.py --offline --dry-run` completes; `scripts/bootstrap_talos_dev.py` tolerates unreadable root-owned `output/talos/talosconfig`.
-- **Test suite:** `pytest tests/` → **124 passed, 7 skipped**. The 7 skips are RED-PHASE ATDD journeys gated on a live cluster/harnesses (P0-008 × 4, P0-023 soak, P0-025/026 UI).
+- **Setup fix committed:** `3cb2605` — `scripts/startup.dev.py --offline --dry-run` completes; `scripts/gitops/bootstrap_talos_dev.py` tolerates unreadable root-owned `output/talos/talosconfig`.
+- **Test suite:** `pytest tests/` → **143 passed, 7 skipped**. The 7 skips are RED-PHASE ATDD journeys gated on a live cluster (P0-008 × 4, P0-023 soak, P0-025/026 UI).
 - **Live-cluster register materialized:** `output/test-artifacts/live-cluster-verification-register.md` (REG-01..REG-10 + unlock path + related RED scaffolds).
-- **B-002 identity fixtures built:** `api_key_fixture`, `jwt_fixture` (RS256, Casdoor claims), `jwks_fixture`, `verify_jwt`, `CASDOOR_USERS` in `tests/atdd/support/fixtures.py`; 12 tests at `tests/atdd/support/test_identity_fixtures.py`.
+- **B-002/B-003/B-005 harnesses built (offline contracts):** identity fixtures (`tests/atdd/support/fixtures.py` + `test_identity_fixtures.py`, 12 tests), consumer harness (`tests/atdd/support/consumer_harness.py` + `test_consumer_harness.py`, 12 tests), k6 load harness (`LoadHarness` in `hpdc_test_client.py` + `test_load_harness.py`, 7 tests).
 
 ---
 
@@ -40,12 +40,12 @@ Backfill/clean the audit-trail drift so the plan, tracker, and story files agree
 Materialized in `output/test-artifacts/live-cluster-verification-register.md`. All 10 REG entries are gated on live infrastructure — **none can execute until a cluster exists**. Order of attack:
 
 1. ✅ **B-002 identity fixtures** — BUILT (unlock-path step 1 done).
-2. **B-003 consumer harness** — build `pulsar_consumer_harness` (message-arrival + latency asserts, P0-002/004/007/008) once message brokers exist; REG entries stay RED until then.
-3. **B-001 live test cluster** — provision Talos (`admin@hpa-dev`); this is the gating prerequisite for REG-01/02/04..10 and the P0-008 journey bodies.
-4. **B-004 multi-region topology** — 2 clusters + ClusterMesh + WireGuard → REG-03 (cross-cluster discovery/encryption).
-5. **B-005 k6 load harness** — P0-023 soak (24h 100K RPS, 99.9% delivered).
+2. ✅ **B-003 consumer harness** — BUILT (2026-08-11, offline contract): `pulsar_consumer_harness`/`kafka_consumer_harness` + `PulsarConsumerHarness`/`KafkaConsumerHarness` in `tests/atdd/support/consumer_harness.py` (message-arrival + latency asserts, remote HTTP + local NDJSON backends), 12 tests. Unlock-path step 2 done.
+3. ✅ **B-005 k6 load harness** — BUILT (2026-08-11, offline contract): `LoadHarness` + `SoakReport` in `hpdc_test_client.py` (k6 soak script, NFR1/NFR3 thresholds, local sim fallback), 7 tests. Unlock-path step 5 done.
+4. **B-001 live test cluster** — provision Talos (`admin@hpa-dev`); this is the gating prerequisite for REG-01/02/04..10 and the P0-008 journey bodies.
+5. **B-004 multi-region topology** — 2 clusters + ClusterMesh + WireGuard → REG-03 (cross-cluster discovery/encryption).
 
-**Concrete next executable step:** register's own unlock path — confirm whether a live Talos cluster (B-001) should be provisioned now (step 02 of `startup.dev.py` is currently dry-run/offline-only) or harnesses B-003/B-005 built first. This is the single largest decision left.
+**Concrete next executable step:** provision a live Talos cluster (B-001) — the only blocker left in the harness/unlock chain. Once it exists: wire the B-003 harness remote URL, run k6 against the gateway, and execute REG-01/02/04..10 + the P0-008 journey bodies. P0-023 full soak needs k6 binary + cluster.
 
 ### C. Parity Guards & Route-Topology (Winston/Amelia) — items 1, 7, 11, 19, 21, 5
 
@@ -67,12 +67,12 @@ Normalize Epics 1–4 headings in `epics.md` from `###` (h3 under `## Epic List`
 
 ## Suggested Immediate Order
 
-1. **E (heading normalization)** — small, mechanical, unblocks machine-driven discovery for everything else.
-2. **D (#2, #9)** — offline test-code hardening, immediately verifiable.
-3. **C (#1/#11/#19)** — route-topology resolution; manifest-only, offline, closes the catch-all family.
-4. **A (record reconciliation)** — doc backfill; do after headings so the reconciled records are discoverable.
-5. **C (#7, #21, #5)** — parity-guard codification (docs).
-6. **B** — the live-cluster decision (provision vs harness-first) is the long pole; decide early, execute last.
+1. **B-001 live cluster provision** — the only remaining harness/unlock-path blocker; all offline harness work (B-002/B-003/B-005) is done. Wire the B-003 remote URL + run k6 against the gateway once the cluster exists, then execute REG-01/02/04..10 and the P0-008 journey bodies.
+2. **E (heading normalization)** — small, mechanical, unblocks machine-driven discovery for everything else.
+3. **D (#2, #9)** — offline test-code hardening, immediately verifiable.
+4. **C (#1/#11/#19)** — route-topology resolution; manifest-only, offline, closes the catch-all family.
+5. **A (record reconciliation)** — doc backfill; do after headings so the reconciled records are discoverable.
+6. **C (#7, #21, #5)** — parity-guard codification (docs).
 
 ---
 

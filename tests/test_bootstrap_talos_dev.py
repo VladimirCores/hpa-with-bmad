@@ -11,7 +11,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 REQUIRED_FILES = [
-    ROOT / "startup.dev.py",
+    ROOT / "scripts/startup.dev.py",
     ROOT / "scripts" / "steps" / "02-bootstrap-talos-dev.py",
     ROOT / "platform" / "talos" / "machine-config.yaml",
     ROOT / "docs" / "bootstrap.md",

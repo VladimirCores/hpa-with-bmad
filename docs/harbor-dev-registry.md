@@ -11,19 +11,19 @@ Harbor provides a local OCI registry for GitOps images and charts. It is configu
 From the repository root:
 
 ```python
-python3 startup.dev.py --offline --dry-run --step 06-install-harbor-dev.py
+python3 scripts/startup.dev.py --offline --dry-run --step 06-install-harbor-dev.py
 ```
 
 To apply the GitOps overlay to the Talos cluster after Cilium and Rook-Ceph are installed:
 
 ```python
-python3 startup.dev.py --offline --apply --step 06-install-harbor-dev.py
+python3 scripts/startup.dev.py --offline --apply --step 06-install-harbor-dev.py
 ```
 
 Validation mode:
 
 ```python
-python3 startup.dev.py --offline --check --step 06-install-harbor-dev.py
+python3 scripts/startup.dev.py --offline --check --step 06-install-harbor-dev.py
 ```
 
 ## Required Offline Artifacts
@@ -88,10 +88,10 @@ service/harbor-registry in namespace harbor
 Run:
 
 ```python
-python3 startup.dev.py --offline --dry-run --step 06-install-harbor-dev.py
-python3 startup.dev.py --offline --check --step 06-install-harbor-dev.py
+python3 scripts/startup.dev.py --offline --dry-run --step 06-install-harbor-dev.py
+python3 scripts/startup.dev.py --offline --check --step 06-install-harbor-dev.py
 python3 tests/test_install_harbor_dev.py
-python3 -m compileall -q startup.dev.py scripts tests
+python3 -m compileall -q scripts tests
 ```
 
 ## Constraints

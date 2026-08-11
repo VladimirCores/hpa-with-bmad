@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "alert-handler.py"
+SCRIPT = ROOT / "scripts" / "services" / "alert-handler.py"
 
 
 def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:

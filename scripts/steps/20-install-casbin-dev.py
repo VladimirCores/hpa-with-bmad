@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-casbin-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-casbin-dev.py"
 
 STEP_NAME = "20-install-casbin-dev.py"
 STEP_DESCRIPTION = "Install Casbin RBAC policies for domain routes"

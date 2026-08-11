@@ -50,7 +50,7 @@ def test_install_envoy_gateway_dev() -> None:
 
 def main() -> int:
     validate()
-    subprocess.run([sys.executable, "scripts/install-envoy-gateway-dev.py", "--offline", "--dry-run"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "scripts/gitops/install-envoy-gateway-dev.py", "--offline", "--dry-run"], cwd=ROOT, check=True)
     print("Envoy Gateway edge routing validation passed.")
     return 0
 

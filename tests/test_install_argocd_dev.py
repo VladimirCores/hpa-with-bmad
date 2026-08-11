@@ -33,8 +33,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "12-install-argocd-dev.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "12-install-argocd-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "12-install-argocd-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "12-install-argocd-dev.py"])
     print("Argo CD validation passed.")
     return 0
 

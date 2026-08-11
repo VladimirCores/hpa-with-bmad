@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-victoria-metrics-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-victoria-metrics-dev.py"
 
 STEP_NAME = "35-install-victoria-metrics-dev.py"
 STEP_DESCRIPTION = "Install HPDC VictoriaMetrics metrics cluster (vmstorage, vminsert, vmselect)"

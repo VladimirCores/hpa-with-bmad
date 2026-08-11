@@ -26,8 +26,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "10-install-spegel-dev.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "10-install-spegel-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "10-install-spegel-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "10-install-spegel-dev.py"])
     print("Spegel validation passed.")
     return 0
 

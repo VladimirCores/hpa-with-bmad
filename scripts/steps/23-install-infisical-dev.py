@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-infisical-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-infisical-dev.py"
 
 STEP_NAME = "23-install-infisical-dev.py"
 STEP_DESCRIPTION = "Install Infisical secrets management"

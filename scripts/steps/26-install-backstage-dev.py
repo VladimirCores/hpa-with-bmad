@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-backstage-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-backstage-dev.py"
 
 STEP_NAME = "26-install-backstage-dev.py"
 STEP_DESCRIPTION = "Install Backstage Developer Portal and Golden Path templates"

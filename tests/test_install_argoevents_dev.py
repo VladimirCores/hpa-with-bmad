@@ -34,8 +34,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "14-install-argoevents-dev.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "14-install-argoevents-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "14-install-argoevents-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "14-install-argoevents-dev.py"])
     print("Argo Events validation passed.")
     return 0
 

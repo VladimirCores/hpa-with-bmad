@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "entity-change-processor.py"
+SCRIPT = ROOT / "scripts" / "services" / "entity-change-processor.py"
 
 STEP_NAME = "33-entity-change-feed.py"
 STEP_DESCRIPTION = "Setup entity change feed processing with Knative Restate semantics."

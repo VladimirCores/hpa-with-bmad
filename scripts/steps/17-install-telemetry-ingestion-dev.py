@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-telemetry-ingestion-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-telemetry-ingestion-dev.py"
 
 STEP_NAME = "17-install-telemetry-ingestion-dev.py"
 STEP_DESCRIPTION = "Install HPDC telemetry ingestion routes"

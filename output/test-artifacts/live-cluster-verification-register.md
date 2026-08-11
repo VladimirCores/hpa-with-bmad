@@ -23,13 +23,13 @@ sweep (action items 3, 4, 8, 10, 12) are materialized here.
 
 ## Blocker Reference (from test-design-qa.md)
 
-| Blocker | Requirement | Owner | Gates |
-|---------|-------------|-------|-------|
-| B-001 | Live test cluster (`admin@hpa-dev`) | Platform Eng | All E2E + route-auth integration |
-| B-002 | Identity fixtures (Casdoor 7 roles, JWT, API-Key) | Security/Backend | AuthN/AuthZ |
-| B-003 | Pulsar/Kafka consumer harness | Backend | Message-arrival assertions (FR-1..4, FR-9) |
-| B-004 | Multi-region topology (2 clusters + ClusterMesh + WireGuard) | Platform Eng | Epic 8 (FR-33..35, NFR20) |
-| B-005 | k6 load harness | QA + Platform Eng | Performance evidence (NFR1/4/9/10/16) |
+| Blocker | Requirement | Owner | Gates | Status |
+|---------|-------------|-------|-------|--------|
+| B-001 | Live test cluster (`admin@hpa-dev`) | Platform Eng | All E2E + route-auth integration | open |
+| B-002 | Identity fixtures (Casdoor 7 roles, JWT, API-Key) | Security/Backend | AuthN/AuthZ | ✅ BUILT 2026-08-11 |
+| B-003 | Pulsar/Kafka consumer harness | Backend | Message-arrival assertions (FR-1..4, FR-9) | ✅ BUILT 2026-08-11 (offline contract) |
+| B-004 | Multi-region topology (2 clusters + ClusterMesh + WireGuard) | Platform Eng | Epic 8 (FR-33..35, NFR20) | open |
+| B-005 | k6 load harness | QA + Platform Eng | Performance evidence (NFR1/4/9/10/16) | ✅ BUILT 2026-08-11 (offline contract) |
 
 ## Register
 
@@ -64,11 +64,27 @@ blockers resolve. They are the executable form of the register entries above.
    `CASDOOR_USERS` (7 role->group catalog) in `tests/atdd/support/fixtures.py`,
    with 12 offline tests (`tests/atdd/support/test_identity_fixtures.py`, incl.
    manifest-parity guard). Unlocks UI journeys and identity-relevant live probes.
-2. **B-003 consumer harness** — `pulsar_consumer_harness` contract is defined
-   (message-arrival + latency assert). Buildable once message brokers exist in a cluster.
+2. **B-003 consumer harness** — **BUILT (2026-08-11, offline contract):**
+   `pulsar_consumer_harness()` / `kafka_consumer_harness()` factories +
+   `PulsarConsumerHarness`/`KafkaConsumerHarness` in
+   `tests/atdd/support/consumer_harness.py`. Message-arrival (`assert_arrival`)
+   + arrival-within-latency budget (`assert_arrival_within_latency`) assertions;
+   remote HTTP backend (`HPDC_CONSUMER_HARNESS_URL` /
+   `HPDC_KAFKA_CONSUMER_HARNESS_URL`, `GET /consume/{topic}?key=`) for a live
+   cluster + local NDJSON topic-store backend for offline dev. 12 offline
+   contract tests (`tests/atdd/support/test_consumer_harness.py`). REG entries
+   using it (REG-04..10 style arrival/latency asserts) go live once B-001 exists.
 3. **B-001 live cluster** — unlocks REG-01/02/04..10 and the P0-008 journey bodies.
 4. **B-004 multi-region topology** — unlocks REG-03 (ClusterMesh/WireGuard).
-5. **B-005 k6 load harness** — unlocks the P0-023 soak.
+5. **B-005 k6 load harness** — **BUILT (2026-08-11, offline contract):**
+   `LoadHarness` + `SoakReport` in `hpdc_test_client.py` (the exact import +
+   call shape `test_p0_performance.py` uses). Runs a k6 soak script
+   (constant-arrival-rate, thresholds `http_req_failed rate<0.001` +
+   `http_req_duration p(99)<100`) against a live gateway when the k6 binary is
+   present; falls back to a bounded local simulation against the dev edge
+   service when k6 is absent. 7 offline contract tests
+   (`tests/atdd/support/test_load_harness.py`). The 24h/100K RPS soak itself
+   still needs k6 + live cluster (P0-023).
 
 ## Verification Ownership
 
@@ -86,3 +102,14 @@ blockers resolve. They are the executable form of the register entries above.
   `tests/atdd/support/fixtures.py` + 12 offline tests
   (`tests/atdd/support/test_identity_fixtures.py`). Unlock-path step 1 done;
   REG-02 (JWKS) groundwork in place.
+- 2026-08-11: B-003 consumer harness built (offline contract) —
+  `tests/atdd/support/consumer_harness.py` (`pulsar_consumer_harness`,
+  `kafka_consumer_harness`, message-arrival + latency assertions, remote HTTP
+  + local NDJSON backends) + 12 offline tests
+  (`tests/atdd/support/test_consumer_harness.py`). Unlock-path step 2 done.
+- 2026-08-11: B-005 k6 load harness built (offline contract) — `LoadHarness` +
+  `SoakReport` in `hpdc_test_client.py` (k6 soak script with NFR1/NFR3
+  thresholds + bounded local simulation fallback) + 7 offline tests
+  (`tests/atdd/support/test_load_harness.py`). Unlock-path step 5 done;
+  P0-023 soak itself still gated on k6 + live cluster. Suite now 143 passed /
+  7 skipped.

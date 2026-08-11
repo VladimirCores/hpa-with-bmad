@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-regional-hub-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-regional-hub-dev.py"
 
 STEP_NAME = "42-install-regional-hub-dev.py"
 STEP_DESCRIPTION = "Install HPDC regional API hub for cross-region visibility"

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "graphql-gateway.py"
+SCRIPT = ROOT / "scripts" / "services" / "graphql-gateway.py"
 
 STEP_NAME = "34-graphql-gateway.py"
 STEP_DESCRIPTION = "Setup cross-store GraphQL gateway with Hasura role-based permissions."

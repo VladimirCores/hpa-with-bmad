@@ -42,14 +42,14 @@ def validate_manifests() -> None:
 
 
 def test_check_mode() -> None:
-    result = run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "05-install-rook-ceph-dev.py"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "05-install-rook-ceph-dev.py"])
     assert result.returncode == 0
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert "Rook-Ceph bootstrap scaffold validation passed." in log
 
 
 def test_dry_run_mode() -> None:
-    result = run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "05-install-rook-ceph-dev.py"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "05-install-rook-ceph-dev.py"])
     assert result.returncode == 0
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert f"Rook-Ceph version: {ROOK_VERSION}" in log
@@ -63,7 +63,7 @@ def test_missing_image_cache_fails() -> None:
         marker.unlink()
     try:
         result = subprocess.run(
-            [sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "05-install-rook-ceph-dev.py"],
+            [sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "05-install-rook-ceph-dev.py"],
             cwd=ROOT,
             check=False,
             capture_output=True,

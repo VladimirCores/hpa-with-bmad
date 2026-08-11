@@ -15,25 +15,25 @@ def run(command: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def test_list() -> None:
-    result = run([sys.executable, "startup.dev.py", "--list"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--list"])
     assert result.returncode == 0
     assert "01  01-bootstrap-dev.py" in result.stdout
     assert "15  15-validate-offline-gitops-pipeline.py" in result.stdout
 
 
 def test_check_all_steps() -> None:
-    result = run([sys.executable, "startup.dev.py", "--offline", "--check"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--offline", "--check"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "HPDC dev setup completed." in result.stdout
 
 
 def test_selected_dry_run() -> None:
-    result = run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "15-validate-offline-gitops-pipeline.py"])
+    result = run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "15-validate-offline-gitops-pipeline.py"])
     assert result.returncode == 0, result.stdout + result.stderr
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert "Offline GitOps pipeline validation passed." in log
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
-    assert "command: python3 startup.dev.py --offline --dry-run --step 15-validate-offline-gitops-pipeline.py" in log
+    assert "command: python3 scripts/startup.dev.py --offline --dry-run --step 15-validate-offline-gitops-pipeline.py" in log
     assert "Offline GitOps pipeline validation passed." in log
 
 

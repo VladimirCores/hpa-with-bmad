@@ -34,8 +34,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "11-install-kargo-dev.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "11-install-kargo-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "11-install-kargo-dev.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "11-install-kargo-dev.py"])
     print("Kargo validation passed.")
     return 0
 

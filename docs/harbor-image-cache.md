@@ -1,6 +1,6 @@
 # Record Harbor Offline Image Cache Ingestion Metadata
 
-Use `python3 startup.dev.py --offline --dry-run --step 07-preload-harbor-cache.py` to validate the local Harbor image cache manifest and record Harbor ingestion metadata.
+Use `python3 scripts/startup.dev.py --offline --dry-run --step 07-preload-harbor-cache.py` to validate the local Harbor image cache manifest and record Harbor ingestion metadata.
 
 The preload script runs without internet access. It requires:
 

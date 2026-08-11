@@ -33,8 +33,8 @@ def validate() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "08-refresh-harbor-cache.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "08-refresh-harbor-cache.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "08-refresh-harbor-cache.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "08-refresh-harbor-cache.py"])
     print("Harbor cache refresh validation passed.")
     return 0
 

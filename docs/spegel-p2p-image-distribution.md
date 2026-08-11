@@ -1,6 +1,6 @@
 # Spegel P2P Image Distribution
 
-Run `python3 startup.dev.py --offline --dry-run --step 10-install-spegel-dev.py` to validate the Spegel offline image cache.
+Run `python3 scripts/startup.dev.py --offline --dry-run --step 10-install-spegel-dev.py` to validate the Spegel offline image cache.
 
 Required file:
 

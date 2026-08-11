@@ -73,7 +73,7 @@ All project automation scripts must be written in Python 3. Shell wrappers are n
 Run the scaffold bootstrap once:
 
 ```python
-python3 scripts/bootstrap_dev.py
+python3 scripts/gitops/bootstrap_dev.py
 ```
 
 ### 2. Run offline dev setup dry-runs
@@ -81,19 +81,19 @@ python3 scripts/bootstrap_dev.py
 Run the platform and GitOps setup without applying to a live cluster:
 
 ```python
-python3 startup.dev.py --offline --dry-run
+python3 scripts/startup.dev.py --offline --dry-run
 ```
 
 Run one ordered step only:
 
 ```python
-python3 startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py
+python3 scripts/startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py
 ```
 
 List all ordered steps:
 
 ```python
-python3 startup.dev.py --list
+python3 scripts/startup.dev.py --list
 ```
 
 Each startup run rewrites `output/startup.dev.log` before executing so the selected dry-run, check, or apply flow is reviewable.
@@ -103,7 +103,7 @@ Each startup run rewrites `output/startup.dev.log` before executing so the selec
 Run the validation tests:
 
 ```python
-python3 -m compileall -q startup.dev.py scripts tests
+python3 -m compileall -q scripts tests
 for t in tests/test_*.py; do python3 "$t"; done
 ```
 
@@ -113,12 +113,37 @@ Or run a single test:
 python3 tests/test_install_grafana_alertmanager_dev.py
 ```
 
-### 4. Apply to a real offline Talos cluster
+### 4. Run the ATDD P0 suite
+
+The acceptance suite under `tests/atdd/` is the green-phase contract suite
+(143 passed, 7 skipped as of 2026-08-11). Run it with pytest:
+
+```python
+python3 -m pytest tests/ -q
+```
+
+The 7 skips are RED-phase live journeys still gated on a live cluster (B-001).
+
+**Harnesses that back the suite** (all built 2026-08-11, offline contracts):
+
+| Harness | Where | Contract |
+|---------|-------|----------|
+| Identity fixtures (B-002) | `tests/atdd/support/fixtures.py` | `api_key_fixture`, `jwt_fixture` (RS256), `jwks_fixture`, `verify_jwt`, 7 Casdoor roles |
+| Consumer harness (B-003) | `tests/atdd/support/consumer_harness.py` | `pulsar_consumer_harness`/`kafka_consumer_harness` message-arrival + latency asserts (remote HTTP `HPDC_CONSUMER_HARNESS_URL` / local NDJSON store) |
+| Load harness (B-005) | `hpdc_test_client.py` → `LoadHarness` | k6 soak script (NFR1/NFR3 thresholds) + local simulation fallback |
+
+The harnesses switch to live backends automatically via env vars:
+`HPDC_CONSUMER_HARNESS_URL`, `HPDC_KAFKA_CONSUMER_HARNESS_URL`,
+`HPDC_EDGE_URL`, `HPDC_EVENTS_API_KEY`. With `k6` on PATH, `LoadHarness.soak()`
+runs a real constant-arrival-rate soak against the gateway; without it, it
+runs a bounded local simulation against the dev edge service.
+
+### 5. Apply to a real offline Talos cluster
 
 Apply only after the dry-runs pass and `output/talos/talosconfig` exists:
 
 ```python
-python3 startup.dev.py --offline --apply
+python3 scripts/startup.dev.py --offline --apply
 ```
 
 `--apply` requires `kubectl` and a healthy offline Talos cluster.
@@ -126,9 +151,9 @@ python3 startup.dev.py --offline --apply
 ## Quick health check
 
 ```python
-python3 startup.dev.py --offline --dry-run --step 16-install-envoy-gateway-dev.py
-python3 startup.dev.py --offline --dry-run --step 17-install-telemetry-ingestion-dev.py
-python3 startup.dev.py --offline --dry-run --step 15-validate-offline-gitops-pipeline.py
+python3 scripts/startup.dev.py --offline --dry-run --step 16-install-envoy-gateway-dev.py
+python3 scripts/startup.dev.py --offline --dry-run --step 17-install-telemetry-ingestion-dev.py
+python3 scripts/startup.dev.py --offline --dry-run --step 15-validate-offline-gitops-pipeline.py
 ```
 
 ## Local Access to Cluster Components
@@ -237,8 +262,9 @@ curl.exe -k -I https://hubble.hpdc.local
 │   ├── telemetry-* / entity-store / alerts / agent-engine             # Workloads
 │   ├── victoria-metrics/ monitoring/ observability/                   # Observability
 │   └── clustermesh/ regional-sovereignty/ regional-hub/               # Multi-region
-├── scripts/           # Python 3 automation (scripts/ + scripts/steps/)
+├── scripts/           # Python 3 automation (startup.dev.py, stop.dev.py, gitops/ services/ telemetry/ steps/)
 ├── tests/             # Python validation tests (test_*.py)
-├── startup.dev.py     # Ordered dev-step orchestrator
+│   └── atdd/          # P0 acceptance suite (api/, e2e/, support/ fixtures + harnesses)
+├── hpdc_test_client.py# Dev-side test harness (EventsClient, LoadHarness, etc.)
 └── output/            # Generated artifacts, logs, offline caches
 ```

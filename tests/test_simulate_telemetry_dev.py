@@ -12,8 +12,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
+TELEMETRY_DIR = SCRIPTS / "telemetry"
+for entry in (SCRIPTS, TELEMETRY_DIR):
+    if str(entry) not in sys.path:
+        sys.path.insert(0, str(entry))
 
 from telemetry_simulator import (  # noqa: E402
     TelemetryConfigError,
@@ -213,7 +215,7 @@ def test_live_connection_failure_exits_non_zero() -> None:
         env = os.environ.copy()
         env["HPDC_TELEMETRY_API_KEY"] = "test-api-key"
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS / "simulate-telemetry-dev.py"), "--config", str(config_path), "--apply"],
+            [sys.executable, str(TELEMETRY_DIR / "simulate-telemetry-dev.py"), "--config", str(config_path), "--apply"],
             cwd=ROOT,
             check=False,
             capture_output=True,
@@ -235,7 +237,7 @@ def test_alias_delegates_to_same_entrypoint() -> None:
         result = subprocess.run(
             [
                 sys.executable,
-                str(SCRIPTS / "simulate_telemetry_dev.py"),
+                str(TELEMETRY_DIR / "simulate_telemetry_dev.py"),
                 "--config",
                 str(config_path),
                 "--offline",
@@ -260,9 +262,9 @@ def main() -> int:
     test_oversized_envelope_rejected()
     test_live_connection_failure_exits_non_zero()
     test_alias_delegates_to_same_entrypoint()
-    subprocess.run([sys.executable, "-m", "py_compile", str(SCRIPTS / "telemetry_simulator.py")], check=True)
-    subprocess.run([sys.executable, "-m", "py_compile", str(SCRIPTS / "simulate-telemetry-dev.py")], check=True)
-    subprocess.run([sys.executable, "-m", "py_compile", str(SCRIPTS / "simulate_telemetry_dev.py")], check=True)
+    subprocess.run([sys.executable, "-m", "py_compile", str(TELEMETRY_DIR / "telemetry_simulator.py")], check=True)
+    subprocess.run([sys.executable, "-m", "py_compile", str(TELEMETRY_DIR / "simulate-telemetry-dev.py")], check=True)
+    subprocess.run([sys.executable, "-m", "py_compile", str(TELEMETRY_DIR / "simulate_telemetry_dev.py")], check=True)
     print("telemetry simulator harness validation passed.")
     return 0
 

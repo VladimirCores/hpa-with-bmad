@@ -2,7 +2,7 @@
 #
 # Replaces the per-component `output/<component>/*-workspaces.txt`
 # markers. Install scripts gate on `require("<component>")` via
-# scripts/_provisioned.py; acceptance tests assert the same keys.
+# scripts/gitops/_provisioned.py; acceptance tests assert the same keys.
 version: 1
 provisioned:
   argocd:

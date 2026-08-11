@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-entity-store-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-entity-store-dev.py"
 
 STEP_NAME = "31-install-entity-store-dev.py"
 STEP_DESCRIPTION = "Install HPDC entity hierarchy stores (CouchDB, ArcadeDB, YugabyteDB)"

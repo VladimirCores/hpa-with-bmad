@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = ROOT / "scripts"
+SCRIPTS_DIR = ROOT / "scripts" / "services"
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:

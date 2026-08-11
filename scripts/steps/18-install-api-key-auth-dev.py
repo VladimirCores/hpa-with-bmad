@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-api-key-auth-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-api-key-auth-dev.py"
 
 STEP_NAME = "18-install-api-key-auth-dev.py"
 STEP_DESCRIPTION = "Install Envoy Gateway API-key auth for messaging routes"

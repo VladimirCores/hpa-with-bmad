@@ -133,16 +133,16 @@ def test_epic3_gateway_stack() -> None:
 def main() -> int:
     test_epic3_gateway_stack()
     for script in [
-        "scripts/install-api-key-auth-dev.py",
-        "scripts/install-casdoor-dev.py",
-        "scripts/install-casbin-dev.py",
-        "scripts/install-casbin-rebac-dev.py",
-        "scripts/install-casbin-abac-dev.py",
-        "scripts/install-infisical-dev.py",
-        "scripts/install-openapi-dev.py",
-        "scripts/install-backstage-dev.py",
-        "scripts/install-tool-ui-routes-dev.py",
-        "scripts/install-observability-ui-routes-dev.py",
+        "scripts/gitops/install-api-key-auth-dev.py",
+        "scripts/gitops/install-casdoor-dev.py",
+        "scripts/gitops/install-casbin-dev.py",
+        "scripts/gitops/install-casbin-rebac-dev.py",
+        "scripts/gitops/install-casbin-abac-dev.py",
+        "scripts/gitops/install-infisical-dev.py",
+        "scripts/gitops/install-openapi-dev.py",
+        "scripts/gitops/install-backstage-dev.py",
+        "scripts/gitops/install-tool-ui-routes-dev.py",
+        "scripts/gitops/install-observability-ui-routes-dev.py",
     ]:
         subprocess.run([sys.executable, script, "--offline", "--dry-run"], cwd=ROOT, check=True)
     print("Epic 3 gateway stack validation passed.")

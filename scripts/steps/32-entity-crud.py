@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "entity-api.py"
+SCRIPT = ROOT / "scripts" / "services" / "entity-api.py"
 
 STEP_NAME = "32-entity-crud.py"
 STEP_DESCRIPTION = "Setup entity CRUD and bulk operations with RBAC and mutation audit."

@@ -8,9 +8,9 @@ The simulator generates CommonEnvelope-compatible telemetry from configurable Io
 
 ## Files
 
-- `scripts/simulate-telemetry-dev.py` — primary Python 3 entrypoint.
-- `scripts/simulate_telemetry_dev.py` — underscored alias that delegates to the same implementation.
-- `scripts/telemetry_simulator.py` — simulator core with config parsing, payload generation, metrics, and protocol emission.
+- `scripts/telemetry/simulate-telemetry-dev.py` — primary Python 3 entrypoint.
+- `scripts/telemetry/simulate_telemetry_dev.py` — underscored alias that delegates to the same implementation.
+- `scripts/telemetry/telemetry_simulator.py` — simulator core with config parsing, payload generation, metrics, and protocol emission.
 - `output/telemetry-simulator/config.yaml` — default simulator configuration.
 - `output/telemetry-simulator/sample-payloads.json` — sample CommonEnvelope payloads for tests and manual inspection.
 - `output/telemetry-simulator/summary.json` — generated run summary.
@@ -21,25 +21,25 @@ The simulator generates CommonEnvelope-compatible telemetry from configurable Io
 Run a dependency-free dry run:
 
 ```python
-python3 scripts/simulate-telemetry-dev.py --offline --dry-run
+python3 scripts/telemetry/simulate-telemetry-dev.py --offline --dry-run
 ```
 
 Validate configuration and write a summary without live protocol emission:
 
 ```python
-python3 scripts/simulate-telemetry-dev.py --check
+python3 scripts/telemetry/simulate-telemetry-dev.py --check
 ```
 
 Emit telemetry through configured live protocols:
 
 ```python
-python3 scripts/simulate-telemetry-dev.py --apply
+python3 scripts/telemetry/simulate-telemetry-dev.py --apply
 ```
 
 Use the underscored alias from tests or startup-style commands:
 
 ```python
-python3 scripts/simulate_telemetry_dev.py --offline --dry-run
+python3 scripts/telemetry/simulate_telemetry_dev.py --offline --dry-run
 ```
 
 All project automation scripts are Python 3.

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-openapi-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-openapi-dev.py"
 
 STEP_NAME = "25-install-openapi-dev.py"
 STEP_DESCRIPTION = "Install OpenAPI specification governance"

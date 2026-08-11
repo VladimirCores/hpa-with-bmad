@@ -193,9 +193,9 @@ test('device entity created via /data @p0', async ({ apiRequest }) => {
 - [ ] All requirements and assumptions agreed upon by QA, Dev, PM
 - [ ] Test environments provisioned and accessible (B-001)
 - [ ] Test data factories ready or seed data available
-- [ ] Pre-implementation blockers resolved (B-002, B-003, B-004)
+- [x] Pre-implementation harness blockers resolved (B-002, B-003, B-005 built 2026-08-11; B-004 open)
 - [ ] Feature deployed to test environment (all 9 epics per sprint-status.yaml)
-- [ ] Load tooling available (B-005) for perf-tier tests
+- [x] Load tooling available (B-005 k6 harness built; full soak needs k6 binary + live cluster)
 
 ## Exit Criteria
 
@@ -415,10 +415,10 @@ test('device entity created via /data @p0', async ({ apiRequest }) => {
 | Work Item | Owner | Target Milestone (Optional) | Dependencies/Notes |
 | --------- | ----- | --------------------------- | ------------------ |
 | Provision live test cluster | Platform Eng | Pre-release | B-001; Talos `admin@hpa-dev` |
-| Create identity fixtures | Security/Backend | Pre-release | B-002; Casdoor 7 roles, JWTs, API-Keys |
-| Build consumer harness | Backend | Pre-release | B-003; Pulsar + Kafka readers |
+| Create identity fixtures | Security/Backend | Pre-release | ✅ B-002 built 2026-08-11 (tests/atdd/support/fixtures.py) |
+| Build consumer harness | Backend | Pre-release | ✅ B-003 built 2026-08-11 (tests/atdd/support/consumer_harness.py) |
 | Provision multi-region topology | Platform Eng | Pre-release | B-004; ClusterMesh + WireGuard |
-| Add k6 load harness | QA + Platform Eng | Nightly | B-005; scenarios for NFR1/4/9/10/16 |
+| Add k6 load harness | QA + Platform Eng | Nightly | ✅ B-005 built 2026-08-11 (LoadHarness in hpdc_test_client.py); full soak needs k6 binary + cluster |
 | Author P0 integration tests | QA | Pre-release | Covers P0-001..024 |
 | Author E2E Playwright suite | QA | Pre-release | P0-025/026, P1-031, P2-001..005 |
 | Wire PR/Nightly/Weekly CI tiers | QA + Platform Eng | Pre-release | Tier config per Execution Strategy |
@@ -431,7 +431,7 @@ test('device entity created via /data @p0', async ({ apiRequest }) => {
 | Tool or Service | Purpose | Access Required | Status |
 | --------------- | ------- | --------------- | ------ |
 | Playwright | UI E2E (Playwright-utils fixtures) | None (open source) | Ready |
-| k6 | Load/performance (NFR1/4/9/10/16) | None (open source) | Pending (B-005) |
+| k6 | Load/performance (NFR1/4/9/10/16) | None (open source) | Harness built (B-005, LoadHarness); k6 binary needed to run |
 | pytest (Python) | Integration scripts (existing convention) | None | Ready |
 | kubectl / Talosctl | Deployment probes, drift checks | Cluster access `admin@hpa-dev` | Pending (B-001) |
 | argocd CLI | App diff, sync health | Cluster access | Pending (B-001) |

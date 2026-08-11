@@ -17,7 +17,7 @@ REQUIRED_DIRS = [
     ROOT / "tests",
 ]
 REQUIRED_FILES = [
-    ROOT / "startup.dev.py",
+    ROOT / "scripts/startup.dev.py",
     ROOT / "scripts" / "steps" / "01-bootstrap-dev.py",
     ROOT / "platform" / "talos" / "machine-config.yaml",
     ROOT / "gitops" / "platform" / "base" / "kustomization.yaml",

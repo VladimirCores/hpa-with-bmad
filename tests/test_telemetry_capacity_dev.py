@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CAPACITY_SCRIPT = ROOT / "scripts" / "telemetry_capacity.py"
+CAPACITY_SCRIPT = ROOT / "scripts" / "telemetry" / "telemetry_capacity.py"
 
 
 def validate() -> None:

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-observability-ui-routes-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-observability-ui-routes-dev.py"
 
 STEP_NAME = "28-install-observability-ui-routes-dev.py"
 STEP_DESCRIPTION = "Install Envoy Gateway observability UI routes"

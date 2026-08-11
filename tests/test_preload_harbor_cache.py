@@ -10,8 +10,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+GITOPS_DIR = SCRIPTS_DIR / "gitops"
+for entry in (SCRIPTS_DIR, GITOPS_DIR):
+    if str(entry) not in sys.path:
+        sys.path.insert(0, str(entry))
 
 from preload_harbor_cache import load_image_records, split_image_name, target_for_image  # noqa: E402
 
@@ -54,7 +56,7 @@ def validate() -> None:
 def test_dry_run_lists_images_and_expected_tags() -> None:
     manifest = ROOT / "output" / "harbor" / "harbor-ingestion-manifest.yaml"
     before_mtime = manifest.stat().st_mtime_ns
-    result = run([sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run"])
+    result = run([sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert manifest.stat().st_mtime_ns == before_mtime
 
@@ -70,7 +72,7 @@ def test_dry_run_lists_images_and_expected_tags() -> None:
 
 
 def test_check_mode_records_manifest() -> None:
-    result = run([sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--offline", "--check"])
+    result = run([sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--offline", "--check"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Preload Harbor cache validation passed." in result.stdout
     manifest = ROOT / "output" / "harbor" / "harbor-ingestion-manifest.yaml"
@@ -83,7 +85,7 @@ def test_check_mode_records_manifest() -> None:
 
 
 def test_apply_mode_records_manifest() -> None:
-    result = run([sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--offline", "--apply"])
+    result = run([sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--offline", "--apply"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Harbor ingestion manifest recorded." in result.stdout
     manifest_text = (ROOT / "output" / "harbor" / "harbor-ingestion-manifest.yaml").read_text(encoding="utf-8")
@@ -92,12 +94,12 @@ def test_apply_mode_records_manifest() -> None:
 
 
 def test_cli_requires_offline_and_single_mode() -> None:
-    missing_offline = run([sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--dry-run"], check=False)
+    missing_offline = run([sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--dry-run"], check=False)
     assert missing_offline.returncode != 0
     assert "--offline is required" in missing_offline.stderr
 
     multiple_modes = run(
-        [sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run", "--check"],
+        [sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run", "--check"],
         check=False,
     )
     assert multiple_modes.returncode != 0
@@ -193,7 +195,7 @@ def test_missing_harbor_cache_marker_fails() -> None:
         marker_dir.mkdir(parents=True)
         (marker_dir / "redis-7.2-alpine").write_text("Redis offline image cache marker.", encoding="utf-8")
         (tmp_root / "output" / "harbor" / "cache-images.txt").write_text("redis:7.2-alpine\n", encoding="utf-8")
-        result = run([sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run", "--root", str(tmp_root)], check=False, cwd=tmp_root)
+        result = run([sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run", "--root", str(tmp_root)], check=False, cwd=tmp_root)
     assert result.returncode != 0
     assert "output/harbor/images/harbor-core-v2.11.3" in result.stderr
 
@@ -204,7 +206,7 @@ def test_missing_image_list_fails() -> None:
         marker_dir = tmp_root / "output" / "harbor" / "images"
         marker_dir.mkdir(parents=True)
         (marker_dir / "harbor-core-v2.11.3").write_text("Harbor offline image cache marker.", encoding="utf-8")
-        result = run([sys.executable, str(SCRIPTS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run", "--root", str(tmp_root)], check=False, cwd=tmp_root)
+        result = run([sys.executable, str(GITOPS_DIR / "preload_harbor_cache.py"), "--offline", "--dry-run", "--root", str(tmp_root)], check=False, cwd=tmp_root)
     assert result.returncode != 0
     assert "output/harbor/cache-images.txt" in result.stderr
 
@@ -221,8 +223,8 @@ def test_load_image_records_parses_expected_tags() -> None:
 
 def main() -> int:
     validate()
-    run([sys.executable, "startup.dev.py", "--offline", "--check", "--step", "07-preload-harbor-cache.py"])
-    run([sys.executable, "startup.dev.py", "--offline", "--dry-run", "--step", "07-preload-harbor-cache.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--check", "--step", "07-preload-harbor-cache.py"])
+    run([sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "07-preload-harbor-cache.py"])
     test_split_image_name_accepts_harbor_repo_path()
     test_split_image_name_accepts_digest_only_reference()
     test_dry_run_lists_images_and_expected_tags()

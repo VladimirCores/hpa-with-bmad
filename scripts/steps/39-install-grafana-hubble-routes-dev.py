@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-grafana-hubble-routes-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-grafana-hubble-routes-dev.py"
 
 STEP_NAME = "39-install-grafana-hubble-routes-dev.py"
 STEP_DESCRIPTION = "Install HPDC Grafana and Hubble tool UI host routes"

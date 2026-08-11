@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "entity-change-processor.py"
+SCRIPT = ROOT / "scripts" / "services" / "entity-change-processor.py"
 FEED_DEF = ROOT / "gitops/entity-store/base/entity-change-feed.yaml"
 
 

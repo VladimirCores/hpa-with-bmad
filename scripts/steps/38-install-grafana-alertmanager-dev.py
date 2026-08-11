@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-grafana-alertmanager-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-grafana-alertmanager-dev.py"
 
 STEP_NAME = "38-install-grafana-alertmanager-dev.py"
 STEP_DESCRIPTION = "Install HPDC Grafana dashboards and Alertmanager"

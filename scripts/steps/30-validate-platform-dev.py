@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "validate-platform-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "validate-platform-dev.py"
 
 STEP_NAME = "30-validate-platform-dev.py"
 STEP_DESCRIPTION = "Validate HPDC platform offline telemetry pipeline scaffold"

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "install-regional-sovereignty-dev.py"
+SCRIPT = ROOT / "scripts" / "gitops" / "install-regional-sovereignty-dev.py"
 
 STEP_NAME = "41-install-regional-sovereignty-dev.py"
 STEP_DESCRIPTION = "Install HPDC regional data sovereignty"
