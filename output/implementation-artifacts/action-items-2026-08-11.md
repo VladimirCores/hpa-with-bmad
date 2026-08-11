@@ -47,7 +47,7 @@
 ## Cross-Cutting Themes
 
 1. **Record reconciliation (John)** — Epics 5 (5-2), 4 (4-3..4-9), 3 (3-13), 1 (1-6): the audit trail has drifted in both directions (missing records, untracked implementations, plan/tracker mismatches). Items 14, 16, 18, 22.
-2. **Live-cluster verification register (Murat/Winston)** — Epics 10 (JWKS/P0-008), 8 (ClusterMesh), 7 (SLOs), 6 (entity-store SLOs): quantified ACs are config-only until a cluster exists. Items 3, 4, 8, 10, 12.
+2. **Live-cluster verification register (Murat/Winston)** — Epics 10 (JWKS/P0-008), 8 (ClusterMesh), 7 (SLOs), 6 (entity-store SLOs): quantified ACs are config-only until a cluster exists. Materialized as `output/test-artifacts/live-cluster-verification-register.md` (REG-01..REG-10 + unlock path + related RED scaffolds). Items 3, 4, 8, 10, 12.
 3. **Parity guards for shared config (Winston)** — Epics 10 (harbor drift guard), 9 (agent-engine), 3 (tool routes), 2 (harbor template): one fact, two representations → enforce equality. Items 3, 7, 19, 21.
 4. **Route-topology / native-auth consolidation (Winston/Amelia)** — Epics 10 (`'/'` catch-all), 7 (7-5 tool routes), 3 (3-12/3-13): the native tool-auth pattern is one family; needs one topology rule. Items 1, 11, 19.
 5. **Heading normalization Epics 1–4 (Winston)** — h3 under `## Epic List` vs h2 for Epics 5–10; breaks machine discovery. Item 17.

@@ -138,8 +138,8 @@ Minimal fixtures only (TDD red phase — full factories come at green phase):
 | Fixture / Harness | Used By | Blocker |
 | ----------------- | ------- | ------- |
 | `hpdc_test_client` (EventsClient, TelemetryClient, ClickHouseProbe) | All API scaffolds | B-001 cluster for live checks; client itself is dev-side |
-| `api_key_fixture` (X-API-Key for /events, /telemetry) | P0-001..003 | B-002 identity fixtures |
-| `jwt_fixture` (Casdoor 7 roles) | P0-012, P0-013, P0-024 | B-002 |
+| `api_key_fixture` (X-API-Key for /events, /telemetry) | P0-001..003 | ✅ BUILT 2026-08-11 (manifest parity guard) |
+| `jwt_fixture` (Casdoor 7 roles) | P0-012, P0-013, P0-024 | ✅ BUILT 2026-08-11 (RS256 + JWKS + `verify_jwt`) |
 | `pulsar_consumer_harness` | P0-002, P0-004, P0-007, P0-008 | B-003 |
 | `clickhouse_probe` | P0-002, P0-008, P0-023 | B-001 |
 | `live_cluster` (`admin@hpa-dev`) | P0-017, P0-018, P0-016, P0-022 live probes | B-001 |
