@@ -27,8 +27,13 @@ def validate() -> None:
     assert "kind: ApplicationSet" in argocd and "name: hpdc-applications" in argocd
     assert "argocd.argoproj.io/sync-wave" in argocd
     assert "git://git-mirror/git-mirror" in argocd
+    assert "quay.io/argoproj/argocd:v3.5.0" in argocd
+    assert (ROOT / "output/argocd/images/argocd-v3.5.0").exists()
+    for component in ["argocd-server", "argocd-repo-server", "argocd-application-controller", "argocd-applicationset-controller", "argocd-redis"]:
+        assert f"name: {component}" in argocd
     provisioned = _load_provisioned()
     assert provisioned["argocd"]["value"] == "argocd"
+    assert provisioned["argocd"]["version"] == "3.5.0"
 
 
 def main() -> int:

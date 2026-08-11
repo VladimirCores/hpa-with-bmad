@@ -10,12 +10,19 @@ from pathlib import Path
 from _provisioned import require
 
 ROOT = Path(__file__).resolve().parents[2]
+ARGOCD_VERSION = "3.5.0"
+ARGOCD_IMAGE = ROOT / "output" / "argocd" / "images" / f"argocd-v{ARGOCD_VERSION}"
 ARGOCD_BASE = ROOT / "gitops" / "argo-cd" / "base"
 ARGOCD_OVERLAY = ROOT / "gitops" / "argo-cd" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
     require("argocd")
+    if not ARGOCD_IMAGE.exists():
+        raise RuntimeError(
+            f"Argo CD offline image cache marker not found. Pre-cache Argo CD v{ARGOCD_VERSION} before offline bootstrap: "
+            f"{ARGOCD_IMAGE.relative_to(ROOT)}"
+        )
 
 
 def validate_manifests() -> list[str]:
@@ -31,6 +38,13 @@ def validate_manifests() -> list[str]:
         failures.append("argocd.yaml missing sync-wave annotation")
     if "git://git-mirror/git-mirror" not in argocd:
         failures.append("argocd.yaml missing local Git mirror repoURL")
+    if f"quay.io/argoproj/argocd:v{ARGOCD_VERSION}" not in argocd:
+        failures.append(f"argocd.yaml missing Argo CD v{ARGOCD_VERSION} image")
+    for component in ["argocd-server", "argocd-repo-server", "argocd-application-controller", "argocd-applicationset-controller", "argocd-redis"]:
+        if f"name: {component}" not in argocd:
+            failures.append(f"argocd.yaml missing {component}")
+    if "kind: Service" not in argocd or "name: argocd-server" not in argocd:
+        failures.append("argocd.yaml missing argocd-server Service")
     return failures
 
 
@@ -63,6 +77,8 @@ def main() -> int:
         return 0
     if args.dry_run:
         print("Argo CD dry-run passed.")
+        print(f"Argo CD version: {ARGOCD_VERSION}")
+        print(f"Argo CD image cache: {ARGOCD_IMAGE.relative_to(ROOT)}")
         print("ApplicationSet and sync waves are configured.")
         print(f"GitOps overlay: {ARGOCD_OVERLAY.relative_to(ROOT)}")
         return 0

@@ -43,6 +43,7 @@ def validate() -> None:
         "gitops/cert-manager/overlays/dev/kustomization.yaml",
         "output/harbor/cache-images.txt",
         "output/spegel/images/spegel-v0.4.0",
+        "output/argocd/images/argocd-v3.5.0",
         "output/provisioned.yaml",
     ]
     missing = [path for path in required if not (ROOT / path).exists()]

@@ -60,7 +60,7 @@ curl -k -I https://hubble.hpdc.local
 
 | Component | Base manifest |
 |-----------|---------------|
-| Tool UI routes (Backstage, Argo CD, Kargo) | `gitops/tool-ui/base/tool-ui-routes.yaml` |
+| Tool UI routes (Backstage, Argo CD v3.5, Kargo) | `gitops/tool-ui/base/tool-ui-routes.yaml` |
 | Observability UI routes (Grafana, Hubble) | `gitops/observability/base/observability-ui-routes.yaml` |
 | Grafana/Hubble host routes | `gitops/observability/base/grafana-hubble-routes.yaml` |
 | Envoy Gateway / TLS | `gitops/envoy-gateway/base/envoy-gateway.yaml`, `gitops/cert-manager/base/cert-manager.yaml` |

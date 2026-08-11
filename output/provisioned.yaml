@@ -7,6 +7,7 @@ version: 1
 provisioned:
   argocd:
     value: argocd
+    version: 3.5.0
   argo-events:
     value: offline-gitops
   argo-rollouts:
