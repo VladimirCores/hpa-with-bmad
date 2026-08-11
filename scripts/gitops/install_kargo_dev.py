@@ -10,12 +10,19 @@ from pathlib import Path
 from _provisioned import require
 
 ROOT = Path(__file__).resolve().parents[2]
+KARGO_VERSION = "1.11.0"
+KARGO_IMAGE = ROOT / "output" / "kargo" / "images" / f"kargo-v{KARGO_VERSION}"
 KARGO_BASE = ROOT / "gitops" / "kargo" / "base"
 KARGO_OVERLAY = ROOT / "gitops" / "kargo" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
     require("kargo")
+    if not KARGO_IMAGE.exists():
+        raise RuntimeError(
+            f"Kargo offline image cache marker not found. Pre-cache Kargo v{KARGO_VERSION} before offline bootstrap: "
+            f"{KARGO_IMAGE.relative_to(ROOT)}"
+        )
 
 
 def validate_manifests() -> list[str]:
@@ -33,6 +40,12 @@ def validate_manifests() -> list[str]:
         failures.append("kargo.yaml missing Freight")
     if "git://git-mirror/git-mirror" not in kargo:
         failures.append("kargo.yaml missing local Git mirror repoURL")
+    if "kind: Deployment" not in kargo or "name: kargo-controller" not in kargo:
+        failures.append("kargo.yaml missing kargo-controller Deployment")
+    if f"ghcr.io/akuity/kargo:v{KARGO_VERSION}" not in kargo:
+        failures.append(f"kargo.yaml missing Kargo v{KARGO_VERSION} image")
+    if "kind: ServiceAccount" not in kargo or "name: kargo-controller" not in kargo:
+        failures.append("kargo.yaml missing kargo-controller ServiceAccount")
     return failures
 
 
@@ -65,6 +78,8 @@ def main() -> int:
         return 0
     if args.dry_run:
         print("Kargo dry-run passed.")
+        print(f"Kargo version: {KARGO_VERSION}")
+        print(f"Kargo image cache: {KARGO_IMAGE.relative_to(ROOT)}")
         print("Warehouse, Stage, and Freight are configured.")
         print(f"GitOps overlay: {KARGO_OVERLAY.relative_to(ROOT)}")
         return 0

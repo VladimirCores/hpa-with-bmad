@@ -8,6 +8,237 @@ metadata:
 
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kargo-controller
+  namespace: kargo
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kargo-controller
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["clusterconfigs", "projects", "projectconfigs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["promotions"]
+    verbs: ["create", "get", "list", "watch"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["freights"]
+    verbs: ["create", "get", "list", "watch", "patch", "update"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["stages"]
+    verbs: ["get", "list", "patch", "promote", "watch"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["clusterpromotiontasks", "promotiontasks", "warehouses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources:
+      - "freights/status"
+      - "promotions/status"
+      - "stages/status"
+      - "warehouses/finalizers"
+      - "warehouses/status"
+    verbs: ["patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kargo-controller-read-secrets
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kargo-controller-rollouts
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["analysistemplates", "clusteranalysistemplates"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["analysisruns"]
+    verbs: ["create", "get", "list", "patch", "watch", "deletecollection"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kargo-controller
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kargo-controller
+subjects:
+  - kind: ServiceAccount
+    name: kargo-controller
+    namespace: kargo
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kargo-controller-rollouts
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kargo-controller-rollouts
+subjects:
+  - kind: ServiceAccount
+    name: kargo-controller
+    namespace: kargo
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kargo-controller
+  namespace: kargo
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kargo-controller
+  namespace: kargo
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kargo-controller
+subjects:
+  - kind: ServiceAccount
+    name: kargo-controller
+    namespace: kargo
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kargo-controller
+  namespace: kargo
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  LOG_LEVEL: INFO
+  LOG_FORMAT: CONSOLE
+  KARGO_NAMESPACE: kargo
+  SYSTEM_RESOURCES_NAMESPACE: kargo-system-resources
+  IS_DEFAULT_CONTROLLER: "true"
+  SHARED_RESOURCES_NAMESPACE: kargo-shared-resources
+  ALLOW_CREDENTIALS_OVER_HTTP: "false"
+  GITCLIENT_NAME: Kargo
+  GITCLIENT_EMAIL: no-reply@kargo.io
+  GIT_PUSH_INTEGRATION_POLICY: AlwaysRebase
+  GITCLIENT_SIGNING_KEY_TYPE: gpg
+  GITHUB_PUSH_MAX_REVISIONS: "10"
+  GITHUB_PUSH_VERIFY_UNTRUSTED_COMMITS: "false"
+  CACHE_BY_TAG_POLICY: Allow
+  MAX_IMAGE_CACHE_ENTRIES: "100000"
+  IMAGE_REGISTRY_RATE_LIMIT: "20"
+  ARGOCD_INTEGRATION_ENABLED: "true"
+  ARGOCD_NAMESPACE: argocd
+  ARGOCD_WATCH_ARGOCD_NAMESPACE_ONLY: "false"
+  ROLLOUTS_INTEGRATION_ENABLED: "true"
+  ROLLOUTS_CONTROLLER_INSTANCE_ID: ""
+  MAX_CONCURRENT_CONTROL_FLOW_RECONCILES: "4"
+  MAX_CONCURRENT_PROMOTION_RECONCILES: "4"
+  MAX_CONCURRENT_STAGE_RECONCILES: "4"
+  MAX_CONCURRENT_WAREHOUSE_RECONCILES: "4"
+  MIN_WAREHOUSE_RECONCILIATION_INTERVAL: 5m0s
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kargo-controller
+  namespace: kargo
+  labels:
+    app.kubernetes.io/name: kargo
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kargo
+      app.kubernetes.io/component: kargo-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kargo
+        app.kubernetes.io/component: kargo-controller
+    spec:
+      serviceAccountName: kargo-controller
+      containers:
+        - name: controller
+          image: ghcr.io/akuity/kargo:v1.11.0
+          imagePullPolicy: IfNotPresent
+          command: ["/sbin/tini", "--", "/usr/local/bin/kargo"]
+          args: ["controller"]
+          envFrom:
+            - configMapRef:
+                name: kargo-controller
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-data
+          securityContext:
+            runAsNonRoot: true
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "1"
+            requests:
+              memory: 256Mi
+              cpu: 100m
+      volumes:
+        - name: tmp-data
+          emptyDir: {}
+
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kargo-dev-config

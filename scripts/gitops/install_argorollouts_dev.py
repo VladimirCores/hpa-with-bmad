@@ -10,12 +10,19 @@ from pathlib import Path
 from _provisioned import require
 
 ROOT = Path(__file__).resolve().parents[2]
+ARGO_ROLLOUTS_VERSION = "1.9.1"
+ARGO_ROLLOUTS_IMAGE = ROOT / "output" / "argo-rollouts" / "images" / f"argo-rollouts-v{ARGO_ROLLOUTS_VERSION}"
 ARGO_ROLLOUTS_BASE = ROOT / "gitops" / "argo-rollouts" / "base"
 ARGO_ROLLOUTS_OVERLAY = ROOT / "gitops" / "argo-rollouts" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
     require("argo-rollouts")
+    if not ARGO_ROLLOUTS_IMAGE.exists():
+        raise RuntimeError(
+            f"Argo Rollouts offline image cache marker not found. Pre-cache Argo Rollouts v{ARGO_ROLLOUTS_VERSION} before offline bootstrap: "
+            f"{ARGO_ROLLOUTS_IMAGE.relative_to(ROOT)}"
+        )
 
 
 def validate_manifests() -> list[str]:
@@ -31,6 +38,12 @@ def validate_manifests() -> list[str]:
         failures.append("argorollouts.yaml missing canary strategy")
     if "pause: {duration: 30s}" not in rollouts:
         failures.append("argorollouts.yaml missing pause steps")
+    if "kind: Deployment" not in rollouts or "name: argo-rollouts" not in rollouts:
+        failures.append("argorollouts.yaml missing argo-rollouts Deployment")
+    if f"quay.io/argoproj/argo-rollouts:v{ARGO_ROLLOUTS_VERSION}" not in rollouts:
+        failures.append(f"argorollouts.yaml missing Argo Rollouts v{ARGO_ROLLOUTS_VERSION} image")
+    if "kind: ClusterRole" not in rollouts or "name: argo-rollouts" not in rollouts:
+        failures.append("argorollouts.yaml missing argo-rollouts ClusterRole")
     return failures
 
 
@@ -63,6 +76,8 @@ def main() -> int:
         return 0
     if args.dry_run:
         print("Argo Rollouts dry-run passed.")
+        print(f"Argo Rollouts version: {ARGO_ROLLOUTS_VERSION}")
+        print(f"Argo Rollouts image cache: {ARGO_ROLLOUTS_IMAGE.relative_to(ROOT)}")
         print("Rollout strategy is configured.")
         print(f"GitOps overlay: {ARGO_ROLLOUTS_OVERLAY.relative_to(ROOT)}")
         return 0

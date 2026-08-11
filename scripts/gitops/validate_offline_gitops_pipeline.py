@@ -26,6 +26,9 @@ REQUIRED = [
     ROOT / "output/harbor/cache-images.txt",
     ROOT / "output/spegel/images/spegel-v0.4.0",
     ROOT / "output/argocd/images/argocd-v3.5.0",
+    ROOT / "output/kargo/images/kargo-v1.11.0",
+    ROOT / "output/argo-rollouts/images/argo-rollouts-v1.9.1",
+    ROOT / "output/argo-events/images/argo-events-v1.9.11",
     ROOT / "output/provisioned.yaml",
 ]
 
@@ -40,6 +43,13 @@ def validate() -> list[str]:
             failures.append(f"provisioned: {component}")
     if (record("argocd") or {}).get("version") != "3.5.0":
         failures.append("provisioned: argocd version")
+    for component, version in {
+        "kargo": "1.11.0",
+        "argo-rollouts": "1.9.1",
+        "argo-events": "1.9.11",
+    }.items():
+        if (record(component) or {}).get("version") != version:
+            failures.append(f"provisioned: {component} version")
     images = (record("harbor-image-cache") or {}).get("images") or []
     if not any(image.get("name") == "harbor/harbor-core:v2.11.3" for image in images):
         failures.append("provisioned: harbor-image-cache core image")

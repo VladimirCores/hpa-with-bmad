@@ -10,12 +10,19 @@ from pathlib import Path
 from _provisioned import require
 
 ROOT = Path(__file__).resolve().parents[2]
+ARGO_EVENTS_VERSION = "1.9.11"
+ARGO_EVENTS_IMAGE = ROOT / "output" / "argo-events" / "images" / f"argo-events-v{ARGO_EVENTS_VERSION}"
 ARGO_EVENTS_BASE = ROOT / "gitops" / "argo-events" / "base"
 ARGO_EVENTS_OVERLAY = ROOT / "gitops" / "argo-events" / "overlays" / "dev"
 
 
 def ensure_files() -> None:
     require("argo-events")
+    if not ARGO_EVENTS_IMAGE.exists():
+        raise RuntimeError(
+            f"Argo Events offline image cache marker not found. Pre-cache Argo Events v{ARGO_EVENTS_VERSION} before offline bootstrap: "
+            f"{ARGO_EVENTS_IMAGE.relative_to(ROOT)}"
+        )
 
 
 def validate_manifests() -> list[str]:
@@ -33,6 +40,12 @@ def validate_manifests() -> list[str]:
         failures.append("argoevents.yaml missing Workflow")
     if "git://git-mirror/git-mirror" not in events:
         failures.append("argoevents.yaml missing local Git mirror repoURL")
+    if "kind: Deployment" not in events or "name: controller-manager" not in events:
+        failures.append("argoevents.yaml missing controller-manager Deployment")
+    if f"quay.io/argoproj/argo-events:v{ARGO_EVENTS_VERSION}" not in events:
+        failures.append(f"argoevents.yaml missing Argo Events v{ARGO_EVENTS_VERSION} image")
+    if "kind: ServiceAccount" not in events or "name: argo-events-sa" not in events:
+        failures.append("argoevents.yaml missing argo-events-sa ServiceAccount")
     return failures
 
 
@@ -65,6 +78,8 @@ def main() -> int:
         return 0
     if args.dry_run:
         print("Argo Events dry-run passed.")
+        print(f"Argo Events version: {ARGO_EVENTS_VERSION}")
+        print(f"Argo Events image cache: {ARGO_EVENTS_IMAGE.relative_to(ROOT)}")
         print("EventSource, Sensor, and Workflow are configured.")
         print(f"GitOps overlay: {ARGO_EVENTS_OVERLAY.relative_to(ROOT)}")
         return 0

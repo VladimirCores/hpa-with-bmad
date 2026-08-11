@@ -44,6 +44,9 @@ def validate() -> None:
         "output/harbor/cache-images.txt",
         "output/spegel/images/spegel-v0.4.0",
         "output/argocd/images/argocd-v3.5.0",
+        "output/kargo/images/kargo-v1.11.0",
+        "output/argo-rollouts/images/argo-rollouts-v1.9.1",
+        "output/argo-events/images/argo-events-v1.9.11",
         "output/provisioned.yaml",
     ]
     missing = [path for path in required if not (ROOT / path).exists()]
@@ -54,6 +57,10 @@ def validate() -> None:
     assert set(PROVISIONED_COMPONENTS) <= set(provisioned), "provisioned.yaml missing components"
     for component in PROVISIONED_COMPONENTS:
         assert provisioned[component].get("value"), f"provisioned.yaml: {component} has no value"
+    assert provisioned["argocd"].get("version") == "3.5.0"
+    assert provisioned["kargo"].get("version") == "1.11.0"
+    assert provisioned["argo-rollouts"].get("version") == "1.9.1"
+    assert provisioned["argo-events"].get("version") == "1.9.11"
     images = (record("harbor-image-cache") or {}).get("images") or []
     assert any(image.get("name") == "harbor/harbor-core:v2.11.3" for image in images), "provisioned.yaml: harbor-image-cache missing core"
     assert "kind: Rollout" in (ROOT / "gitops/argo-rollouts/base/argorollouts.yaml").read_text(encoding="utf-8")

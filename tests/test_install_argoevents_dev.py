@@ -28,8 +28,12 @@ def validate() -> None:
     assert "kind: Sensor" in events and "name: offline-gitops" in events
     assert "kind: Workflow" in events and "name: offline-gitops" in events
     assert "git://git-mirror/git-mirror" in events
+    assert "quay.io/argoproj/argo-events:v1.9.11" in events
+    assert (ROOT / "output/argo-events/images/argo-events-v1.9.11").exists()
+    assert "kind: Deployment" in events and "name: controller-manager" in events
     provisioned = _load_provisioned()
     assert provisioned["argo-events"]["value"] == "offline-gitops"
+    assert provisioned["argo-events"]["version"] == "1.9.11"
 
 
 def main() -> int:

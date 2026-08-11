@@ -10,10 +10,13 @@ provisioned:
     version: 3.5.0
   argo-events:
     value: offline-gitops
+    version: 1.9.11
   argo-rollouts:
     value: rollout-demo
+    version: 1.9.1
   kargo:
     value: kargo
+    version: 1.11.0
   git-mirror:
     value: git-mirror
   api-key-authn:

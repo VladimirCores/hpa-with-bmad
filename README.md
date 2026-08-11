@@ -40,7 +40,7 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 | Epic | Scope | Status |
 |------|-------|--------|
 | 1 | Kubernetes substrate: Talos 1.13.7 (QEMU), Cilium eBPF with kube-proxy replacement + L2 LB, Cilium mTLS (SPIFFE/SPIRE), Rook-Ceph RBD | done |
-| 2 | Offline GitOps delivery: Harbor 2.11.3 registry (scan + sign), Spegel P2P image distribution, local Git mirror, Kargo Freight promotion, Argo CD v3.5 ApplicationSet + sync waves, Argo Rollouts canary, Argo Events | done |
+| 2 | Offline GitOps delivery: Harbor 2.11.3 registry (scan + sign), Spegel P2P image distribution, local Git mirror, Kargo v1.11 Freight promotion, Argo CD v3.5 ApplicationSet + sync waves, Argo Rollouts v1.9 canary, Argo Events v1.9 | done |
 | 3 | Secure gateway & access: Envoy Gateway edge routing, cert-manager TLS, API-key auth, Casdoor JWT, Casbin RBAC/ReBAC/ABAC, Infisical secrets, mTLS mesh, OpenAPI governance, Backstage + tool UI routes | done |
 | 4 | Real-time telemetry: IoT device simulator, MQTT/HTTP/gRPC ingestion, Protobuf `CommonEnvelope` normalization, partitioned Pulsar topics, back-pressure, ClickHouse metrics + retention, KeyDB hot cache, Spin WASM events, E2E validation | done |
 | 5 | Alert detection & response: Kafka-directed alert streams, alert state machine persistence, automated responses, human alert handling with audit trail, basic LLM decision support | done |

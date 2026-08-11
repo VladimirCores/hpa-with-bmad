@@ -28,8 +28,12 @@ def validate() -> None:
     assert "kind: Stage" in kargo and "name: dev" in kargo
     assert "kind: Freight" in kargo and "name: offline-dev" in kargo
     assert "git://git-mirror/git-mirror" in kargo
+    assert "ghcr.io/akuity/kargo:v1.11.0" in kargo
+    assert (ROOT / "output/kargo/images/kargo-v1.11.0").exists()
+    assert "kind: Deployment" in kargo and "name: kargo-controller" in kargo
     provisioned = _load_provisioned()
     assert provisioned["kargo"]["value"] == "kargo"
+    assert provisioned["kargo"]["version"] == "1.11.0"
 
 
 def main() -> int:

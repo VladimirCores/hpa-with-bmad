@@ -27,8 +27,12 @@ def validate() -> None:
     assert "kind: Rollout" in rollouts and "name: rollout-demo" in rollouts
     assert "strategy:" in rollouts and "canary:" in rollouts
     assert "pause: {duration: 30s}" in rollouts
+    assert "quay.io/argoproj/argo-rollouts:v1.9.1" in rollouts
+    assert (ROOT / "output/argo-rollouts/images/argo-rollouts-v1.9.1").exists()
+    assert "kind: Deployment" in rollouts and "name: argo-rollouts" in rollouts
     provisioned = _load_provisioned()
     assert provisioned["argo-rollouts"]["value"] == "rollout-demo"
+    assert provisioned["argo-rollouts"]["version"] == "1.9.1"
 
 
 def main() -> int:
