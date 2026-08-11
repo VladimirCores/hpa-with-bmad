@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-08T00:00:00Z
+last_updated: 2026-08-11T00:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -56,7 +56,7 @@ development_status:
   1-4-provision-offline-rook-ceph-persistent-storage-on-persistent-qemu-disks: done
   1-5-enable-cilium-mtls-service-mesh-with-spiro-spire: done
   1-6-provision-local-harbor-oci-registry-with-scanning-and-signing: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: done
   2-1-provision-local-harbor-oci-registry-with-scanning-and-signing: done
@@ -69,7 +69,7 @@ development_status:
   2-8-configure-argo-rollouts-progressive-delivery: done
   2-9-configure-argo-events-and-workflows: done
   2-10-validate-offline-gitops-pipeline-and-image-cache: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: done
   3-1-install-envoy-gateway-edge-routing: done
@@ -83,8 +83,8 @@ development_status:
   3-9-configure-mtls-mesh-enforcement-with-cilium: done
   3-10-configure-openapi-specification-governance: done
   3-11-provision-backstage-developer-portal-and-golden-path-templates: done
-   3-12-expose-backstage-argo-cd-ui-and-kargo-ui-via-envoy-gateway: done
-   epic-3-retrospective: optional
+  3-12-expose-backstage-argo-cd-ui-and-kargo-ui-via-envoy-gateway: done
+  epic-3-retrospective: done
 
   epic-4: done
   4-1-build-iot-device-simulator-and-telemetry-acceptance-harness: done
@@ -97,7 +97,7 @@ development_status:
   4-8-cache-hot-device-state-and-alert-context-in-keydb: done
   4-9-process-event-telemetry-with-spin-wasm-functions: done
   4-10-validate-end-to-end-telemetry-pipeline-performance: done
-  epic-4-retrospective: optional
+  epic-4-retrospective: done
 
   epic-5: done
   5-1-ingest-alert-signals-through-directed-kafka-streams: done
@@ -105,14 +105,14 @@ development_status:
   5-3-trigger-automated-alert-responses: done
   5-4-manage-human-alert-handling-with-audit-trail: done
   5-5-provide-basic-llm-decision-support-for-alerts: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   epic-6: done
   6-1-store-entity-hierarchy-across-couchdb-arcadedb-and-yugabytedb: done
   6-2-provide-entity-crud-and-bulk-operations: done
   6-3-react-to-entity-change-feeds-with-knative-restate: done
   6-4-expose-cross-store-queries-through-hasura-graphql: done
-  epic-6-retrospective: optional
+  epic-6-retrospective: done
 
   epic-7: done
   7-1-deploy-victoriametrics-metrics-cluster: done
@@ -120,20 +120,114 @@ development_status:
   7-3-export-distributed-traces-with-opentelemetry-collector: done
   7-4-configure-grafana-dashboards-and-alertmanager: done
   7-5-expose-grafana-and-hubble-tool-uis-via-envoy-gateway: done
-  epic-7-retrospective: optional
+  epic-7-retrospective: done
 
   epic-8: done
   8-1-establish-cross-cluster-service-discovery-with-clustermesh: done
   8-2-enforce-regional-data-sovereignty: done
   8-3-query-regional-apis-for-cross-region-visibility: done
-  epic-8-retrospective: optional
+  epic-8-retrospective: done
 
   epic-9: done
   9-1-expose-platform-capabilities-as-mcp-tools: done
   9-2-enable-agent-to-agent-communication: done
-  epic-9-retrospective: optional
+  epic-9-retrospective: done
 
-   epic-10: in-progress
-   10-1-harden-edge-gateway-security-coverage: done
-   10-2-harden-gitops-and-route-policy-live-config: done
-   epic-10-retrospective: optional
+  epic-10: in-progress
+  10-1-harden-edge-gateway-security-coverage: done
+  10-2-harden-gitops-and-route-policy-live-config: done
+  epic-10-retrospective: done
+
+action_items:
+  - epic: 10
+    action: "Resolve native-auth UI '/' catch-all ambiguity: drop '/' from one UI route or give every UI host a dedicated hostname route"
+    owner: "Amelia"
+    status: open
+  - epic: 10
+    action: "Extend secret-scan _base_yamls() to also scan overlay kustomizations (P0-022 base-only gap)"
+    owner: "Murat"
+    status: open
+  - epic: 10
+    action: "Deploy Infisical operator + credentialsRef so hpdc-production-secrets reconciles (needs live cluster)"
+    owner: "Winston"
+    status: open
+  - epic: 10
+    action: "Add JWT audiences/forwardJWT + live JWKS fetch verification (P0-008, needs live cluster)"
+    owner: "Amelia"
+    status: open
+  - epic: 10
+    action: "Codify in-memory mutation-probe technique into the checkpoint-review workflow (every dig-in includes a mutation probe)"
+    owner: "Amelia + Murat"
+    status: open
+  - epic: 9
+    action: "Clarify story 9-3 status in epics.md: mark provide-full-llm-decision-support-engine explicitly as deferred/not-implemented"
+    owner: "John"
+    status: open
+  - epic: 9
+    action: "Record agent-engine parity guard: apply kustomize-to-installer parity-guard agreement to any agent-engine shared config"
+    owner: "Winston"
+    status: open
+  - epic: 8
+    action: "Verify ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption needs P0-008 live-cluster verification (record once a multi-region cluster exists)"
+    owner: "Winston"
+    status: open
+  - epic: 8
+    action: "Add a no-replication guard: regional-sovereignty validation asserts no cross-region replication config exists in the tree (absence-of-config invariant)"
+    owner: "Murat"
+    status: open
+  - epic: 7
+    action: "Register SLO verification tasks: live-cluster verification for quantified ACs (log search <=5s, stale-metric <=5min, PromQL <=2s) as P0-008/P0-023-class items"
+    owner: "Murat"
+    status: open
+  - epic: 7
+    action: "Audit the native-auth tool-route group: UI route topology from 7-5 is root of Epic 10 catch-all ambiguity; fold into Epic 10 action item 1 topology review"
+    owner: "Winston"
+    status: open
+  - epic: 6
+    action: "Register entity-store SLO verifications: 200ms p99 mutation, 500ms change reaction, exactly-once Restate, Hasura 2s cross-store join (live-cluster P0-008/P0-023 register)"
+    owner: "Murat"
+    status: open
+  - epic: 6
+    action: "Audit /gql route ownership: confirm entity-store-owns-/gql contract documented in the route-topology review (Epic 10 shadowing fix subject)"
+    owner: "Winston"
+    status: open
+  - epic: 5
+    action: "Reconcile the 5-2 story record: 5-2 marked done in sprint-status but no story file exists; backfill a minimal record or document the gap"
+    owner: "John"
+    status: open
+  - epic: 5
+    action: "Carry the safety-gate pattern forward: sensitive-action approval gate from 5-3/5-5 as a stated requirement for deferred LLM engine 9-3"
+    owner: "Amelia"
+    status: open
+  - epic: 4
+    action: "Reconcile Epic 4 story records: 4-3..4-9 no story files (delivered via consolidated scaffold, epic4->platform rename); 4-2 unchecked tasks despite implementation; fix stale paths in epic-4-offline-gitops-scaffold.md and clear 4-2 task checklist"
+    owner: "John"
+    status: open
+  - epic: 4
+    action: "Normalize Epic 1-4 headings in epics.md from ### (h3, under '## Epic List') to ## (h2), matching Epics 5-10, so machine-driven discovery and retro sweeps find them (originally scoped to Epic 4 only; broadened per Epic 3 retro)"
+    owner: "Winston"
+    status: open
+  - epic: 3
+    action: "Reconcile the 3-13 record: 3-13 (Grafana/Hubble UI via Envoy Gateway) done but missing from epics.md and sprint-status, and self-contradictory (Status: done + deferred until Epic 7); decide add-to-tracker or mark deferred and resolve native-auth-vs-Casdoor ambiguity for observability routes"
+    owner: "John"
+    status: open
+  - epic: 3
+    action: "Route-topology lineage: the native tool-auth route pattern from 3-12/3-13 (casdoor_casbin_ext_authz: false) is the root family of the Epic 10 '/' catch-all; fold into Epic 10 action item 1 topology review"
+    owner: "Winston"
+    status: open
+  - epic: 2
+    action: "Deepen the shallow story records: 2-1, 2-3..2-10 are 21-23 line records without Dev Agent Records, review findings, or baseline commits (only 2-2 has all three); backfill baseline commits and add review-findings depth for 2-4/2-6/2-7/2-8"
+    owner: "John"
+    status: open
+  - epic: 2
+    action: "Document the harbor parsed-equality drift guard (10-2, kustomize tree vs install_harbor_dev.py) as the canonical cross-system parity-guard template, owned at its Epic 2 origin"
+    owner: "Winston"
+    status: open
+  - epic: 1
+    action: "Reconcile story 1-6 in the plan: 1-6 (Harbor OCI registry) delivered, tracked, reused by 2-1, but absent from epics.md's Epic 1 story list (ends at 1.5); add Story 1.6 or document it as an unplanned delivery Epic 2 reuses without forking"
+    owner: "John"
+    status: open
+  - epic: 1
+    action: "Pin Epic 1 records to delivery commits: no baseline commits recorded on 1-1..1-6 despite full-depth records; backfill so the substrate audit trail is verifiable"
+    owner: "John"
+    status: open
