@@ -1,6 +1,9 @@
-# Story 4.10: Validate End-to-End Telemetry Pipeline Performance
+# Epic 4 Consolidated Scaffold — Stories 4.3–4.10
+
+Covers Epic 4 stories 4.3 (CommonEnvelope normalization) through 4.10 (E2E pipeline validation) delivered via a single GitOps/offline-safe scaffold. Stories 4.1 and 4.2 have their own records.
 
 ## Summary
+- Story 4.10 target: Validate End-to-End Telemetry Pipeline Performance
 - Implemented a GitOps/offline-safe Epic 4 scaffold that covers the remaining Epic 4 telemetry, alert, entity, observability, regional, and AI-agent stories without requiring internet access.
 - Added a reusable validation script for the Epic 4 scaffold.
 

@@ -20,3 +20,9 @@ so Epic 2 is production-ready before handoff.
 - `scripts/validate-offline-gitops-pipeline.py`
 - `docs/offline-gitops-validation.md`
 - `tests/test_validate_offline_gitops_pipeline.py`
+
+## Record Depth
+
+- Shallow record: no Dev Agent Record, review findings, or per-story baseline commit preserved (action item #20).
+- Baseline delivery commit: `326b097` ("Add offline GitOps pipeline scaffolding"); subsequent hardening in `9b4626d` (script reorganization).
+- Behavior asserted via `tests/test_validate_offline_gitops_pipeline.py` and `docs/offline-gitops-validation.md` referenced above.

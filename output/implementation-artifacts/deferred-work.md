@@ -34,6 +34,12 @@
 ## New deferred entry (from story 10.2 Task 4 findings, 2026-08-08)
 
 - The two native-auth UI routes (`hpdc-edge-observability-ui-routes`, `hpdc-edge-tool-ui-routes`) both carry a `*.hpdc.local` PathPrefix `/` catch-all — the sanctioned default-backend group, but Envoy Gateway resolves equal-specificity conflicts non-deterministically; latent pre-existing ambiguity to revisit (revisit when the UI default-backend is made explicit). Blast-radius (review-plan Dig-in 3, 2026-08-08): deterministic cases are (a) hostname-specificity wins for `grafana.hpdc.local` / `hubble.hpdc.local` dedicated routes and (b) longest-path-prefix wins for `/api` `/data` `/events` `/gql` `/telemetry` `/hpdc.telemetry.v1.TelemetryService` `/hubble` `/argocd` `/kargo`; the genuinely nondeterministic set is exactly the root path `/` (and any un-prefixed path) of a `*.hpdc.local` host with no dedicated hostname route (e.g. `argocd.hpdc.local/`, `backstage.hpdc.local/`), which routes to an arbitrary member of `{grafana, hubble-ui, argocd-server, backstage, kargo-ui}`. Mitigation when addressed: drop the `/` catch-all from one UI route or give every UI host a dedicated hostname route.
+  - **RESOLVED 2026-08-17:** `/` catch-all dropped from `hpdc-edge-observability-ui-routes` (`gitops/observability/base/envoy-ui-routes.yaml`) — grafana/hubble have dedicated hostname routes, so the tool-ui route is now the sole `/` default-backend. Route-audit `test_no_route_shadowing` now flags any two native-auth routes sharing a wildcard `/` catch-all. Closed items #1/#11/#19.
+
+## Resolved 2026-08-17 (route-topology close-out)
+
+- `/gql` route ownership (#13): `hpdc-graphql-gateway` (Hasura) owns `/gql`. The entity-store owns the `/gql` backends it exposes; `hpdc-edge-domain-routes` must NOT carry a path-level match for `/gql` (it belongs to the gateway route, enforced by `test_no_route_shadowing`). Contract recorded here for the route-topology review.
+- Native-auth lineage (#19): the `casdoor_casbin_ext_authz: false` native tool-auth pattern from 3-12/3-13 (observability + tool UI routes) is the root family of the `/` catch-all; resolved by C5 above (single default-backend rule).
 
 ## Deferred from: code review re-run of story-10.1 (2026-08-07)
 

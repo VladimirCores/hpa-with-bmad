@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-08T00:00:00Z
+# last_updated: 2026-08-18T00:00:00Z
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-11T00:00:00Z
+last_updated: 2026-08-18T00:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -133,7 +133,7 @@ development_status:
   9-2-enable-agent-to-agent-communication: done
   epic-9-retrospective: done
 
-  epic-10: in-progress
+  epic-10: done
   10-1-harden-edge-gateway-security-coverage: done
   10-2-harden-gitops-and-route-policy-live-config: done
   epic-10-retrospective: done
@@ -142,11 +142,11 @@ action_items:
   - epic: 10
     action: "Resolve native-auth UI '/' catch-all ambiguity: drop '/' from one UI route or give every UI host a dedicated hostname route"
     owner: "Amelia"
-    status: open
+    status: done
   - epic: 10
     action: "Extend secret-scan _base_yamls() to also scan overlay kustomizations (P0-022 base-only gap)"
     owner: "Murat"
-    status: open
+    status: done
   - epic: 10
     action: "Deploy Infisical operator + credentialsRef so hpdc-production-secrets reconciles (needs live cluster)"
     owner: "Winston"
@@ -158,15 +158,15 @@ action_items:
   - epic: 10
     action: "Codify in-memory mutation-probe technique into the checkpoint-review workflow (every dig-in includes a mutation probe)"
     owner: "Amelia + Murat"
-    status: open
+    status: done
   - epic: 9
     action: "Clarify story 9-3 status in epics.md: mark provide-full-llm-decision-support-engine explicitly as deferred/not-implemented"
     owner: "John"
-    status: open
+    status: done
   - epic: 9
     action: "Record agent-engine parity guard: apply kustomize-to-installer parity-guard agreement to any agent-engine shared config"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 8
     action: "Verify ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption needs P0-008 live-cluster verification (record once a multi-region cluster exists)"
     owner: "Winston"
@@ -174,7 +174,7 @@ action_items:
   - epic: 8
     action: "Add a no-replication guard: regional-sovereignty validation asserts no cross-region replication config exists in the tree (absence-of-config invariant)"
     owner: "Murat"
-    status: open
+    status: done
   - epic: 7
     action: "Register SLO verification tasks: live-cluster verification for quantified ACs (log search <=5s, stale-metric <=5min, PromQL <=2s) as P0-008/P0-023-class items"
     owner: "Murat"
@@ -182,7 +182,7 @@ action_items:
   - epic: 7
     action: "Audit the native-auth tool-route group: UI route topology from 7-5 is root of Epic 10 catch-all ambiguity; fold into Epic 10 action item 1 topology review"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 6
     action: "Register entity-store SLO verifications: 200ms p99 mutation, 500ms change reaction, exactly-once Restate, Hasura 2s cross-store join (live-cluster P0-008/P0-023 register)"
     owner: "Murat"
@@ -190,44 +190,44 @@ action_items:
   - epic: 6
     action: "Audit /gql route ownership: confirm entity-store-owns-/gql contract documented in the route-topology review (Epic 10 shadowing fix subject)"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 5
     action: "Reconcile the 5-2 story record: 5-2 marked done in sprint-status but no story file exists; backfill a minimal record or document the gap"
     owner: "John"
-    status: open
+    status: done
   - epic: 5
     action: "Carry the safety-gate pattern forward: sensitive-action approval gate from 5-3/5-5 as a stated requirement for deferred LLM engine 9-3"
     owner: "Amelia"
-    status: open
+    status: done
   - epic: 4
     action: "Reconcile Epic 4 story records: 4-3..4-9 no story files (delivered via consolidated scaffold, epic4->platform rename); 4-2 unchecked tasks despite implementation; fix stale paths in epic-4-offline-gitops-scaffold.md and clear 4-2 task checklist"
     owner: "John"
-    status: open
+    status: done
   - epic: 4
     action: "Normalize Epic 1-4 headings in epics.md from ### (h3, under '## Epic List') to ## (h2), matching Epics 5-10, so machine-driven discovery and retro sweeps find them (originally scoped to Epic 4 only; broadened per Epic 3 retro)"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 3
     action: "Reconcile the 3-13 record: 3-13 (Grafana/Hubble UI via Envoy Gateway) done but missing from epics.md and sprint-status, and self-contradictory (Status: done + deferred until Epic 7); decide add-to-tracker or mark deferred and resolve native-auth-vs-Casdoor ambiguity for observability routes"
     owner: "John"
-    status: open
+    status: done
   - epic: 3
     action: "Route-topology lineage: the native tool-auth route pattern from 3-12/3-13 (casdoor_casbin_ext_authz: false) is the root family of the Epic 10 '/' catch-all; fold into Epic 10 action item 1 topology review"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 2
     action: "Deepen the shallow story records: 2-1, 2-3..2-10 are 21-23 line records without Dev Agent Records, review findings, or baseline commits (only 2-2 has all three); backfill baseline commits and add review-findings depth for 2-4/2-6/2-7/2-8"
     owner: "John"
-    status: open
+    status: done
   - epic: 2
     action: "Document the harbor parsed-equality drift guard (10-2, kustomize tree vs install_harbor_dev.py) as the canonical cross-system parity-guard template, owned at its Epic 2 origin"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 1
     action: "Reconcile story 1-6 in the plan: 1-6 (Harbor OCI registry) delivered, tracked, reused by 2-1, but absent from epics.md's Epic 1 story list (ends at 1.5); add Story 1.6 or document it as an unplanned delivery Epic 2 reuses without forking"
     owner: "John"
-    status: open
+    status: done
   - epic: 1
     action: "Pin Epic 1 records to delivery commits: no baseline commits recorded on 1-1..1-6 despite full-depth records; backfill so the substrate audit trail is verifiable"
     owner: "John"
-    status: open
+    status: done

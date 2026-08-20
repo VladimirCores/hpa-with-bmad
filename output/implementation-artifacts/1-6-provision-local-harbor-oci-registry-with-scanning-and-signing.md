@@ -110,3 +110,7 @@ nex-agi/nex-n2-mini
 - `output/harbor/images/harbor-redis-v1.23`
 - `output/harbor/images/harbor-postgresql-v15`
 - `tests/test_install_harbor_dev.py`
+
+## Record Depth
+
+- Baseline delivery commit: `083f2ab` ("Add platform bootstrap and offline installer scripts"); subsequent hardening in `9b4626d` (script reorganization).

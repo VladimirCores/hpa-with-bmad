@@ -95,9 +95,10 @@ When the human says "dig into [area]" (e.g., "dig into the auth changes", "dig i
 2. Identify all code locations in the diff relevant to the specified area.
 3. Read each location in full context (not just the diff hunk — read surrounding code).
 4. Shift to **correctness mode**: trace edge cases, check boundary conditions, verify error handling, look for off-by-one errors, race conditions, resource leaks.
-5. Present findings as a compact list — each finding is `path:line` + what you found + why it matters.
-6. If nothing concerning is found, say so: "Looked closely at [area] — nothing concerning. The implementation is solid."
-7. After presenting, show only the closing menu (not the full risk spots list again).
+5. **Probe the mechanism with a mutation** (every dig-in includes a mutation probe): choose one control/value the code path depends on, mentally mutate it (toggle a flag, swap a branch condition, change a default, remove a guard), and trace the resulting behavior to confirm you understand the actual mechanism — not the intended one. A probe that produces a surprising outcome is a finding worth surfacing; a probe that behaves as expected confirms the understanding. Prefer the cheapest probe that discriminates (a single boolean or value change beats rewriting a block).
+6. Present findings as a compact list — each finding is `path:line` + what you found + why it matters.
+7. If nothing concerning is found, say so: "Looked closely at [area] — nothing concerning. The implementation is solid."
+8. After presenting, show only the closing menu (not the full risk spots list again).
 
 The human can trigger multiple targeted re-reviews. Each time, present new findings and the closing menu only.
 

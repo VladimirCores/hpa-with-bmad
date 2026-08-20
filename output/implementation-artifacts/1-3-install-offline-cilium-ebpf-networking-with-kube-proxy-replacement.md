@@ -112,3 +112,7 @@ nex-agi/nex-n2-mini
 - `docs/cilium-dev-networking.md`
 - `output/cilium/images/cilium-agent-v1.19.6`
 - `tests/test_install_cilium_dev.py`
+
+## Record Depth
+
+- Baseline delivery commit: `083f2ab` ("Add platform bootstrap and offline installer scripts"); subsequent hardening in `9b4626d` (script reorganization).

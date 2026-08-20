@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -10,6 +11,19 @@ ROOT = Path(__file__).resolve().parents[1]
 SOV_BASE = ROOT / "gitops" / "regional-sovereignty" / "base" / "regional-sovereignty.yaml"
 SOV_OVERLAY = ROOT / "gitops" / "regional-sovereignty" / "overlays" / "dev" / "kustomization.yaml"
 PLATFORM_SCAFFOLD = ROOT / "gitops" / "platform" / "base" / "platform-scaffold.yaml"
+
+# Absence-of-config invariant (FR-34): any of these markers would enable cross-region
+# data replication. The tree must contain none of them.
+CROSS_REGION_REPLICATION_PATTERNS = [
+    re.compile(r"ReplicatedMergeTree"),
+    re.compile(r"ReplicatedReplacingMergeTree"),
+    re.compile(r"_replicator", re.IGNORECASE),
+    re.compile(r"mirrormaker", re.IGNORECASE),
+    re.compile(r"replication\.factor\s*[:=]"),
+    re.compile(r"xcluster", re.IGNORECASE),
+    re.compile(r"replicaof\b", re.IGNORECASE),
+    re.compile(r"async.?replication", re.IGNORECASE),
+]
 
 
 def main() -> int:
@@ -57,6 +71,19 @@ def main() -> int:
     for item in ["../../base/regional-sovereignty.yaml", "namespace: regional-sovereignty"]:
         if item not in overlay:
             failures.append(f"regional-sovereignty overlay missing {item}")
+
+    # FR-34 no-replication guard: assert no cross-region replication config exists in
+    # the gitops tree (absence-of-config invariant). Deployment `replicas:` and the
+    # sovereignty policy manifest's own "default: disabled" declaration are exempt.
+    for path in sorted((ROOT / "gitops").rglob("*.yaml")):
+        text = path.read_text(encoding="utf-8")
+        for pattern in CROSS_REGION_REPLICATION_PATTERNS:
+            if pattern.search(text):
+                failures.append(
+                    f"{path.relative_to(ROOT)} enables cross-region replication "
+                    f"(matched {pattern.pattern!r}); FR-34 requires no default "
+                    "cross-region replication config in the tree"
+                )
 
     if failures:
         print("Regional data sovereignty validation failed:")

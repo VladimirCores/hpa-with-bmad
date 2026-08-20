@@ -184,7 +184,7 @@ UX-DR1: Epic 3 (Backstage/Argo/Kargo UIs) + Epic 7 (Grafana/Hubble UIs) - tool U
 
 ## Epic List
 
-### Epic 1: Kubernetes Substrate Provisioning
+## Epic 1: Kubernetes Substrate Provisioning
 
 Platform Engineer can provision a running, immutable Talos Linux cluster with Cilium eBPF networking (kube-proxy replaced, L2 load balancing) and Rook-Ceph persistent storage (RBD + CephFS), ready for platform workloads.
 
@@ -297,7 +297,25 @@ So that inter-service traffic is encrypted and authenticated without relying on 
 
 **Implementation notes:** This story owns the Cilium mTLS/SPIRE manifest and installer (`gitops/cilium/base/cilium-mtls.yaml`, `scripts/install-cilium-mtls-dev.py`). Epic 3 Story 3.9 revalidates the same manifest for FR-45 — do not fork a second mTLS manifest under Epic 3.
 
-### Epic 2: GitOps Delivery Pipeline
+### Story 1.6: Provision Local Harbor OCI Registry with Scanning and Signing
+
+As a platform engineer,
+I want a local Harbor OCI registry with vulnerability scanning and signing,
+So that air-gapped deployments can pull trusted images offline.
+
+**Acceptance Criteria:**
+
+**Given** Harbor is deployed on the dev cluster
+**When** an image is pushed to the local registry
+**Then** the image is scanned for vulnerabilities (Trivy)
+**And** high-priority CVEs above threshold are rejected
+**And** images are Cosign-signed and verified
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+**Implementation notes:** Delivered as unplanned substrate work reused by Story 2.1 (which adds the pipeline/offline-cache dimension). Tracked as story 1-6 in sprint-status; record added here for plan/tracker parity.
+
+## Epic 2: GitOps Delivery Pipeline
 
 Platform Engineer and Developer can deliver workloads end-to-end through Git → Kargo → Argo CD with progressive delivery, and fully air-gapped delivery via local Harbor registry, Spegel P2P distribution, and local Git mirror.
 
@@ -494,7 +512,7 @@ So that Harbor, Spegel, Git mirror, Kargo, Argo CD, Argo Rollouts, and Argo Even
 **And** Spegel serves cached images to peers
 **And** the verification suite exits with a non-zero status on any failure
 
-### Epic 3: Secure Gateway & Access Control
+## Epic 3: Secure Gateway & Access Control
 
 Platform Administrator can secure all platform routes: exclusive Envoy Gateway ingress with TLS, JWT authN via Casdoor, RBAC/ReBAC/ABAC authZ via Casbin (DENY-wins), API-Key auth for messaging routes, mTLS inter-service encryption, centralized secrets via Infisical, OpenAPI-spec governance, and post-EG tool UI exposure for Backstage, Argo CD UI, Kargo UI, Grafana, and Hubble.
 
@@ -720,7 +738,7 @@ So that tool users have a consistent ingress entry point without redundant platf
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on any failure
 
-### Epic 4: Real-Time Telemetry Ingestion & Processing
+## Epic 4: Real-Time Telemetry Ingestion & Processing
 
 The platform ingests 100K+ RPS telemetry from IoT devices via MQTT/HTTP/gRPC at the Envoy Gateway `/telemetry` route, normalizes payloads into the Protobuf CommonEnvelope, routes to partitioned Pulsar topics, processes in real time (Pulsar Functions for aggregation/windowing + Spin WASM for stateless Kafka transforms), and stores results in ClickHouse with KeyDB hot-state caching.
 
@@ -1263,7 +1281,11 @@ So that coordinated decision-making and task delegation can happen without unaut
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on failure
 
-### Story 9.3: Provide Full LLM Decision-Support Engine
+### Story 9.3: Provide Full LLM Decision-Support Engine — DEFERRED / NOT-IMPLEMENTED
+
+**Status:** deferred — not implemented. See Epic 9 header (`v2 - deferred`). Sprint tracker intentionally omits 9-3; only 9-1 and 9-2 were delivered.
+
+**Deferred requirements note (action item #15):** When implemented, 9-3 inherits the safety-gate pattern from 5-3/5-5 — sensitive actions require explicit human approval (no autonomous execution), and ambiguous or low-confidence recommendations are escalated for manual review instead of executed. Both gates are stated requirements, not optional.
 
 As a Platform Administrator,
 I want a full LLM decision-support engine with per-use-case model selection,

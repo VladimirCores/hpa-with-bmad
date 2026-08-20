@@ -487,10 +487,11 @@ def test_no_route_shadowing() -> None:
                 paths_a = {value for mtype, value in a["matches"] if mtype == "PathPrefix" and value}
                 paths_b = {value for mtype, value in b["matches"] if mtype == "PathPrefix" and value}
                 for path in sorted(paths_a & paths_b):
-                    # The native-auth UI routes are a sanctioned group of default
-                    # backends; they may share paths with each other but never with a
-                    # dedicated route.
-                    if a["native_auth"] and b["native_auth"]:
+                    # The native-auth UI routes are a sanctioned default-backend group,
+                    # but at most one may carry a wildcard catch-all PathPrefix /. Two
+                    # equal-specificity `/` catch-alls on *.hpdc.local resolve
+                    # non-deterministically (deferred-work ledger, 2026-08-08).
+                    if a["native_auth"] and b["native_auth"] and path != "/":
                         continue
                     if set(a["backends"]) != set(b["backends"]):
                         conflicts.append(

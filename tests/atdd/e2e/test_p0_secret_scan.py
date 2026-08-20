@@ -81,6 +81,28 @@ def _base_yamls() -> list[Path]:
     return sorted(GITOPS.glob("*/base/*.yaml"))
 
 
+def _scanned_yamls() -> list[Path]:
+    """Base manifests plus overlay kustomization resources, deduplicated.
+
+    P0-022: a secret committed via an overlay patch would bypass a base-only
+    scan. Resolve each overlay kustomization's `resources` list structurally
+    (mirroring test_p0_route_table_audit.test_overlay_kustomizations_resolve).
+    """
+    paths = list(_base_yamls())
+    for ks in sorted(GITOPS.glob("*/overlays/*/kustomization.yaml")):
+        text = ks.read_text(encoding="utf-8")
+        for resource in re.findall(r"(?m)^\s*-\s+(.+\.yaml)\s*$", text):
+            target = (ks.parent / resource).resolve()
+            if target.is_file():
+                paths.append(target)
+    seen, result = set(), []
+    for p in paths:
+        if p not in seen:
+            seen.add(p)
+            result.append(p)
+    return sorted(result)
+
+
 def _all_yamls() -> list[Path]:
     return sorted(GITOPS.rglob("*.yaml"))
 
@@ -103,7 +125,7 @@ def _secret_resource_names() -> set[str]:
 # Then:  no high-entropy hex/base64 blobs, cloud access keys, or private key material
 #        appear outside the allowlisted dev-only credentials
 def test_no_high_entropy_secret_material_in_gitops() -> None:
-    for path in _base_yamls():
+    for path in _scanned_yamls():
         text = path.read_text(encoding="utf-8")
         for pattern in HIGH_ENTROPY_PATTERNS:
             for match in pattern.findall(text):

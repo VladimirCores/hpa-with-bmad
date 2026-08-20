@@ -22,3 +22,9 @@ so workloads can roll out gradually and safely.
 - `gitops/argo-rollouts/overlays/dev/kustomization.yaml`
 - `docs/argorollouts-progressive-delivery.md`
 - `tests/test_install_argorollouts_dev.py`
+
+## Record Depth
+
+- Shallow record: no Dev Agent Record, review findings, or per-story baseline commit preserved (action item #20).
+- Baseline delivery commit: `326b097` ("Add offline GitOps pipeline scaffolding"); subsequent hardening in `9b4626d` (script reorganization) and `d74e7a9` (Argo Rollouts v1.9.1 manifest materialization).
+- Behavior asserted via `tests/test_install_argorollouts_dev.py` and `docs/argorollouts-progressive-delivery.md` referenced above.

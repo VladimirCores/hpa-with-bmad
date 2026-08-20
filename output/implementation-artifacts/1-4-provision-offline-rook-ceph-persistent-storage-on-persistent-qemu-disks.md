@@ -109,3 +109,7 @@ nex-agi/nex-n2-mini
 - `docs/rook-ceph-dev-storage.md`
 - `output/rook-ceph/images/rook-ceph-v1.20.3`
 - `tests/test_install_rook_ceph_dev.py`
+
+## Record Depth
+
+- Baseline delivery commit: `083f2ab` ("Add platform bootstrap and offline installer scripts"); subsequent hardening in `9b4626d` (script reorganization).

@@ -108,3 +108,7 @@ nex-agi/nex-n2-mini
 - `output/cilium/images/spire-agent-v1.9.6`
 - `output/cilium/images/spire-server-v1.9.6`
 - `tests/test_install_cilium_mtls_dev.py`
+
+## Record Depth
+
+- Baseline delivery commit: `083f2ab` ("Add platform bootstrap and offline installer scripts"); subsequent hardening in `9b4626d` (script reorganization).

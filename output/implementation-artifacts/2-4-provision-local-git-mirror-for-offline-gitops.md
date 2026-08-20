@@ -22,3 +22,9 @@ so GitOps manifests and workflows can be accessed without internet access.
 - `gitops/git/overlays/dev/kustomization.yaml`
 - `docs/local-git-mirror.md`
 - `tests/test_provision_local_git_mirror.py`
+
+## Record Depth
+
+- Shallow record: no Dev Agent Record, review findings, or per-story baseline commit preserved (action item #20).
+- Baseline delivery commit: `326b097` ("Add offline GitOps pipeline scaffolding"); subsequent hardening in `9b4626d` (script reorganization).
+- Behavior asserted via `tests/test_provision_local_git_mirror.py` and `docs/local-git-mirror.md` referenced above.

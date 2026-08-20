@@ -21,3 +21,9 @@ so that GitOps workloads can pull trusted images and charts without internet acc
 
 - Harbor was implemented as Story 1.6 and is reused for Epic 2 Story 2.1.
 - Validated offline manifests, scripts, docs, and tests.
+
+## Record Depth
+
+- Shallow record: no Dev Agent Record, review findings, or per-story baseline commit preserved (action item #20).
+- Baseline delivery commit: `326b097` ("Add offline GitOps pipeline scaffolding"); subsequent hardening in `9b4626d` (script reorganization).
+- Behavior asserted via `tests/test_install_harbor_dev.py` and `docs/harbor-dev-registry.md` referenced above.

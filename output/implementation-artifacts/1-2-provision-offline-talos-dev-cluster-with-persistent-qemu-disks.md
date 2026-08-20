@@ -112,3 +112,7 @@ nex-agi/nex-n2-mini
 - `output/talos/talosconfig`
 - `docs/talos-dev-cluster.md`
 - `tests/test_bootstrap_talos_dev.py`
+
+## Record Depth
+
+- Baseline delivery commit: `083f2ab` ("Add platform bootstrap and offline installer scripts"); subsequent hardening in `9b4626d` (script reorganization) and `3cb2605` (talosconfig tolerance).
