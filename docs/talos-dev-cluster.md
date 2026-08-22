@@ -2,77 +2,184 @@
 
 ## Purpose
 
-This document describes the Talos dev bootstrap path for HPDC. It provisions a local Talos Linux cluster from persistent QEMU disk images using `talosctl cluster create` and prepares the cluster for Cilium and Rook-Ceph installation.
+This document describes the Talos dev bootstrap path for HPDC. It provisions a local Talos Linux cluster using Docker containers via `talosctl cluster create docker` and prepares the cluster for storage backend installation.
 
 ## Required tooling
 
 - Python 3
 - `talosctl`
-- QEMU or `qemu-img`
-- Pre-cached Talos installer image
+- Docker
 
-## Offline artifact
+## Cluster Configuration
 
-The offline Talos installer image must be present before running bootstrap:
+The dev cluster uses Docker containers for fast provisioning and teardown:
 
-```text
-output/qemu/images/talos-v1.13.7.iso
-```
-
-If the image is missing, the bootstrap exits with a non-zero status because offline mode cannot download it.
-
-## Persistent disk images
-
-Persistent QEMU disk images are stored under:
-
-```text
-output/qemu/talos-v1.img
-output/qemu/talos-v2.img
-output/qemu/talos-v3.img
-```
-
-The default bootstrap provisions one Talos VM. Add `--nodes N` to provision multiple VMs.
-
-Disk images are reused across reruns. Provide `--cleanup` to remove existing disk images before provisioning.
+- **Cluster name**: `hpdc-talos`
+- **Subnet**: `10.6.0.0/24`
+- **Control planes**: 1 (default)
+- **Workers**: 3 (default, configurable with `--workers`)
+- **CPUs per worker**: 2 (default, configurable with `--cpus-workers`)
+- **RAM per worker**: 3072MB (default, configurable with `--memory-workers`)
 
 ## Bootstrap command
 
-```python
+### Dry-run mode
+
+```bash
 python3 scripts/startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py
 ```
 
-## Validation command
+### Apply mode (creates the cluster)
 
-```python
-python3 scripts/startup.dev.py --offline --check --step 02-bootstrap-talos-dev.py
-python3 python3 scripts/startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py --dry-run
+```bash
+python3 scripts/startup.dev.py --offline --apply --step 02-bootstrap-talos-dev.py
+```
+
+### With custom worker count
+
+```bash
+python3 scripts/startup.dev.py --offline --apply --step 02-bootstrap-talos-dev.py
+# Or directly:
+python3 scripts/gitops/bootstrap_talos_dev.py --workers 5 --cpus-workers 4
+```
+
+## Storage Backend Options
+
+The cluster supports two storage backends via the `--storage` flag:
+
+### local-path (default)
+
+Lightweight local-path-provisioner for development:
+
+```bash
+python3 scripts/startup.dev.py --offline --apply --storage local-path
+```
+
+### rook-ceph
+
+Full Ceph storage with RBD and CephFS (requires block devices):
+
+```bash
+python3 scripts/startup.dev.py --offline --apply --storage rook-ceph
+```
+
+**Note**: Rook-Ceph requires dedicated block devices and is more suitable for bare-metal or VM-based clusters. For Docker-based dev clusters, `local-path` is recommended.
+
+## Cluster Lifecycle
+
+### Idempotent startup
+
+The startup script automatically tears down any existing cluster before provisioning:
+
+```bash
+python3 scripts/startup.dev.py --offline --apply
+```
+
+This will:
+1. Detect and tear down any existing cluster (kind or Talos)
+2. Create a new cluster with the specified configuration
+3. Install the selected storage backend
+
+### Manual teardown
+
+```bash
+python3 scripts/stop.dev.py --apply
+```
+
+### Check cluster status
+
+```bash
+python3 scripts/stop.dev.py --check
+```
+
+## Validation
+
+After provisioning, verify the cluster:
+
+```bash
+# Check nodes
+kubectl get nodes -o wide
+
+# Check storage classes
+kubectl get storageclass
+
+# Check pods
+kubectl get pods -A
+```
+
+## PodSecurity Configuration
+
+Talos enforces PodSecurity policies. The storage installation scripts automatically set the required PodSecurity labels:
+
+```bash
+kubectl label namespace local-path-storage pod-security.kubernetes.io/enforce=privileged --overwrite
+kubectl label namespace default pod-security.kubernetes.io/enforce=privileged --overwrite
 ```
 
 ## Expected output
 
+### Dry-run
+
 ```text
-$ python3 python3 scripts/startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py --dry-run
 Talos dev cluster bootstrap dry-run passed.
-Persistent QEMU disks: ['output/qemu/talos-v1.img']
-Talos version: 1.13.7
-Node specs: output/talos/node-specs.yaml
-talosconfig: output/talos/talosconfig
+Cluster name: hpdc-talos
+Control planes: 1 (CPU: 2.0, RAM: 2048MB)
+Workers: 3 (CPU: 2.0, RAM: 3072MB)
+Storage: local-path
+Subnet: 10.6.0.0/24
+Talos version: v1.13.7
 ```
 
-## Talos bootstrap sequence
+### Apply
 
-The real bootstrap sequence is:
+```text
+Tearing down existing dev cluster before provisioning...
+Cluster teardown complete; proceeding with provisioning.
+Cluster 'hpdc-talos' provisioned successfully.
+Storage backend: local-path
+Workers: 3 (CPU: 2.0, RAM: 3072MB)
+```
 
-1. Create or reuse persistent QEMU disk images.
-2. Generate `output/talos/node-specs.yaml` for Talos 1.13.7.
-3. Ensure `output/talos/talosconfig` exists.
-4. Run `talosctl cluster create --offline --nodes file://output/talos/node-specs.yaml --talos-version 1.13.7`.
-5. Run `talosctl kubeconfig --output output/talos/talosconfig`.
-6. Run `talosctl health`.
-7. Run `talosctl get nodes`.
-8. Run `talosctl get disks`.
-9. Confirm the cluster is usable without SSH.
+## Storage handoff
 
-## Rook-Ceph handoff
+After cluster provisioning, install the storage backend:
 
-Story 1.4 should use the persistent QEMU disk images under `output/qemu/` as Rook-Ceph OSD backing storage. Do not wipe these disks unless an explicit cleanup operation is requested.
+```bash
+# For local-path (recommended for Docker dev clusters)
+python3 scripts/gitops/install_storage_dev.py --storage local-path
+
+# For rook-ceph (requires block devices)
+python3 scripts/gitops/install_storage_dev.py --storage rook-ceph
+```
+
+## Troubleshooting
+
+### Cluster already exists
+
+If you see errors about an existing cluster, the startup script will automatically tear it down. To manually destroy:
+
+```bash
+talosctl cluster destroy --name hpdc-talos
+docker rm -f hpdc-talos-controlplane-1 hpdc-talos-worker-{1,2,3}
+docker network rm hpdc-talos
+```
+
+### PodSecurity violations
+
+If pods are rejected due to PodSecurity policies, ensure the namespace labels are set:
+
+```bash
+kubectl label namespace <namespace> pod-security.kubernetes.io/enforce=privileged --overwrite
+```
+
+### Storage provisioning failures
+
+Check the provisioner logs:
+
+```bash
+# For local-path
+kubectl logs -n local-path-storage deployment/local-path-provisioner
+
+# For rook-ceph
+kubectl logs -n rook-ceph deployment/rook-ceph-operator
+```

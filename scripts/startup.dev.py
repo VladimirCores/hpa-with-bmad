@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run the HPDC dev cluster setup steps in order."""
+"""Run the HPDC dev cluster setup steps in order.
+
+Idempotent startup lifecycle: before provisioning (step 02), any existing
+dev cluster (kind or Talos/QEMU) is torn down cleanly. Persistent QEMU
+disk images are preserved across recreate cycles.
+"""
 
 from __future__ import annotations
 
@@ -79,7 +84,13 @@ def step_mode_args(step: Step, mode_args: list[str]) -> list[str]:
             return ["--check"]
         if "--dry-run" in mode_args:
             return ["--dry-run"]
-        return []
+        # Pass storage option to bootstrap
+        args = []
+        if "--storage" in mode_args:
+            idx = mode_args.index("--storage")
+            if idx + 1 < len(mode_args):
+                args.extend(["--storage", mode_args[idx + 1]])
+        return args
 
     args = []
     if "--offline" in mode_args:
@@ -90,6 +101,11 @@ def step_mode_args(step: Step, mode_args: list[str]) -> list[str]:
         args.append("--check")
     else:
         args.append("--dry-run")
+    # Pass storage option to steps that need it
+    if "--storage" in mode_args:
+        idx = mode_args.index("--storage")
+        if idx + 1 < len(mode_args):
+            args.extend(["--storage", mode_args[idx + 1]])
     return args
 
 
@@ -156,7 +172,56 @@ def build_mode_args(args: argparse.Namespace) -> list[str]:
         mode_args.append("--check")
     else:
         mode_args.append("--dry-run")
+    if hasattr(args, 'storage') and args.storage:
+        mode_args.extend(["--storage", args.storage])
     return mode_args
+
+
+def teardown_existing_cluster() -> int:
+    """Tear down any existing dev cluster before provisioning.
+
+    Calls stop.dev.py --check to detect clusters, then --apply to tear down.
+    Returns 0 on success (or nothing to tear down), 1 on critical failure.
+
+    Note: talosctl cluster destroy may return non-zero due to network cleanup
+    issues even when the cluster is effectively destroyed. We treat the teardown
+    as successful if stop.dev.py reports the cluster as gone after teardown.
+    """
+    import subprocess
+
+    stop_script = SCRIPTS_DIR / "stop.dev.py"
+
+    # Check if any cluster exists
+    result = subprocess.run(
+        [sys.executable, str(stop_script), "--check"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print(f"Warning: cluster check failed: {result.stderr.strip()}", file=sys.stderr)
+        return 1
+
+    if "No dev cluster running" in result.stdout:
+        print("No existing dev cluster to tear down.")
+        return 0
+
+    # Tear down the cluster
+    print("Tearing down existing dev cluster before provisioning...")
+    result = subprocess.run(
+        [sys.executable, str(stop_script), "--apply"],
+        capture_output=False,  # let output flow to user
+    )
+
+    # Verify teardown succeeded (check is more reliable than return code)
+    verify = subprocess.run(
+        [sys.executable, str(stop_script), "--check"],
+        capture_output=True, text=True,
+    )
+    if verify.returncode != 0 or "No dev cluster running" not in verify.stdout:
+        print(f"Cluster teardown may have failed (exit code {result.returncode}).", file=sys.stderr)
+        print(f"Check output: {verify.stdout.strip()}", file=sys.stderr)
+        return 1
+
+    return 0
 
 
 def main() -> int:
@@ -167,6 +232,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="validate each selected step without applying manifests")
     parser.add_argument("--list", action="store_true", help="list ordered setup steps and exit")
     parser.add_argument("--step", action="append", default=[], help="run only the named step; may be repeated")
+    parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default="rook-ceph", help="storage backend for the cluster")
     args = parser.parse_args()
 
     if args.list:
@@ -197,6 +263,17 @@ def main() -> int:
 
     prepare_log()
     write_log(["HPDC dev startup log", f"command: python3 scripts/startup.dev.py {' '.join(sys.argv[1:])}", ""])
+
+    # Idempotent lifecycle: tear down any existing cluster before provisioning
+    is_apply = "--apply" in mode_args
+    if is_apply and any(s.number == 2 for s in selected):
+        teardown_rc = teardown_existing_cluster()
+        if teardown_rc != 0:
+            message = "Cluster teardown failed; aborting before provisioning."
+            print(message, file=sys.stderr)
+            write_log([message])
+            return 1
+        write_log(["Cluster teardown complete; proceeding with provisioning."])
 
     failures: list[tuple[str, int]] = []
     for step in selected:

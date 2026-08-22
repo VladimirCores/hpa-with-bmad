@@ -4,7 +4,7 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 
 ## System Design
 
-**Paradigm — Gateway-Mediated Domain Segregation.** The Envoy Gateway is the exclusive ingress boundary. Its routes are hard domain boundaries, each owning its internal runtime pattern. The event mesh (Pulsar + Kafka) is the cross-cutting integration fabric. Compute is serverless-first: KNative (scale-to-zero) with Restate for stateful SAGAs, SpinKube WASM for stateless transforms, and Pulsar Functions for stream processing. No always-on microservices.
+**Paradigm — Gateway-Mediated Domain Segregation.** The Envoy Gateway is the exclusive ingress boundary. Its routes are hard domain boundaries, each owning its internal runtime pattern. The event mesh (Pulsar + Kafka) is the cross-cutting integration fabric. Compute is serverless-first: KNative (scale-to-zero) with Restate for stateful SAGAs, SpinKube WASM for stateless transforms, and Pulsar Functions for stream processing. No always-on microservices. Storage is layered: Local Path Provisioner for dev clusters, Ceph RBD for production.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -19,7 +19,7 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 │Couch │Yugabyte│ArcadeDB│ClickHouse│ KeyDB  │ PostgreSQL    │
 │  DB  │  DB    │        │          │        │ (Auth)        │
 ├──────┴────────┴────────┴──────────┴────────┴───────────────┤
-│              Ceph RBD (persistent storage)                  │
+│        Local Path Provisioner (dev) / Ceph RBD (prod)      │
 │          Talos Linux + Cilium (eBPF) substrate              │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -39,7 +39,7 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 
 | Epic | Scope | Status |
 |------|-------|--------|
-| 1 | Kubernetes substrate: Talos 1.13.7 (QEMU), Cilium eBPF with kube-proxy replacement + L2 LB, Cilium mTLS (SPIFFE/SPIRE), Rook-Ceph RBD | done |
+| 1 | Kubernetes substrate: Talos 1.13.7 (Docker), Cilium eBPF with kube-proxy replacement + L2 LB, Cilium mTLS (SPIFFE/SPIRE), local-path storage | done |
 | 2 | Offline GitOps delivery: Harbor 2.11.3 registry (scan + sign), Spegel P2P image distribution, local Git mirror, Kargo v1.11 Freight promotion, Argo CD v3.5 ApplicationSet + sync waves, Argo Rollouts v1.9 canary, Argo Events v1.9 | done |
 | 3 | Secure gateway & access: Envoy Gateway edge routing, cert-manager TLS, API-key auth, Casdoor JWT, Casbin RBAC/ReBAC/ABAC, Infisical secrets, mTLS mesh, OpenAPI governance, Backstage + tool UI routes | done |
 | 4 | Real-time telemetry: IoT device simulator, MQTT/HTTP/gRPC ingestion, Protobuf `CommonEnvelope` normalization, partitioned Pulsar topics, back-pressure, ClickHouse metrics + retention, KeyDB hot cache, Spin WASM events, E2E validation | done |
@@ -62,8 +62,8 @@ All project automation scripts must be written in Python 3. Shell wrappers are n
 ## Prerequisites
 
 - Python 3
-- `talosctl` for real Talos bootstrap
-- QEMU or `qemu-img`
+- `talosctl` for Talos cluster management
+- Docker for container-based dev clusters
 - Optional: `kubectl` for real cluster apply and readiness checks
 
 ## Getting Started
@@ -147,6 +147,21 @@ python3 scripts/startup.dev.py --offline --apply
 ```
 
 `--apply` requires `kubectl` and a healthy offline Talos cluster.
+
+#### Storage backend selection
+
+The cluster supports two storage backends via the `--storage` flag:
+
+- **local-path** (default): Lightweight local-path-provisioner for Docker-based dev clusters
+- **rook-ceph**: Full Ceph storage with RBD and CephFS (requires block devices)
+
+```python
+# With local-path storage (recommended for Docker dev clusters)
+python3 scripts/startup.dev.py --offline --apply --storage local-path
+
+# With rook-ceph storage (requires block devices)
+python3 scripts/startup.dev.py --offline --apply --storage rook-ceph
+```
 
 ## Quick health check
 

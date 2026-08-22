@@ -138,6 +138,12 @@ development_status:
   10-2-harden-gitops-and-route-policy-live-config: done
   epic-10-retrospective: done
 
+  epic-11: in-progress
+  11-1-dev-cluster-vm-provisioning-lifecycle: done
+  11-2-idempotent-startup-with-persistent-storage: done
+  11-3-live-component-initialization: in-progress
+  11-4-live-cluster-verification: pending
+
 action_items:
   - epic: 10
     action: "Resolve native-auth UI '/' catch-all ambiguity: drop '/' from one UI route or give every UI host a dedicated hostname route"
@@ -150,11 +156,13 @@ action_items:
   - epic: 10
     action: "Deploy Infisical operator + credentialsRef so hpdc-production-secrets reconciles (needs live cluster)"
     owner: "Winston"
-    status: open
+    status: in-progress
+    linked_story: "11-4-live-cluster-verification"
   - epic: 10
     action: "Add JWT audiences/forwardJWT + live JWKS fetch verification (P0-008, needs live cluster)"
     owner: "Amelia"
-    status: open
+    status: in-progress
+    linked_story: "11-4-live-cluster-verification"
   - epic: 10
     action: "Codify in-memory mutation-probe technique into the checkpoint-review workflow (every dig-in includes a mutation probe)"
     owner: "Amelia + Murat"
@@ -170,7 +178,8 @@ action_items:
   - epic: 8
     action: "Verify ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption needs P0-008 live-cluster verification (record once a multi-region cluster exists)"
     owner: "Winston"
-    status: open
+    status: in-progress
+    linked_story: "11-4-live-cluster-verification"
   - epic: 8
     action: "Add a no-replication guard: regional-sovereignty validation asserts no cross-region replication config exists in the tree (absence-of-config invariant)"
     owner: "Murat"
@@ -178,7 +187,8 @@ action_items:
   - epic: 7
     action: "Register SLO verification tasks: live-cluster verification for quantified ACs (log search <=5s, stale-metric <=5min, PromQL <=2s) as P0-008/P0-023-class items"
     owner: "Murat"
-    status: open
+    status: in-progress
+    linked_story: "11-4-live-cluster-verification"
   - epic: 7
     action: "Audit the native-auth tool-route group: UI route topology from 7-5 is root of Epic 10 catch-all ambiguity; fold into Epic 10 action item 1 topology review"
     owner: "Winston"
@@ -186,7 +196,8 @@ action_items:
   - epic: 6
     action: "Register entity-store SLO verifications: 200ms p99 mutation, 500ms change reaction, exactly-once Restate, Hasura 2s cross-store join (live-cluster P0-008/P0-023 register)"
     owner: "Murat"
-    status: open
+    status: in-progress
+    linked_story: "11-4-live-cluster-verification"
   - epic: 6
     action: "Audit /gql route ownership: confirm entity-store-owns-/gql contract documented in the route-topology review (Epic 10 shadowing fix subject)"
     owner: "Winston"

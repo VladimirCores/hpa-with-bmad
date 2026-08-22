@@ -8,7 +8,7 @@ Bootstrap scaffolds the High Performance Distributed Cluster repository so the T
 
 - Python 3
 - `talosctl`
-- QEMU
+- Docker
 
 ## Project-wide scripting rule
 
@@ -37,6 +37,28 @@ python3 scripts/startup.dev.py --list
 ```
 
 Each startup run rewrites `output/startup.dev.log` before executing so the selected dry-run, check, or apply flow is reviewable.
+
+## Storage backend selection
+
+The cluster supports two storage backends via the `--storage` flag:
+
+### local-path (default)
+
+Lightweight local-path-provisioner for Docker-based dev clusters:
+
+```bash
+python3 scripts/startup.dev.py --offline --apply --storage local-path
+```
+
+### rook-ceph
+
+Full Ceph storage with RBD and CephFS (requires block devices):
+
+```bash
+python3 scripts/startup.dev.py --offline --apply --storage rook-ceph
+```
+
+**Note**: For Docker-based dev clusters, `local-path` is recommended as Rook-Ceph requires dedicated block devices.
 
 ## Expected output
 

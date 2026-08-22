@@ -1303,6 +1303,103 @@ So that operators receive actionable recommendations across alerts, entities, an
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on failure
 
+## Epic 11: Dev Cluster Bring-Up & Verification
+
+Platform Engineer can provision, tear down, and recreate the HPDC dev cluster with idempotent persistent storage, run the full 44-step component initialization against a live Talos/QEMU cluster, and verify all live-cluster acceptance criteria (REG-01..10).
+
+**FRs covered:** FR-1..48 (all platform FRs verified live)
+**NFRs covered:** NFR1..26 (all platform NFRs verified live)
+**Additional requirements:** Idempotent dev cluster lifecycle, persistent Ceph/Rook storage across recreate cycles, Talos/QEMU teardown capability.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
+
+### Story 11.1: Dev Cluster VM Provisioning Lifecycle
+
+As a Platform Engineer,
+I want the dev cluster startup to detect and shut down any existing running cluster before provisioning,
+So that each dev session starts clean without resource conflicts.
+
+**Acceptance Criteria:**
+
+**Given** a dev cluster is already running (Talos/QEMU VMs or kind cluster)
+**When** `startup.dev.py --offline --apply` is invoked
+**Then** the existing cluster is detected and gracefully shut down
+**And** QEMU processes and network resources are released
+**And** persistent QEMU disk images are preserved for idempotent recreation
+**And** the script exits with a non-zero status on failure to shut down
+
+**Given** no dev cluster is running
+**When** `startup.dev.py --offline --apply` is invoked
+**Then** the cluster is provisioned from scratch
+**And** the script exits with a non-zero status on failure to provision
+
+**Implementation notes:** Requires extending `stop.dev.py` (currently kind-only) to handle Talos/QEMU teardown. The `bootstrap_talos_dev.py` already calls `talosctl cluster create qemu` — the teardown must reverse this. Persistent disk images (`output/qemu/talos-v*.img`) must survive the cycle.
+
+### Story 11.2: Idempotent Startup with Persistent Storage
+
+As a Platform Engineer,
+I want the dev cluster to be recreatable with idempotent persistent storage,
+So that Ceph/Rook data survives cluster recreation cycles.
+
+**Acceptance Criteria:**
+
+**Given** a dev cluster with Rook-Ceph storage and deployed workloads
+**When** the cluster is shut down and recreated via `startup.dev.py`
+**Then** the persistent QEMU disk images are preserved
+**And** Rook-Ceph storage is reinitialized from the preserved disks
+**And** previously deployed workloads can access their persistent data
+**And** the recreation completes without manual intervention
+
+**Given** the persistent disk images are corrupted or missing
+**When** the cluster is recreated
+**Then** fresh disks are created and Rook-Ceph initializes from scratch
+**And** the script logs the fresh initialization
+
+**Implementation notes:** `bootstrap_talos_dev.py:create_disk_image` already skips existing disks. The idempotency is: stop -> preserve disks -> recreate VMs -> Rook-Ceph reattaches. Requires Rook-Ceph operator to handle disk reattachment gracefully.
+
+### Story 11.3: Live Component Initialization
+
+As a Platform Engineer,
+I want the full 44-step component initialization to run against a live cluster,
+So that all platform components are verified working end-to-end.
+
+**Acceptance Criteria:**
+
+**Given** a freshly provisioned Talos/QEMU cluster
+**When** `startup.dev.py --offline --apply` runs all 44 steps
+**Then** each step completes successfully or fails with a clear error
+**And** the `output/startup.dev.log` records the outcome of every step
+**And** the script exits with a non-zero status on any step failure
+**And** the cluster is accessible via `kubectl` after all steps complete
+
+**Given** a step fails during initialization
+**When** the failure is investigated and fixed
+**Then** the step can be re-run individually via `--step` flag
+**And** the remaining steps continue from where they left off
+
+**Implementation notes:** The 44 steps in `scripts/steps/` are already ordered. The `--apply` flag passes `--apply` to each step. The investigation/fix loop uses the `investigate` discipline per failure. Each step should be run individually after a fix to confirm the fix works before re-running the full chain.
+
+### Story 11.4: Live-Cluster Verification
+
+As a Quality Engineer,
+I want the P0 ATDD suite and live-cluster register entries verified against the live cluster,
+So that all quantified acceptance criteria are proven working.
+
+**Acceptance Criteria:**
+
+**Given** the dev cluster is fully initialized (all 44 steps complete)
+**When** the P0 ATDD suite runs with `HPDC_EDGE_URL` and `HPDC_EVENTS_API_KEY` set
+**Then** the 7 previously-skipped RED-phase tests pass or fail with clear diagnostics
+**And** REG-01 through REG-10 are verified and closed in `live-cluster-verification-register.md`
+**And** `deferred-work.md` entries resolved by live verification are marked resolved
+**And** `sprint-status.yaml` is updated to reflect the new epic and closed action items
+
+**Given** a REG entry fails verification
+**When** the failure is investigated and fixed
+**Then** the entry is re-verified and closed
+**And** the fix is committed with a reference to the REG entry
+
+**Implementation notes:** The P0 ATDD suite (143 passed, 7 skipped) runs with pytest. The 7 skips are RED-phase live journeys gated on B-001. Harnesses auto-switch to live backends via `HPDC_*` env vars. REG-01..10 entries are in `live-cluster-verification-register.md`. Each entry has owner (Winston/Amelia/Murat), quantified ACs, and P0 class.
+
 ## Epic 10: Production Hardening
 
 Close the verified hardening gaps surfaced by the P0 ATDD acceptance audits: full per-route security-policy coverage, malformed GitOps YAML, and overlay drift — keeping validation offline/GitOps-safe.
