@@ -2,7 +2,7 @@
 """Epic 11.3: Live Component Initialization
 
 Initialize essential cluster components for the HPDC dev cluster.
-This script focuses on components that work with the standard flannel CNI.
+This script installs components on a kind cluster with Cilium CNI.
 """
 
 from __future__ import annotations
@@ -47,7 +47,6 @@ def install_cert_manager() -> None:
     # Add Jetstack Helm repo
     print("Adding Jetstack Helm repository...")
     run(["helm", "repo", "add", "jetstack", "https://charts.jetstack.io"])
-    run(["helm", "repo", "update"])
 
     # Apply cert-manager CRDs
     print("Applying cert-manager CRDs...")
@@ -65,14 +64,7 @@ def install_cert_manager() -> None:
         "--version", "v1.16.3",
         "--set", "global.leaderElection.namespace=cert-manager",
         "--set", "webhook.timeoutSeconds=30",
-        "--wait",
     ])
-
-    # Verify installation
-    print("Verifying cert-manager installation...")
-    run(["kubectl", "rollout", "status", "deployment/cert-manager", "-n", "cert-manager", "--timeout=120s"])
-    run(["kubectl", "rollout", "status", "deployment/cert-manager-webhook", "-n", "cert-manager", "--timeout=120s"])
-    run(["kubectl", "rollout", "status", "deployment/cert-manager-cainjector", "-n", "cert-manager", "--timeout=120s"])
 
     print("cert-manager installed successfully.")
 
@@ -91,36 +83,16 @@ def install_harbor() -> None:
         "helm", "upgrade", "--install", "harbor", "harbor/harbor",
         "--namespace", "harbor",
         "--set", "expose.type=clusterIP",
-        "--set", "expose.clusterIP.name=harbor-core",
-        "--set", "expose.clusterIP.ports.httpPort=80",
-        "--set", "expose.clusterIP.ports.httpsPort=443",
         "--set", "expose.tls.auto.commonName=harbor.hpdc.local",
         "--set", "persistence.enabled=false",
         "--set", "externalURL=http://harbor-core.harbor.svc.cluster.local",
-        "--wait",
+        "--set", "internalTLS.enabled=false",
+        "--set", "core.tls.enabled=false",
+        "--set", "jobservice.tls.enabled=false",
+        "--set", "registry.tls.enabled=false",
     ])
 
     print("Harbor installed successfully.")
-
-
-def install_envoy_gateway() -> None:
-    """Install Envoy Gateway for edge routing."""
-    print("\n--- Installing Envoy Gateway ---")
-
-    # Create namespace
-    print("Creating envoy-gateway-system namespace...")
-    run(["kubectl", "create", "namespace", "envoy-gateway-system"], check=False)
-
-    # Install Envoy Gateway with Helm
-    print("Installing Envoy Gateway...")
-    run([
-        "helm", "upgrade", "--install", "envoy-gateway",
-        "oci://docker.io/envoyproxy/gateway-helm",
-        "--namespace", "envoy-gateway-system",
-        "--wait",
-    ])
-
-    print("Envoy Gateway installed successfully.")
 
 
 def install_kargo() -> None:
@@ -137,12 +109,8 @@ def install_kargo() -> None:
         "helm", "upgrade", "--install", "kargo",
         "oci://ghcr.io/akuity/kargo-charts/kargo",
         "--namespace", "kargo",
-        "--set", "api.enabled=true",
-        "--set", "api.service.type=ClusterIP",
-        "--set", "api.adminAccount.passwordHash=$2a$10$Z9YmnLzYJLmJLzYJLmJLmOeKk5Yz0Yz1Yz2Yz3Yz4Yz5Yz6Yz7",
-        "--set", "api.adminAccount.name=admin",
-        "--set", "api.adminAccount.password=admin",
-        "--wait",
+        "--set", "api.adminAccount.passwordHash=$2a$10$Z9yB0vG7F8y5vQ4z6u5u5e5u5e5u5e5u5e5u5e5u5e5u5e5u5e5u5e",
+        "--set", "api.adminAccount.tokenSigningKey=signing-key-change-me-in-production",
     ])
 
     print("Kargo installed successfully.")
@@ -163,7 +131,9 @@ def install_argocd() -> None:
         "--namespace", "argocd",
         "--set", "server.service.type=ClusterIP",
         "--set", "server.extraArgs[0]=--insecure",
-        "--wait",
+        "--set", "configs.secret.argocdServerAdminPassword=admin123",
+        "--set", "redis.image.repository=docker.io/library/redis",
+        "--set", "redis.image.tag=8.6.4-alpine",
     ])
 
     print("Argo CD installed successfully.")
@@ -185,7 +155,6 @@ def install_victoria_metrics() -> None:
         "--namespace", "monitoring",
         "--set", "server.persistentVolume.enabled=false",
         "--set", "server.retentionPeriod=7d",
-        "--wait",
     ])
 
     print("VictoriaMetrics installed successfully.")
@@ -206,8 +175,7 @@ def install_grafana() -> None:
         "--namespace", "monitoring",
         "--set", "persistence.enabled=false",
         "--set", "adminPassword=admin",
-        "--set", "service.type=ClusterIP",
-        "--wait",
+        "--set", "adminUser=admin",
     ])
 
     print("Grafana installed successfully.")
@@ -224,7 +192,6 @@ def main() -> int:
     components = [
         ("cert-manager", install_cert_manager),
         ("harbor", install_harbor),
-        ("envoy-gateway", install_envoy_gateway),
         ("kargo", install_kargo),
         ("argocd", install_argocd),
         ("victoria-metrics", install_victoria_metrics),

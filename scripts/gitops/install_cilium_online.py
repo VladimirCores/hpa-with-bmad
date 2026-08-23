@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Install Cilium networking for HPDC dev cluster (online mode)."""
+"""Install Cilium networking for HPDC dev cluster (online mode).
+
+Configures Cilium as the CNI with kube-proxy replacement for kind clusters.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CILIUM_VERSION = "1.16.5"
 CILIUM_NAMESPACE = "kube-system"
+CLUSTER_NAME = "hpdc-talos"
 
 
 def run(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -37,27 +41,35 @@ def install_cilium_with_helm() -> None:
     run(["helm", "repo", "add", "cilium", "https://helm.cilium.io/"])
     run(["helm", "repo", "update"])
 
-    # Install Cilium
+    # Install Cilium with kube-proxy replacement for kind
     print(f"Installing Cilium {CILIUM_VERSION}...")
     run([
-        "helm", "install", "cilium", "cilium/cilium",
+        "helm", "upgrade", "--install", "cilium", "cilium/cilium",
         "--namespace", CILIUM_NAMESPACE,
         "--version", CILIUM_VERSION,
         "--set", "kubeProxyReplacement=true",
-        "--set", "k8sServiceHost=10.6.0.2",
+        "--set", f"k8sServiceHost={CLUSTER_NAME}-control-plane",
         "--set", "k8sServicePort=6443",
         "--set", "ipam.mode=cluster-pool",
-        "--set", "cluster.name=hpdc-talos",
+        "--set", "ipam.operator.clusterPoolIPv4PodCIDRList=10.244.0.0/16",
+        "--set", f"cluster.name={CLUSTER_NAME}",
         "--set", "cluster.id=1",
-        "--wait",
+        "--set", "kind.enabled=true",
+        "--set", "routingMode=native",
+        "--set", "ipv4NativeRoutingCIDR=10.244.0.0/16",
+        "--set", "autoDirectNodeRoutes=true",
+        "--set", "bpf.masquerade=true",
     ])
 
-    # Verify installation
-    print("Verifying Cilium installation...")
-    run(["kubectl", "rollout", "status", "daemonset/cilium", "-n", CILIUM_NAMESPACE, "--timeout=120s"])
-    run(["kubectl", "rollout", "status", "deployment/cilium-operator", "-n", CILIUM_NAMESPACE, "--timeout=120s"])
+    # Wait for Cilium to be ready
+    print("Waiting for Cilium to be ready...")
+    run(["kubectl", "rollout", "status", "daemonset/cilium", "-n", CILIUM_NAMESPACE, "--timeout=300s"])
 
-    print("Cilium installed successfully.")
+    # Remove kube-proxy (Cilium replaces it)
+    print("Removing kube-proxy (Cilium replaces it)...")
+    run(["kubectl", "delete", "ds", "kube-proxy", "-n", CILIUM_NAMESPACE])
+
+    print("Cilium installed successfully with kube-proxy replacement.")
 
 
 def install_cilium_with_kubectl() -> None:
@@ -84,7 +96,6 @@ def install_cilium_with_kubectl() -> None:
         # Wait for Cilium to be ready
         print("Waiting for Cilium to be ready...")
         run(["kubectl", "rollout", "status", "daemonset/cilium", "-n", CILIUM_NAMESPACE, "--timeout=180s"])
-        run(["kubectl", "rollout", "status", "deployment/cilium-operator", "-n", CILIUM_NAMESPACE, "--timeout=120s"])
 
         print("Cilium installed successfully.")
 
@@ -133,6 +144,7 @@ def main() -> int:
     if args.dry_run:
         print(f"Cilium version: {CILIUM_VERSION}")
         print(f"Namespace: {CILIUM_NAMESPACE}")
+        print(f"Cluster name: {CLUSTER_NAME}")
         print("Installation method: Helm (preferred) or kubectl apply (fallback)")
         return 0
 

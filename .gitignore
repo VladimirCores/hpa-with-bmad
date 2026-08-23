@@ -2,6 +2,10 @@
 .bmad-loop/runs/
 .bmad-loop/cache/
 .bmad-loop/policy.toml
+
+# Environment variables
+.env
+.env.local
 # Generated Talos, QEMU, and cluster bootstrap artifacts
 controlplane.yaml
 worker.yaml

@@ -1444,3 +1444,64 @@ So that production onboarding does not silently deploy dead auth config or a non
 **And** the prod-named InfisicalSecret does not embed the dev `envSlug`
 **And** the P0 suite adds a structural GitOps build-validity check, duplicate-key YAML detection, and strict `main()` tuple guards
 **And** all existing P0 checks stay GREEN with validation remaining offline/GitOps-safe
+
+## Epic 12: DRY Principle Investigation & Refactoring
+
+Audit the codebase for duplicated logic, hardcoded values, and inconsistent patterns; refactor to DRY (Don't Repeat Yourself) with centralized configuration.
+
+**FRs covered:** N/A (cross-cutting concern)
+**NFRs covered:** N/A (code quality)
+**Additional requirements:** Environment-based configuration via `.env`, centralized constants, eliminate magic numbers/strings.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
+
+### Story 12.1: Environment Configuration Audit & Consolidation
+
+As a Platform Engineer,
+I want all hardcoded values (IPs, ports, domains, cluster names) centralized in `.env` with a single source of truth,
+So that configuration changes propagate everywhere without manual updates.
+
+**Acceptance Criteria:**
+
+**Given** the codebase has hardcoded IPs, ports, and domains
+**When** the audit runs
+**Then** every hardcoded value is identified and cataloged
+**And** a migration plan to `.env` is documented
+**And** no script contains hardcoded values that should be configurable
+
+**Given** `.env` is the source of truth
+**When** a value changes in `.env`
+**Then** all scripts and configurations reflect the change
+**And** `.env.example` documents every variable with descriptions
+
+### Story 12.2: Script DRY Refactoring
+
+As a Platform Engineer,
+I want shared utility functions extracted into reusable modules (e.g., `utils/`, `common/`),
+So that scripts don't duplicate logic for kubectl operations, helm installs, or status checks.
+
+**Acceptance Criteria:**
+
+**Given** multiple scripts contain similar kubectl/helm commands
+**When** the refactoring runs
+**Then** common operations are extracted to shared modules
+**And** all scripts import from shared modules
+**And** no script duplicates logic that exists in shared modules
+
+**Given** scripts use `run()` function for subprocess calls
+**When** the function is extended
+**Then** it supports `.env` loading, logging, and error handling centrally
+**And** all scripts use the centralized `run()` function
+
+### Story 12.3: Documentation & Enforcement
+
+As a Platform Engineer,
+I want DRY principles documented and enforced via code review,
+So that new code doesn't reintroduce duplication.
+
+**Acceptance Criteria:**
+
+**Given** the DRY principle is established
+**When** a developer adds new code
+**Then** the code review checklist includes DRY validation
+**And** the README documents the DRY principle as mandatory
+**And** `.env.example` is kept in sync with all configurable values

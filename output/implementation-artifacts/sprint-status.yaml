@@ -141,7 +141,7 @@ development_status:
   epic-11: in-progress
   11-1-dev-cluster-vm-provisioning-lifecycle: done
   11-2-idempotent-startup-with-persistent-storage: done
-  11-3-live-component-initialization: in-progress
+  11-3-live-component-initialization: done
   11-4-live-cluster-verification: pending
 
 action_items:

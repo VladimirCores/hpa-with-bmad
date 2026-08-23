@@ -20,7 +20,7 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 │  DB  │  DB    │        │          │        │ (Auth)        │
 ├──────┴────────┴────────┴──────────┴────────┴───────────────┤
 │        Local Path Provisioner (dev) / Ceph RBD (prod)      │
-│          Talos Linux + Cilium (eBPF) substrate              │
+│          kind + Cilium eBPF (kube-proxy replacement)       │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -48,6 +48,8 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 | 7 | Observability & reporting: VictoriaMetrics cluster (vmstorage/vminsert/vmselect), VMLogs, OpenTelemetry collector + tracing, Grafana dashboards + Alertmanager, Grafana/Hubble UI routes | done |
 | 8 | Multi-region federation: Cilium ClusterMesh over WireGuard, regional data sovereignty (no cross-region replication by default), central hub querying regional APIs | done |
 | 9 | AI agent engine: MCP tool registry (query DBs, call APIs, trigger workflows) with security policy + audit, authenticated agent-to-agent (A2A) messaging | done |
+| 10 | Dev cluster lifecycle: kind-based dev cluster with Cilium CNI, kube-proxy replacement, component initialization, persistent storage | done |
+| 11 | Dev cluster VM provisioning: Talos Docker provider, idempotent startup, Cilium networking, component installation | in progress |
 
 ### Architecture sources
 
@@ -59,46 +61,127 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 
 All project automation scripts must be written in Python 3. Shell wrappers are not allowed in the project `scripts/` directory.
 
+## DRY Principle (Mandatory)
+
+All configuration must be centralized in `.env` — no hardcoded IPs, ports, or domains in scripts. See `Epic 12: DRY Principle Investigation & Refactoring` for full scope.
+
+**Rules:**
+1. All configurable values go in `.env` (copy `.env.example` to `.env`)
+2. Scripts load config via `load_env()` utility function
+3. No magic numbers or hardcoded strings in scripts
+4. `.env.example` must document every variable with descriptions
+
 ## Prerequisites
 
 - Python 3
-- `talosctl` for Talos cluster management
 - Docker for container-based dev clusters
-- Optional: `kubectl` for real cluster apply and readiness checks
+- `kind` (Kubernetes in Docker) for dev cluster management
+- `kubectl` for cluster management
+- `helm` for package management
+- Optional: `talosctl` for production Talos clusters
+
+### DNS Wildcard for `*.hpdc.local`
+
+The dev cluster uses `*.hpdc.local` domains (e.g., `harbor.hpdc.local`, `argocd.hpdc.local`) routed through the Cilium L2 LoadBalancer at `172.18.255.200`. Configure your host to resolve these:
+
+**Option A — `/etc/hosts` (simple, per-hostname):**
+```bash
+echo "172.18.255.200 harbor.hpdc.local argocd.hpdc.local" | sudo tee -a /etc/hosts
+```
+
+**Option B — dnsmasq wildcard (recommended, all `*.hpdc.local`):**
+```bash
+sudo dnf install dnsmasq
+
+sudo tee /etc/dnsmasq.d/hpdc.conf << 'EOF'
+address=/hpdc.local/172.18.255.200
+no-resolv
+EOF
+
+sudo mkdir -p /etc/systemd/resolved.conf.d
+sudo tee /etc/systemd/resolved.conf.d/hpdc.conf << 'EOF'
+[Resolve]
+DNS=127.0.0.1
+Domains=~local
+EOF
+
+sudo systemctl enable --now dnsmasq
+sudo systemctl restart systemd-resolved
+```
 
 ## Getting Started
 
-### 1. Bootstrap the dev repository
+### 1. Bootstrap the dev cluster
 
-Run the scaffold bootstrap once:
+Create a kind cluster with Cilium as the CNI (replacing kube-proxy):
 
-```python
-python3 scripts/gitops/bootstrap_dev.py
+```bash
+# Create kind cluster with Cilium
+kind create cluster --config /tmp/kind-hpdc.yaml
+
+# Install Cilium with kube-proxy replacement
+helm upgrade --install cilium cilium/cilium --namespace kube-system \
+  --set kubeProxyReplacement=true \
+  --set k8sServiceHost=hpdc-talos-control-plane \
+  --set k8sServicePort=6443 \
+  --set ipam.mode=cluster-pool \
+  --set ipam.operator.clusterPoolIPv4PodCIDRList="10.244.0.0/16" \
+  --set cluster.name=hpdc-talos \
+  --set cluster.id=1 \
+  --set kind.enabled=true \
+  --set routingMode=native \
+  --set ipv4NativeRoutingCIDR="10.244.0.0/16" \
+  --set autoDirectNodeRoutes=true \
+  --set bpf.masquerade=true
+
+# Remove kube-proxy (Cilium replaces it)
+kubectl delete ds kube-proxy -n kube-system
+
+# Install local-path-provisioner
+kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
 ```
 
-### 2. Run offline dev setup dry-runs
+### 2. Install platform components
 
-Run the platform and GitOps setup without applying to a live cluster:
+Install all required components:
 
-```python
-python3 scripts/startup.dev.py --offline --dry-run
+```bash
+# cert-manager
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace --version v1.16.3
+
+# Harbor
+helm upgrade --install harbor harbor/harbor \
+  --namespace harbor --create-namespace \
+  --set expose.type=clusterIP \
+  --set persistence.enabled=false
+
+# Argo CD
+helm upgrade --install argocd argo/argo-cd \
+  --namespace argocd --create-namespace \
+  --set server.service.type=ClusterIP \
+  --set server.extraArgs[0]=--insecure
+
+# Kargo
+helm upgrade --install kargo oci://ghcr.io/akuity/kargo-charts/kargo \
+  --namespace kargo --create-namespace \
+  --set api.adminAccount.passwordHash='$2a$10$Z9yB0vG7F8y5vQ4z6u5u5e5u5e5u5e5u5e5u5e5u5e5u5e5u5e5u5e' \
+  --set api.adminAccount.tokenSigningKey=signing-key-change-me-in-production
+
+# VictoriaMetrics
+helm upgrade --install victoria-metrics victoriametrics/victoria-metrics-single \
+  --namespace monitoring --create-namespace \
+  --set server.retentionPeriod=7d \
+  --set server.persistentVolume.enabled=false
+
+# Grafana
+helm upgrade --install grafana grafana/grafana \
+  --namespace monitoring \
+  --set persistence.enabled=false \
+  --set adminPassword=admin
 ```
 
-Run one ordered step only:
-
-```python
-python3 scripts/startup.dev.py --offline --dry-run --step 02-bootstrap-talos-dev.py
-```
-
-List all ordered steps:
-
-```python
-python3 scripts/startup.dev.py --list
-```
-
-Each startup run rewrites `output/startup.dev.log` before executing so the selected dry-run, check, or apply flow is reviewable.
-
-### 3. Validate all implemented stories
+### 3. Validate the cluster
 
 Run the validation tests:
 
@@ -138,16 +221,6 @@ The harnesses switch to live backends automatically via env vars:
 runs a real constant-arrival-rate soak against the gateway; without it, it
 runs a bounded local simulation against the dev edge service.
 
-### 5. Apply to a real offline Talos cluster
-
-Apply only after the dry-runs pass and `output/talos/talosconfig` exists:
-
-```python
-python3 scripts/startup.dev.py --offline --apply
-```
-
-`--apply` requires `kubectl` and a healthy offline Talos cluster.
-
 #### Storage backend selection
 
 The cluster supports two storage backends via the `--storage` flag:
@@ -173,15 +246,17 @@ python3 scripts/startup.dev.py --offline --dry-run --step 15-validate-offline-gi
 
 ## Local Access to Cluster Components
 
-All cluster components are reached through the Envoy Gateway single entry point, which serves the wildcard host `*.hpdc.local` on port 443 (HTTPS, TLS terminated by cert-manager) and redirects port 80.
+All cluster components are reached through the Envoy Gateway single entry point, which serves the wildcard host `*.hpdc.local` on port 80.
 
-### Find the gateway address
+### Gateway IP (fixed)
+
+The Envoy Gateway LoadBalancer IP is **fixed** at `172.18.255.200` — it's the first IP in the Cilium L2 pool (`172.18.255.200-209`). This IP persists across cluster restarts.
 
 ```bash
 kubectl get svc -n envoy-gateway-system
 ```
 
-The `hpdc-edge-*` proxy service exposes the `EXTERNAL-IP` (from the Cilium L2 LoadBalancer pool `192.168.100.200/32` in the dev cluster). Note it — this is the single IP for every component below.
+The `envoy-*` service exposes `EXTERNAL-IP: 172.18.255.200` (from the Cilium L2 LoadBalancer pool).
 
 ### Component hostnames
 
@@ -200,25 +275,17 @@ Native tool auth is enforced per tool (e.g. Backstage signs in via Casdoor); Cas
 
 ### Hosts file setup
 
-Map every `hpdc.local` hostname to the gateway IP. Replace `<GATEWAY_IP>` with the `EXTERNAL-IP` from above.
+Map every `*.hpdc.local` hostname to the fixed gateway IP `172.18.255.200`.
 
-#### macOS / Linux
-
-Edit `/etc/hosts`:
+#### Option A — `/etc/hosts` (per-hostname)
 
 ```bash
-sudo vim /etc/hosts
+echo "172.18.255.200 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
 ```
 
-Add (all resolve to the same gateway IP):
+#### Option B — dnsmasq wildcard (all `*.hpdc.local`)
 
-```
-<GATEWAY_IP> hubble.hpdc.local grafana.hpdc.local casdoor.hpdc.local
-<GATEWAY_IP> backstage.hpdc.local argocd.hpdc.local kargo.hpdc.local
-<GATEWAY_IP> hpdc.local api.hpdc.local gql.hpdc.local telemetry.hpdc.local events.hpdc.local
-```
-
-Any `*.hpdc.local` name works for the path-based domain routes; the explicit names above are for readability.
+See [DNS Wildcard for `*.hpdc.local`](#dns-wildcard-for-hpdclocal) in Prerequisites.
 
 Flush the DNS cache:
 
