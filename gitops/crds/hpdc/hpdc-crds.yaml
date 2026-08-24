@@ -1,0 +1,499 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agentcommunications.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AgentCommunication
+    plural: agentcommunications
+    singular: agentcommunication
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alertaudittrails.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertAuditTrail
+    plural: alertaudittrails
+    singular: alertaudittrail
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alerthandleractionses.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertHandlerActions
+    plural: alerthandleractionses
+    singular: alerthandleractions
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alertresponseengines.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertResponseEngine
+    plural: alertresponseengines
+    singular: alertresponseengine
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alertsignalstreams.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertSignalStream
+    plural: alertsignalstreams
+    singular: alertsignalstream
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alertstatemachines.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertStateMachine
+    plural: alertstatemachines
+    singular: alertstatemachine
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alertworkflows.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertWorkflow
+    plural: alertworkflows
+    singular: alertworkflow
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clickhousetables.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: ClickHouseTable
+    plural: clickhousetables
+    singular: clickhousetable
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clustermeshs.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: ClusterMesh
+    plural: clustermeshs
+    singular: clustermesh
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: entitychangededupes.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: EntityChangeDedupe
+    plural: entitychangededupes
+    singular: entitychangededupe
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: entitychangefeeds.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: EntityChangeFeed
+    plural: entitychangefeeds
+    singular: entitychangefeed
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: entitycruds.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: EntityCrud
+    plural: entitycruds
+    singular: entitycrud
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: entitymutationaudits.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: EntityMutationAudit
+    plural: entitymutationaudits
+    singular: entitymutationaudit
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: entitystores.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: EntityStore
+    plural: entitystores
+    singular: entitystore
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: hasuragraphqls.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: HasuraGraphQL
+    plural: hasuragraphqls
+    singular: hasuragraphql
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: keydbcaches.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: KeyDBCache
+    plural: keydbcaches
+    singular: keydbcache
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: llmdecisionsupports.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: LlmDecisionSupport
+    plural: llmdecisionsupports
+    singular: llmdecisionsupport
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: mcptoolregistrys.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: MCPToolRegistry
+    plural: mcptoolregistrys
+    singular: mcptoolregistry
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: observabilitypipelines.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: ObservabilityPipeline
+    plural: observabilitypipelines
+    singular: observabilitypipeline
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: pulsarfunctions.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: PulsarFunction
+    plural: pulsarfunctions
+    singular: pulsarfunction
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: regionalapihubs.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: RegionalApiHub
+    plural: regionalapihubs
+    singular: regionalapihub
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: regionaldatasovereigntys.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: RegionalDataSovereignty
+    plural: regionaldatasovereigntys
+    singular: regionaldatasovereignty
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: spinwasmfunctions.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: SpinWasmFunction
+    plural: spinwasmfunctions
+    singular: spinwasmfunction
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: telemetrybackpressurepolicys.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: TelemetryBackpressurePolicy
+    plural: telemetrybackpressurepolicys
+    singular: telemetrybackpressurepolicy
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tooluiroutes.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: ToolUIRoute
+    plural: tooluiroutes
+    singular: tooluiroute
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
