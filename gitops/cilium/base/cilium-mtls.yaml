@@ -1,44 +1,6 @@
-apiVersion: cilium.io/v2alpha1
-kind: Cilium
-metadata:
-  name: cilium
-  namespace: kube-system
-  labels:
-    app.kubernetes.io/name: cilium
-    app.kubernetes.io/component: network
-    app.kubernetes.io/part-of: hpdc-platform
-spec:
-  kubeProxyReplacement:
-    enableOnAllNodes: true
-  l2AnnouncementMode: true
-  nodeSelector:
-    kubernetes.io/os: linux
-  operator:
-    replicas: 1
-  routingMode: tunnel
-  ipam:
-    mode: kubernetes
-  k8sServiceProxy:
-    enabled: false
-  egressMasqueradeInterfaces: eth0
-  authentication:
-    enabled: true
-    gcInterval: 5m0s
-    mutual:
-      enabled: true
-      port: 4250
-      connectTimeout: 5s
-      connectionTimeout: 30s
-      spire:
-        enabled: true
-        install:
-          enabled: false
-        namespace: cilium-spire
-        serverAddress: spire-server.cilium-spire.svc:8081
-        agentSocketPath: /run/spire/sockets/agent/agent.sock
-        adminSocketPath: /run/spire/sockets/admin.sock
-        skipKubeletVerification: true
-
+# Cilium mutual authentication (mTLS) is enabled via Helm values in
+# scripts/gitops/install_cilium_mtls_dev.py (authentication.mutual.spire.*).
+# SPIRE server/agent manifests follow.
 ---
 apiVersion: v1
 kind: Namespace
@@ -47,6 +9,9 @@ metadata:
   labels:
     app.kubernetes.io/name: cilium-spire
     app.kubernetes.io/part-of: hpdc-platform
+    # SPIRE agent sockets (hostPath) + local-path helper pods require privileged PSA
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/enforce-version: latest
 
 ---
 apiVersion: v1
@@ -103,15 +68,38 @@ data:
         }
       }
 
-      NodeAttester "k8s_psat" {
+      NodeAttestor "k8s_psat" {
         plugin_data {
           clusters = {
             "hpdc-dev" = {
-              token = "dev-server-token"
+              use_token_review_api_validation = true
+              service_account_allow_list = ["cilium-spire:spire-agent"]
             }
           }
         }
       }
+
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "/opt/spire/data/keys.json"
+        }
+      }
+
+      # Publishes the trust bundle into the "spire-bundle" ConfigMap so agents
+      # can bootstrap securely.
+      Notifier "k8sbundle" {
+        plugin_data {
+          namespace = "cilium-spire"
+        }
+      }
+    }
+
+    health_checks {
+      listener_enabled = true
+      bind_address = "0.0.0.0"
+      bind_port = "8080"
+      live_path = "/live"
+      ready_path = "/ready"
     }
 
 ---
@@ -142,10 +130,10 @@ spec:
         - operator: Exists
       containers:
         - name: spire-server
-          image: ghcr.io/spiffe/spire-server:v1.9.6
+          image: ghcr.io/spiffe/spire-server:1.15.3
           imagePullPolicy: IfNotPresent
+          # image ENTRYPOINT already includes "run"; args are appended flags only
           args:
-            - run
             - --config
             - /run/spire/config/server.conf
           env:
@@ -156,14 +144,14 @@ spec:
               containerPort: 8081
           readinessProbe:
             httpGet:
-              path: /health/ready
-              port: 8081
+              path: /ready
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /health/live
-              port: 8081
+              path: /live
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
           volumeMounts:
@@ -174,6 +162,12 @@ spec:
               mountPath: /opt/spire/data
             - name: sockets
               mountPath: /run/spire/sockets
+      volumes:
+        - name: config
+          configMap:
+            name: spire-server-config
+        - name: sockets
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -184,7 +178,7 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
-        storageClassName: rook-ceph-rbd
+        storageClassName: local-path
         resources:
           requests:
             storage: 1Gi
@@ -234,17 +228,45 @@ spec:
         - operator: Exists
       containers:
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:v1.9.6
+          image: ghcr.io/spiffe/spire-agent:1.15.3
           imagePullPolicy: IfNotPresent
+          # image ENTRYPOINT already includes "run"; args are appended flags only
           args:
-            - run
-            - --socketPath
-            - /run/spire/sockets/agent/agent.sock
-            - --log
-            - -
+            - --config
+            - /run/spire/config/agent.conf
+          securityContext:
+            privileged: true
           volumeMounts:
             - name: sockets
               mountPath: /run/spire/sockets
+            - name: config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: bundle
+              mountPath: /run/spire/config/bundle
+              readOnly: true
+            - name: spire-agent-token
+              mountPath: /var/run/secrets/tokens
+              readOnly: true
+      volumes:
+        - name: sockets
+          hostPath:
+            path: /run/spire/sockets
+            type: DirectoryOrCreate
+        - name: config
+          configMap:
+            name: spire-agent-config
+        - name: bundle
+          configMap:
+            name: spire-bundle
+            optional: true
+        - name: spire-agent-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: spire-agent
+                  expirationSeconds: 7200
+                  audience: spire-server
 
 ---
 apiVersion: v1
@@ -260,8 +282,126 @@ data:
   agent.conf: |
     agent {
       socket_path = "/run/spire/sockets/agent/agent.sock"
-      log = "-"
       trust_domain = "hpdc.local"
       server_address = "spire-server.cilium-spire.svc"
       server_port = "8081"
+      trust_bundle_path = "/run/spire/config/bundle/bundle.crt"
     }
+
+    plugins {
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          cluster = "hpdc-dev"
+        }
+      }
+
+      KeyManager "memory" {
+        plugin_data {}
+      }
+
+      WorkloadAttestor "k8s" {
+        plugin_data {}
+      }
+    }
+
+    health_checks {
+      listener_enabled = true
+      bind_address = "localhost"
+      bind_port = "8080"
+      live_path = "/live"
+      ready_path = "/ready"
+    }
+---
+# k8s_psat use_token_review_api_validation requires the SPIRE server SA to
+# perform TokenReview / SubjectAccessReview checks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-server-auth-delegator
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/part-of: hpdc-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: spire-server
+    namespace: cilium-spire
+---
+# Trust bundle destination; the k8sbundle Notifier updates this ConfigMap
+# with bundle.pem on server startup.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-bundle
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/component: trust-bundle
+    app.kubernetes.io/part-of: hpdc-platform
+---
+# Allows the k8sbundle Notifier to publish the trust bundle ConfigMap and
+# lets k8s_psat token-review validation resolve the attesting agent's Pod.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spire-server-bundle
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/part-of: hpdc-platform
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+# k8s_psat validation also resolves the attesting agent's Node object.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-server-node-reader
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/part-of: hpdc-platform
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-server-node-reader
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/part-of: hpdc-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-server-node-reader
+subjects:
+  - kind: ServiceAccount
+    name: spire-server
+    namespace: cilium-spire
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spire-server-bundle
+  namespace: cilium-spire
+  labels:
+    app.kubernetes.io/name: cilium-spire
+    app.kubernetes.io/part-of: hpdc-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spire-server-bundle
+subjects:
+  - kind: ServiceAccount
+    name: spire-server
+    namespace: cilium-spire

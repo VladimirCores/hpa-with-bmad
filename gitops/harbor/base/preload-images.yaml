@@ -10,22 +10,18 @@ data:
   images.yaml: |
     offline: true
     images:
-      - name: harbor/harbor-core:v2.11.3
-        source: output/harbor/images/harbor-core-v2.11.3
-        target: harbor.local/harbor/harbor-core:v2.11.3
-      - name: harbor/harbor-registry:v2.11.3
-        source: output/harbor/images/harbor-registry-v2.11.3
-        target: harbor.local/harbor/harbor-registry-v2.11.3
-      - name: harbor/harbor-jobservice:v2.11.3
-        source: output/harbor/images/harbor-jobservice-v2.11.3
-        target: harbor.local/harbor/harbor-jobservice-v2.11.3
-      - name: harbor/harbor-trivy-adapter:v2.11.3
-        source: output/harbor/images/harbor-trivy-adapter-v2.11.3
-        target: harbor.local/harbor/harbor-trivy-adapter:v2.11.3
-      - name: harbor/harbor-chartmuseum:v2.11.3
-        source: output/harbor/images/harbor-chartmuseum-v2.11.3
-        target: harbor.local/harbor/harbor-chartmuseum-v2.11.3
-
+      - name: goharbor/harbor-core:v2.15.2
+        source: output/harbor/images/harbor-core-v2.15.2
+        target: harbor.local/goharbor/harbor-core:v2.15.2
+      - name: goharbor/registry-photon:v2.15.2
+        source: output/harbor/images/registry-photon-v2.15.2
+        target: harbor.local/goharbor/registry-photon:v2.15.2
+      - name: goharbor/harbor-jobservice:v2.15.2
+        source: output/harbor/images/harbor-jobservice-v2.15.2
+        target: harbor.local/goharbor/harbor-jobservice:v2.15.2
+      - name: goharbor/trivy-adapter-photon:v2.15.2
+        source: output/harbor/images/trivy-adapter-photon-v2.15.2
+        target: harbor.local/goharbor/trivy-adapter-photon:v2.15.2
 
 ---
 apiVersion: batch/v1
@@ -46,7 +42,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: preload
-          image: docker:2.41-cli
+          image: docker:29-cli
           imagePullPolicy: IfNotPresent
           command:
             - sh

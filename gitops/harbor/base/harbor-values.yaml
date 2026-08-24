@@ -11,7 +11,7 @@ projectCreationRestriction: anyonewithaccount
 registryCredentialSecretName: harbor-dev-secrets
 registryStorageProviderName: local
 registryStorageDeleteEnabled: true
-storageClassName: rook-ceph-rbd
+storageClassName: local-path
 registryHttpSecret: HarborRegistryHttpSecret12345
 registryStorageGoogleCredentials: '{"type":"service_account","project_id":"hpdc-offline"}'
 trivy:
@@ -35,38 +35,32 @@ persistence:
   enabled: true
   persistentVolumeClaim:
     registry:
-      pvcStorageClassName: rook-ceph-rbd
-      storageClass: rook-ceph-rbd
+      pvcStorageClassName: local-path
+      storageClass: local-path
       accessModes:
         - ReadWriteOnce
       size: 20Gi
     database:
-      pvcStorageClassName: rook-ceph-rbd
-      storageClass: rook-ceph-rbd
+      pvcStorageClassName: local-path
+      storageClass: local-path
       accessModes:
         - ReadWriteOnce
       size: 10Gi
     redis:
-      pvcStorageClassName: rook-ceph-rbd
-      storageClass: rook-ceph-rbd
+      pvcStorageClassName: local-path
+      storageClass: local-path
       accessModes:
         - ReadWriteOnce
       size: 10Gi
     jobservice:
-      pvcStorageClassName: rook-ceph-rbd
-      storageClass: rook-ceph-rbd
+      pvcStorageClassName: local-path
+      storageClass: local-path
       accessModes:
         - ReadWriteOnce
       size: 10Gi
     trivy:
-      pvcStorageClassName: rook-ceph-rbd
-      storageClass: rook-ceph-rbd
-      accessModes:
-        - ReadWriteOnce
-      size: 10Gi
-    chartmuseum:
-      pvcStorageClassName: rook-ceph-rbd
-      storageClass: rook-ceph-rbd
+      pvcStorageClassName: local-path
+      storageClass: local-path
       accessModes:
         - ReadWriteOnce
       size: 10Gi

@@ -1,0 +1,23 @@
+machine:
+  features:
+    hostDNS:
+      enabled: true
+      forwardKubeDNSToHost: true
+  nodeLabels:
+    node.kubernetes.io/exclude-from-external-load-balancers: ""
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.35.2
+    defaultRuntimeSeccompProfileEnabled: true
+    disableManifestsDirectory: true
+cluster:
+  controlPlane:
+    endpoint: https://10.6.0.2:6443
+  clusterName: hpdc-talos
+  network:
+    dnsDomain: cluster.local
+    podSubnets:
+      - 10.244.0.0/16
+    serviceSubnets:
+      - 10.96.0.0/12
+  cni:
+    name: none

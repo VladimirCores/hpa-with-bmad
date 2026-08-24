@@ -1,0 +1,10 @@
+# Strategic-merge fragment applied via `talosctl cluster create --config-patch`.
+# Disables the bundled flannel CNI and kube-proxy so Cilium (step 03) is the
+# only CNI, running in kube-proxy-replacement mode.
+# Note: since Talos 1.13 the CNI lives under cluster.network.cni.
+cluster:
+  network:
+    cni:
+      name: none
+  proxy:
+    disabled: true

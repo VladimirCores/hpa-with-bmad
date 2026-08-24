@@ -21,6 +21,10 @@ The dev cluster uses Docker containers for fast provisioning and teardown:
 - **CPUs per worker**: 2 (default, configurable with `--cpus-workers`)
 - **RAM per worker**: 3072MB (default, configurable with `--memory-workers`)
 
+## Networking
+
+The bootstrap applies `platform/talos/talos-cni-patch.yaml` (`cluster.cni.name: none`, `cluster.proxy.disabled: true`) so neither flannel nor kube-proxy is installed with the cluster. Cilium eBPF (step 03) is the only CNI and runs in kube-proxy-replacement mode; nodes remain `NotReady` until it is up.
+
 ## Bootstrap command
 
 ### Dry-run mode

@@ -22,7 +22,7 @@ data:
           restartPolicy: Never
           containers:
             - name: preload
-              image: docker:2.41-cli
+              image: docker:29-cli
               imagePullPolicy: IfNotPresent
               command:
                 - sh

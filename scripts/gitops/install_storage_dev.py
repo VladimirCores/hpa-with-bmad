@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
+LOCAL_PATH_MANIFEST = ROOT / "platform" / "storage" / "local-path-storage.yaml"
 LOCAL_PATH_MANIFEST_URL = "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml"
 
 
@@ -27,6 +28,10 @@ def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = 
     if check and result.returncode != 0:
         raise RuntimeError(f"command failed with exit code {result.returncode}: {' '.join(command)}")
     return result
+
+
+def ensure_dirs() -> None:
+    TALOSCONFIG.parent.mkdir(parents=True, exist_ok=True)
 
 
 def ensure_talosconfig() -> None:
@@ -70,19 +75,24 @@ def install_local_path_provisioner(kubectl: str) -> None:
     run([kubectl, "label", "namespace", "default",
          "pod-security.kubernetes.io/enforce=privileged", "--overwrite"], check=False)
 
-    # Download and apply the manifest
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
+    # Apply the vendored manifest (offline); fall back to downloading only if absent
+    tmp_path: str | None = None
+    if LOCAL_PATH_MANIFEST.exists():
+        manifest = str(LOCAL_PATH_MANIFEST)
+        print("Applying vendored local-path-provisioner manifest (offline)...")
+    else:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
+            tmp_path = tmp.name
         print(f"Downloading local-path-provisioner manifest...")
         subprocess.run(
             ["curl", "-sLo", tmp_path, LOCAL_PATH_MANIFEST_URL],
             check=True,
         )
+        manifest = tmp_path
 
+    try:
         # Apply the manifest
-        run([kubectl, "apply", "-f", tmp_path])
+        run([kubectl, "apply", "-f", manifest])
 
         # Wait for the provisioner pod to be ready
         print("Waiting for local-path-provisioner to be ready...")
@@ -97,7 +107,7 @@ def install_local_path_provisioner(kubectl: str) -> None:
         run([kubectl, "get", "storageclass"])
         print("local-path-provisioner installed successfully.")
     finally:
-        if os.path.exists(tmp_path):
+        if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
 
@@ -238,6 +248,8 @@ reclaimPolicy: Delete"""
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install storage backend for HPDC dev cluster")
+    parser.add_argument("--offline", action="store_true", help="accepted for runner compatibility")
+    parser.add_argument("--apply", action="store_true", help="install the selected storage backend")
     parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default="rook-ceph", help="storage backend to install")
     parser.add_argument("--dry-run", action="store_true", help="validate and print commands without applying")
     parser.add_argument("--check", action="store_true", help="validate prerequisites without applying")
@@ -254,6 +266,10 @@ def main() -> int:
         print(f"Storage backend: {args.storage}")
         print(f"StorageClass will be set as default.")
         return 0
+
+    if not args.apply:
+        print("Storage install requires --apply (or --dry-run / --check).", file=sys.stderr)
+        return 2
 
     # Wait for nodes
     wait_for_nodes_ready(kubectl)

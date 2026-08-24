@@ -128,6 +128,7 @@ def verify_cilium() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install Cilium networking for HPDC dev cluster")
+    parser.add_argument("--offline", action="store_true", help="accepted for runner compatibility")
     parser.add_argument("--dry-run", action="store_true", help="validate and print commands without applying")
     parser.add_argument("--check", action="store_true", help="validate prerequisites without applying")
     parser.add_argument("--verify", action="store_true", help="verify existing installation")

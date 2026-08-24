@@ -13,10 +13,10 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-HARBOR_VERSION = "2.11.3"
+HARBOR_VERSION = "2.15.2"
 HARBOR_IMAGE = ROOT / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
-ROOK_MARKER = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v1.20.3"
+ROOK_MARKER = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v1.20.6"
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "dev"
 
@@ -29,18 +29,17 @@ def ensure_dirs() -> None:
 def ensure_offline_image_cache() -> None:
     required = [
         HARBOR_IMAGE,
-        ROOT / "output" / "harbor" / "images" / f"harbor-registry-v{HARBOR_VERSION}",
+        ROOT / "output" / "harbor" / "images" / f"registry-photon-v{HARBOR_VERSION}",
         ROOT / "output" / "harbor" / "images" / f"harbor-jobservice-v{HARBOR_VERSION}",
-        ROOT / "output" / "harbor" / "images" / f"harbor-trivy-adapter-v{HARBOR_VERSION}",
-        ROOT / "output" / "harbor" / "images" / f"harbor-chartmuseum-v{HARBOR_VERSION}",
-        ROOT / "output" / "harbor" / "images" / "redis-7.2-alpine",
-        ROOT / "output" / "harbor" / "images" / "postgres-15-alpine",
+        ROOT / "output" / "harbor" / "images" / f"trivy-adapter-photon-v{HARBOR_VERSION}",
+        ROOT / "output" / "harbor" / "images" / "redis-7.4-alpine",
+        ROOT / "output" / "harbor" / "images" / "postgres-15.19-alpine",
     ]
     missing = [path for path in required if not path.exists()]
     if not missing:
         return
     raise RuntimeError(
-        "Harbor offline image cache not found. Pre-cache Harbor 2.11.3 and supporting images before offline bootstrap: "
+        "Harbor offline image cache not found. Pre-cache Harbor 2.15.2 and supporting images before offline bootstrap: "
         f"{', '.join(str(path.relative_to(ROOT)) for path in missing)}"
     )
 
@@ -72,11 +71,11 @@ def validate_manifests() -> list[str]:
     values = (HARBOR_BASE / "harbor-values.yaml").read_text(encoding="utf-8")
     pvcs = (HARBOR_BASE / "harbor-pvcs.yaml").read_text(encoding="utf-8")
     overlay = (HARBOR_OVERLAY / "kustomization.yaml").read_text(encoding="utf-8")
-    if "harbor/harbor-core:v2.11.3" not in harbor:
+    if f"goharbor/harbor-core:v{HARBOR_VERSION}" not in harbor:
         failures.append("harbor.yaml missing Harbor core image")
-    if "harbor/harbor-registry:v2.11.3" not in harbor:
+    if f"goharbor/registry-photon:v{HARBOR_VERSION}" not in harbor:
         failures.append("harbor.yaml missing Harbor registry image")
-    if "harbor/harbor-trivy-adapter:v2.11.3" not in harbor:
+    if f"goharbor/trivy-adapter-photon:v{HARBOR_VERSION}" not in harbor:
         failures.append("harbor.yaml missing Harbor Trivy adapter image")
     if "trivy:" not in values or "enabled: true" not in values:
         failures.append("harbor-values.yaml missing Trivy scanning enabled:true")
@@ -84,12 +83,12 @@ def validate_manifests() -> list[str]:
         failures.append("harbor-values.yaml missing Clair scanning configuration")
     if "cosign" not in values.lower() and "signature" not in values.lower():
         failures.append("harbor-values.yaml missing Cosign/signature verification configuration")
-    if "storageClassName: rook-ceph-rbd" not in values:
-        failures.append("harbor-values.yaml missing Rook-Ceph storageClass")
+    if "storageClassName: local-path" not in values and "storageClass: local-path" not in values:
+        failures.append("harbor-values.yaml missing local-path storageClass")
     if "kind: PersistentVolumeClaim" not in pvcs:
         failures.append("harbor-pvcs.yaml missing PVCs")
-    if "storageClassName: rook-ceph-rbd" not in pvcs:
-        failures.append("harbor-pvcs.yaml missing Rook-Ceph PVC storageClass")
+    if "storageClassName: local-path" not in pvcs:
+        failures.append("harbor-pvcs.yaml missing local-path PVC storageClass")
     if "../../base/harbor.yaml" not in overlay:
         failures.append("Harbor overlay missing harbor.yaml")
     if "../../base/harbor-values.yaml" in overlay:
@@ -117,12 +116,39 @@ def validate_manifests() -> list[str]:
     return failures
 
 
-def run(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     print("$", " ".join(command))
-    result = subprocess.run(command, check=False)
+    result = subprocess.run(command, check=False, env=env)
     if check and result.returncode != 0:
         raise RuntimeError(f"command failed with exit code {result.returncode}: {' '.join(command)}")
     return result
+
+
+# Official Harbor Helm chart; chart 1.19.x tracks app 2.15.x.
+HARBOR_CHART_VERSION = "1.19.2"
+HARBOR_CHART_LOCAL = ROOT / "platform" / "charts" / f"harbor-{HARBOR_CHART_VERSION}.tgz"
+HARBOR_HELM_VALUES: list[tuple[str, str]] = [
+    ("expose.type", "clusterIP"),
+    ("expose.tls.enabled", "false"),
+    ("externalURL", "http://harbor.harbor.svc.cluster.local"),
+    ("persistence.enabled", "true"),
+    ("persistence.resourcePolicy", "keep"),
+    ("persistence.persistentVolumeClaim.registry.storageClass", "local-path"),
+    ("persistence.persistentVolumeClaim.registry.size", "20Gi"),
+    ("persistence.persistentVolumeClaim.jobservice.storageClass", "local-path"),
+    ("persistence.persistentVolumeClaim.jobservice.size", "5Gi"),
+    ("persistence.persistentVolumeClaim.database.storageClass", "local-path"),
+    ("persistence.persistentVolumeClaim.database.size", "5Gi"),
+    ("persistence.persistentVolumeClaim.redis.storageClass", "local-path"),
+    ("persistence.persistentVolumeClaim.redis.size", "2Gi"),
+    ("persistence.persistentVolumeClaim.trivy.storageClass", "local-path"),
+    ("persistence.persistentVolumeClaim.trivy.size", "10Gi"),
+    # ChartMuseum was removed upstream in Harbor 2.x recent releases
+    ("chartmuseum.enabled", "false"),
+    ("trivy.enabled", "true"),
+    ("harborAdminPassword", "HarborAdmin12345"),
+    ("secretKey", "harbor-secretkey-for-offline-dev"),
+]
 
 
 def apply_manifests(args: argparse.Namespace) -> None:
@@ -132,12 +158,37 @@ def apply_manifests(args: argparse.Namespace) -> None:
     kubectl = args.kubectl
     if shutil.which(kubectl) is None:
         raise RuntimeError(f"kubectl executable not found: {kubectl}")
+    helm = args.helm
+    if shutil.which(helm) is None:
+        raise RuntimeError(f"helm executable not found: {helm}")
     env = os.environ.copy()
     env["TALOSCTL_OFFLINE_MODE"] = "1"
-    run([kubectl, "apply", "-k", str(HARBOR_OVERLAY)], env=env)
-    run([kubectl, "rollout", "status", "deployment/harbor-core", "-n", "harbor"], env=env)
-    run([kubectl, "rollout", "status", "deployment/harbor-registry", "-n", "harbor"], env=env)
-    run([kubectl, "rollout", "status", "deployment/harbor-trivy-adapter", "-n", "harbor"], env=env)
+
+    vendored = HARBOR_CHART_LOCAL.exists()
+    chart = str(HARBOR_CHART_LOCAL) if vendored else "harbor/harbor"
+    cmd = [
+        helm, "upgrade", "--install", "harbor", chart,
+        "--namespace", "harbor",
+        "--create-namespace",
+    ]
+    if not vendored:
+        cmd.extend(["--version", HARBOR_CHART_VERSION])
+    for key, value in HARBOR_HELM_VALUES:
+        cmd.extend(["--set", f"{key}={value}"])
+    run(cmd)
+
+    run([kubectl, "rollout", "status", "deployment/harbor-core", "-n", "harbor", "--timeout=600s"], env=env)
+    run([kubectl, "rollout", "status", "deployment/harbor-registry", "-n", "harbor", "--timeout=600s"], env=env)
+    run([kubectl, "rollout", "status", "deployment/harbor-jobservice", "-n", "harbor", "--timeout=600s"], env=env)
+    health = subprocess.run(
+        [kubectl, "run", "harbor-health-check", "--rm", "-i", "--restart=Never",
+         "--image=curlimages/curl:8.11.1", "-n", "harbor", "--quiet", "--",
+         "curl", "-fsS", "http://harbor.harbor.svc.cluster.local/api/v2.0/health"],
+        capture_output=True, text=True, check=False, env=env,
+    )
+    print(health.stdout.strip())
+    if health.returncode != 0 or '"status":"healthy"' not in health.stdout:
+        raise RuntimeError("Harbor health check failed after install")
     run([kubectl, "get", "service", "harbor", "-n", "harbor"], env=env)
 
 
@@ -160,8 +211,9 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true", default=True, help="require offline artifacts")
     parser.add_argument("--dry-run", action="store_true", help="validate and print commands without applying manifests")
     parser.add_argument("--check", action="store_true", help="validate required scaffold files without applying manifests")
-    parser.add_argument("--apply", action="store_true", help="apply Harbor manifests from GitOps overlay")
+    parser.add_argument("--apply", action="store_true", help="install Harbor via official Helm chart")
     parser.add_argument("--kubectl", default="kubectl", help="kubectl executable name")
+    parser.add_argument("--helm", default="helm", help="helm executable name")
     args = parser.parse_args()
 
     if args.check:

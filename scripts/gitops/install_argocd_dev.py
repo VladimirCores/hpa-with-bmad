@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 from _provisioned import require
 
 ROOT = Path(__file__).resolve().parents[2]
-ARGOCD_VERSION = "3.5.0"
+ARGOCD_VERSION = "3.5.1"
 ARGOCD_IMAGE = ROOT / "output" / "argocd" / "images" / f"argocd-v{ARGOCD_VERSION}"
 ARGOCD_BASE = ROOT / "gitops" / "argo-cd" / "base"
 ARGOCD_OVERLAY = ROOT / "gitops" / "argo-cd" / "overlays" / "dev"
@@ -48,6 +51,66 @@ def validate_manifests() -> list[str]:
     return failures
 
 
+ARGOCD_INSTALL_MANIFEST = (
+    "https://raw.githubusercontent.com/argoproj/argo-cd/"
+    f"v{ARGOCD_VERSION}/manifests/install.yaml"
+)
+ARGOCD_INSTALL_MANIFEST_LOCAL = ROOT / "platform" / "manifests" / f"argocd-install-v{ARGOCD_VERSION}.yaml"
+# public.ecr.aws is unreachable from dev nodes; use the same redis via docker.io
+REDIS_IMAGE = "docker.io/library/redis:8.2.8-alpine"
+
+
+def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = None, input_text: str | None = None) -> int:
+    print("$", " ".join(command))
+    result = subprocess.run(command, check=False, env=env, input=input_text, text=True)
+    if check and result.returncode != 0:
+        raise RuntimeError(f"command failed with exit code {result.returncode}: {' '.join(command)}")
+    return result.returncode
+
+
+def apply_manifests() -> None:
+    kubectl = shutil.which("kubectl")
+    if kubectl is None:
+        raise RuntimeError("kubectl is required for Argo CD install")
+
+    # Official upstream manifests (CRDs exceed client-side apply annotation
+    # limits; server-side apply handles them). Force conflicts so re-runs win.
+    run([kubectl, "create", "namespace", "argocd"], check=False)
+    manifest = str(ARGOCD_INSTALL_MANIFEST_LOCAL) if ARGOCD_INSTALL_MANIFEST_LOCAL.exists() else ARGOCD_INSTALL_MANIFEST
+    subprocess.run(
+        [kubectl, "apply", "-n", "argocd", "-f", manifest,
+         "--server-side=true", "--force-conflicts"],
+        check=True,
+    )
+    # Swap redis to a reachable registry mirror of the same image
+    run([kubectl, "set", "image", "deploy/argocd-redis", f"redis={REDIS_IMAGE}", "-n", "argocd"])
+
+    for workload in (
+        ("deployment", "argocd-redis"),
+        ("deployment", "argocd-repo-server"),
+        ("statefulset", "argocd-application-controller"),
+        ("deployment", "argocd-server"),
+        ("deployment", "argocd-applicationset-controller"),
+        ("deployment", "argocd-dex-server"),
+        ("deployment", "argocd-notifications-controller"),
+    ):
+        run([kubectl, "rollout", "status", workload[0], workload[1], "-n", "argocd", "--timeout=600s"])
+
+    # Wire the local git mirror as a known repository
+    repo_patch = json.dumps({
+        "data": {
+            "repositories": (
+                "- url: git://git-mirror/git-mirror\n"
+                "  type: git\n"
+                "  name: hpdc-git-mirror\n"
+            )
+        }
+    })
+    run([kubectl, "patch", "cm", "argocd-cm", "-n", "argocd",
+         "--type=merge", "-p", repo_patch])
+    run([kubectl, "get", "service", "argocd-server", "-n", "argocd"])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install Argo CD ApplicationSet and sync waves")
     parser.add_argument("--offline", action="store_true", default=True)
@@ -73,7 +136,8 @@ def main() -> int:
             print(f"- {failure}")
         return 1
     if args.apply:
-        print("Argo CD apply requested.")
+        apply_manifests()
+        print("Argo CD installation complete.")
         return 0
     if args.dry_run:
         print("Argo CD dry-run passed.")

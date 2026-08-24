@@ -38,6 +38,23 @@ python3 scripts/startup.dev.py --list
 
 Each startup run rewrites `output/startup.dev.log` before executing so the selected dry-run, check, or apply flow is reviewable.
 
+## Networking stack
+
+The dev cluster runs Cilium eBPF as the only CNI, in kube-proxy-replacement mode. The bundled Talos flannel CNI and kube-proxy are disabled at provision time — `02-bootstrap-talos-dev.py` passes `platform/talos/talos-cni-patch.yaml` to `talosctl cluster create docker --config-patch`:
+
+```yaml
+cluster:
+  network:
+    cni:
+      name: none   # no flannel; Cilium (step 03) is the only CNI (Talos >= 1.13 schema: cluster.network.cni)
+  proxy:
+    disabled: true   # no kube-proxy; Cilium KPR handles services/host-path routing
+```
+
+The patch is a bare strategic-merge fragment (no `apiVersion`/`kind` wrapper — talosctl rejects those).
+
+Nodes stay `NotReady` until step 03 (`03-install-cilium-dev.py`) installs Cilium with kube-proxy replacement. Do not install flannel or kube-proxy on top of this cluster.
+
 ## Storage backend selection
 
 The cluster supports two storage backends via the `--storage` flag:

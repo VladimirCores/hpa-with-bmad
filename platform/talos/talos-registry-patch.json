@@ -1,0 +1,29 @@
+{
+  "machine": {
+    "registries": {
+      "mirrors": {
+        "10.5.0.1:5000": {
+          "endpoints": [
+            "http://10.5.0.1:5000"
+          ],
+          "overridePath": true
+        },
+        "quay.io": {
+          "endpoints": [
+            "http://10.5.0.1:5000"
+          ]
+        },
+        "docker.io": {
+          "endpoints": [
+            "http://10.5.0.1:5000"
+          ]
+        },
+        "ghcr.io": {
+          "endpoints": [
+            "http://10.5.0.1:5000"
+          ]
+        }
+      }
+    }
+  }
+}

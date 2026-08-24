@@ -49,7 +49,7 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 | 8 | Multi-region federation: Cilium ClusterMesh over WireGuard, regional data sovereignty (no cross-region replication by default), central hub querying regional APIs | done |
 | 9 | AI agent engine: MCP tool registry (query DBs, call APIs, trigger workflows) with security policy + audit, authenticated agent-to-agent (A2A) messaging | done |
 | 10 | Dev cluster lifecycle: kind-based dev cluster with Cilium CNI, kube-proxy replacement, component initialization, persistent storage | done |
-| 11 | Dev cluster VM provisioning: Talos Docker provider, idempotent startup, Cilium networking, component installation | in progress |
+| 11 | Dev cluster VM provisioning: Talos Docker provider, idempotent startup, Cilium networking (flannel + kube-proxy disabled at provision), component installation | in progress |
 
 ### Architecture sources
 
@@ -112,6 +112,8 @@ sudo systemctl restart systemd-resolved
 ## Getting Started
 
 ### 1. Bootstrap the dev cluster
+
+The Talos bootstrap (`scripts/startup.dev.py --apply`) provisions the cluster with **flannel and kube-proxy disabled** via `platform/talos/talos-cni-patch.yaml` (`cluster.cni.name: none`, `cluster.proxy.disabled: true`); Cilium is then installed as the only CNI in kube-proxy-replacement mode.
 
 Create a kind cluster with Cilium as the CNI (replacing kube-proxy):
 

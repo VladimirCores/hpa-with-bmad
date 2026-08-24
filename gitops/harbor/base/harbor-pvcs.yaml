@@ -10,7 +10,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
+  storageClassName: local-path
   resources:
     requests:
       storage: 5Gi
@@ -28,7 +28,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi
@@ -46,7 +46,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
+  storageClassName: local-path
   resources:
     requests:
       storage: 20Gi
@@ -64,25 +64,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
-  resources:
-    requests:
-      storage: 10Gi
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: harbor-chartmuseum
-  namespace: harbor
-  labels:
-    app.kubernetes.io/name: harbor
-    app.kubernetes.io/component: chartmuseum
-    app.kubernetes.io/part-of: hpdc-platform
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi
@@ -100,7 +82,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi
@@ -118,7 +100,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: rook-ceph-rbd
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi

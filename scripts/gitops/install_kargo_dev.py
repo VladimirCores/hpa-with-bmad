@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 from _provisioned import require
 
 ROOT = Path(__file__).resolve().parents[2]
-KARGO_VERSION = "1.11.0"
+KARGO_VERSION = "1.11.1"
 KARGO_IMAGE = ROOT / "output" / "kargo" / "images" / f"kargo-v{KARGO_VERSION}"
 KARGO_BASE = ROOT / "gitops" / "kargo" / "base"
 KARGO_OVERLAY = ROOT / "gitops" / "kargo" / "overlays" / "dev"
@@ -49,6 +51,60 @@ def validate_manifests() -> list[str]:
     return failures
 
 
+def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = None) -> int:
+    print("$", " ".join(command))
+    result = subprocess.run(command, check=False, env=env)
+    if check and result.returncode != 0:
+        raise RuntimeError(f"command failed with exit code {result.returncode}: {' '.join(command)}")
+    return result.returncode
+
+
+# Official Kargo chart (OCI); chart 1.11.x tracks app 1.11.x. Requires
+# cert-manager CRDs for its internal Certificate/Issuer resources.
+KARGO_CHART_VERSION = "1.11.1"
+KARGO_OCI_CHART = "oci://ghcr.io/akuity/kargo-charts/kargo"
+KARGO_CHART_LOCAL = ROOT / "platform" / "charts" / f"kargo-{KARGO_CHART_VERSION}.tgz"
+CERT_MANAGER_CHART_VERSION = "v1.21.1"
+CERT_MANAGER_CHART_LOCAL = ROOT / "platform" / "charts" / f"cert-manager-{CERT_MANAGER_CHART_VERSION}.tgz"
+
+
+def apply_manifests() -> None:
+    helm = shutil.which("helm")
+    if helm is None:
+        raise RuntimeError("helm is required for Kargo install")
+    kubectl = shutil.which("kubectl")
+    if kubectl is None:
+        raise RuntimeError("kubectl is required for Kargo install")
+
+    # cert-manager is a hard prerequisite of the Kargo chart
+    cm_vendored = CERT_MANAGER_CHART_LOCAL.exists()
+    cm_chart = str(CERT_MANAGER_CHART_LOCAL) if cm_vendored else "jetstack/cert-manager"
+    cm_cmd = [helm, "upgrade", "--install", "cert-manager", cm_chart,
+              "--namespace", "cert-manager", "--create-namespace"]
+    if not cm_vendored:
+        cm_cmd.extend(["--version", CERT_MANAGER_CHART_VERSION])
+    cm_cmd.extend(["--set", "crds.enabled=true"])
+    run(cm_cmd)
+    run([kubectl, "wait", "--for=condition=Available", "deploy/cert-manager",
+         "-n", "cert-manager", "--timeout=300s"])
+
+    # Dev admin account: password 'admin' (bcrypt), throwaway signing key
+    kargo_vendored = KARGO_CHART_LOCAL.exists()
+    kargo_chart = str(KARGO_CHART_LOCAL) if kargo_vendored else KARGO_OCI_CHART
+    kargo_cmd = [helm, "upgrade", "--install", "kargo", kargo_chart,
+                 "--namespace", "kargo", "--create-namespace"]
+    if not kargo_vendored:
+        kargo_cmd.extend(["--version", KARGO_CHART_VERSION])
+    kargo_cmd.extend([
+        "--set", f"image.tag=v{KARGO_VERSION}",
+        "--set", "api.adminAccount.passwordHash=$2a$10$Zrhhie4vLz5ygtVSaif6o.qN36jgs6vjtMBdM6yrU1FOeiAAMMxOm",
+        "--set", "api.adminAccount.tokenSigningKey=hpdc-dev-signing-key",
+    ])
+    run(kargo_cmd)
+    run([kubectl, "rollout", "status", "deploy/kargo-controller", "-n", "kargo", "--timeout=600s"])
+    run([kubectl, "rollout", "status", "deploy/kargo-api", "-n", "kargo", "--timeout=600s"])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install Kargo Warehouse, Stage, and Freight promotion")
     parser.add_argument("--offline", action="store_true", default=True)
@@ -74,7 +130,8 @@ def main() -> int:
             print(f"- {failure}")
         return 1
     if args.apply:
-        print("Kargo apply requested.")
+        apply_manifests()
+        print("Kargo installation complete.")
         return 0
     if args.dry_run:
         print("Kargo dry-run passed.")

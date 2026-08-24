@@ -54,7 +54,7 @@ def talos_cluster_exists(name: str, state_dir: Path) -> bool:
         return False
 
     # Check for Docker containers
-    result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster/{name}", "--format", "{{.Names}}"])
+    result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster.name={name}", "--format", "{{.Names}}"])
     if result.returncode == 0 and result.stdout.strip():
         return True
 
@@ -108,7 +108,7 @@ def talos_destroy(name: str, state_dir: Path) -> int:
         print(f"Warning: talosctl cluster destroy returned non-zero: {stderr}")
 
     # Clean up Docker containers if they exist
-    result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster/{name}", "--format", "{{.Names}}"])
+    result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster.name={name}", "--format", "{{.Names}}"])
     if result.returncode == 0 and result.stdout.strip():
         containers = result.stdout.strip().split("\n")
         for container in containers:

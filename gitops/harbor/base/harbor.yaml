@@ -49,7 +49,7 @@ data:
     registryCredentialSecretName: harbor-dev-secrets
     registryStorageProviderName: local
     registryStorageDeleteEnabled: true
-    storageClassName: rook-ceph-rbd
+    storageClassName: local-path
     registryHttpSecret: HarborRegistryHttpSecret12345
     registryStorageGoogleCredentials: '{"type":"service_account","project_id":"hpdc-offline"}'
     trivy:
@@ -73,41 +73,50 @@ data:
       enabled: true
       persistentVolumeClaim:
         registry:
-          pvcStorageClassName: rook-ceph-rbd
-          storageClass: rook-ceph-rbd
+          pvcStorageClassName: local-path
+          storageClass: local-path
           accessModes:
             - ReadWriteOnce
           size: 20Gi
         database:
-          pvcStorageClassName: rook-ceph-rbd
-          storageClass: rook-ceph-rbd
+          pvcStorageClassName: local-path
+          storageClass: local-path
           accessModes:
             - ReadWriteOnce
           size: 10Gi
         redis:
-          pvcStorageClassName: rook-ceph-rbd
-          storageClass: rook-ceph-rbd
+          pvcStorageClassName: local-path
+          storageClass: local-path
           accessModes:
             - ReadWriteOnce
           size: 10Gi
         jobservice:
-          pvcStorageClassName: rook-ceph-rbd
-          storageClass: rook-ceph-rbd
+          pvcStorageClassName: local-path
+          storageClass: local-path
           accessModes:
             - ReadWriteOnce
           size: 10Gi
         trivy:
-          pvcStorageClassName: rook-ceph-rbd
-          storageClass: rook-ceph-rbd
+          pvcStorageClassName: local-path
+          storageClass: local-path
           accessModes:
             - ReadWriteOnce
           size: 10Gi
-        chartmuseum:
-          pvcStorageClassName: rook-ceph-rbd
-          storageClass: rook-ceph-rbd
-          accessModes:
-            - ReadWriteOnce
-          size: 10Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harbor-config
+  namespace: harbor
+  labels:
+    app.kubernetes.io/name: harbor
+    app.kubernetes.io/part-of: hpdc-platform
+data:
+  config.yml: '# placeholder registry config; core reads env-based config in dev
+
+    '
+  ca.crt: ''
 
 ---
 apiVersion: apps/v1
@@ -133,44 +142,52 @@ spec:
     spec:
       serviceAccountName: harbor
       containers:
+      - name: core
+        image: goharbor/harbor-core:v2.15.2
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: harbor-dev-secrets
+        - configMapRef:
+            name: harbor-values
+        ports:
         - name: core
-          image: harbor/harbor-core:v2.11.3
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: harbor-dev-secrets
-            - configMapRef:
-                name: harbor-values
-          ports:
-            - name: core
-              containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /api/v2.0/ping
-              port: core
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /api/v2.0/ping
-              port: core
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          volumeMounts:
-            - name: config
-              mountPath: /etc/harbor/registry/config.yml
-              subPath: config.yml
-              readOnly: true
-            - name: config
-              mountPath: /etc/harbor/ca.crt
-              subPath: ca.crt
-              readOnly: true
-            - name: config
-              mountPath: /etc/harbor/config.yml
-              subPath: config.yml
-              readOnly: true
-            - name: registry
-              mountPath: /var/lib/registry
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /api/v2.0/ping
+            port: core
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/v2.0/ping
+            port: core
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /etc/harbor/registry/config.yml
+          subPath: config.yml
+          readOnly: true
+        - name: config
+          mountPath: /etc/harbor/ca.crt
+          subPath: ca.crt
+          readOnly: true
+        - name: config
+          mountPath: /etc/harbor/config.yml
+          subPath: config.yml
+          readOnly: true
+        - name: registry
+          mountPath: /var/lib/registry
+      volumes:
+      - name: registry
+        persistentVolumeClaim:
+          claimName: harbor-core
+      - name: config
+        configMap:
+          name: harbor-config
+          optional: true
 
 ---
 apiVersion: apps/v1
@@ -196,26 +213,30 @@ spec:
     spec:
       serviceAccountName: harbor
       containers:
+      - name: jobservice
+        image: goharbor/harbor-jobservice:v2.15.2
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: harbor-dev-secrets
+        - configMapRef:
+            name: harbor-values
+        ports:
         - name: jobservice
-          image: harbor/harbor-jobservice:v2.11.3
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: harbor-dev-secrets
-            - configMapRef:
-                name: harbor-values
-          ports:
-            - name: jobservice
-              containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /api/v1.0/ping
-              port: jobservice
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          volumeMounts:
-            - name: jobservice
-              mountPath: /var/lib/jobservice
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /api/v1.0/ping
+            port: jobservice
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: jobservice
+          mountPath: /var/lib/jobservice
+      volumes:
+      - name: jobservice
+        persistentVolumeClaim:
+          claimName: harbor-jobservice
 
 ---
 apiVersion: apps/v1
@@ -241,26 +262,30 @@ spec:
     spec:
       serviceAccountName: harbor
       containers:
+      - name: registry
+        image: goharbor/registry-photon:v2.15.2
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: harbor-dev-secrets
+        - configMapRef:
+            name: harbor-values
+        ports:
         - name: registry
-          image: harbor/harbor-registry:v2.11.3
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: harbor-dev-secrets
-            - configMapRef:
-                name: harbor-values
-          ports:
-            - name: registry
-              containerPort: 5000
-          readinessProbe:
-            httpGet:
-              path: /v2/
-              port: registry
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          volumeMounts:
-            - name: registry
-              mountPath: /var/lib/registry
+          containerPort: 5000
+        readinessProbe:
+          httpGet:
+            path: /v2/
+            port: registry
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: registry
+          mountPath: /var/lib/registry
+      volumes:
+      - name: registry
+        persistentVolumeClaim:
+          claimName: harbor-registry
 
 ---
 apiVersion: apps/v1
@@ -286,68 +311,27 @@ spec:
     spec:
       serviceAccountName: harbor
       containers:
-        - name: trivy-adapter
-          image: harbor/harbor-trivy-adapter:v2.11.3
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: harbor-dev-secrets
-            - configMapRef:
-                name: harbor-values
-          ports:
-            - name: trivy
-              containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: trivy
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: harbor-chartmuseum
-  namespace: harbor
-  labels:
-    app.kubernetes.io/name: harbor
-    app.kubernetes.io/component: chartmuseum
-    app.kubernetes.io/part-of: hpdc-platform
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: harbor
-      app.kubernetes.io/component: chartmuseum
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: harbor
-        app.kubernetes.io/component: chartmuseum
-    spec:
-      serviceAccountName: harbor
-      containers:
-        - name: chartmuseum
-          image: harbor/harbor-chartmuseum:v2.11.3
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: harbor-dev-secrets
-            - configMapRef:
-                name: harbor-values
-          ports:
-            - name: chartmuseum
-              containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /api/health
-              port: chartmuseum
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          volumeMounts:
-            - name: chartmuseum
-              mountPath: /var/lib/chartmuseum
+      - name: trivy-adapter
+        image: goharbor/trivy-adapter-photon:v2.15.2
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: harbor-dev-secrets
+        - configMapRef:
+            name: harbor-values
+        ports:
+        - name: trivy
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: trivy
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: cache
+        persistentVolumeClaim:
+          claimName: harbor-trivy
 
 ---
 apiVersion: apps/v1
@@ -373,15 +357,19 @@ spec:
     spec:
       serviceAccountName: harbor
       containers:
+      - name: redis
+        image: redis:7.4-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
         - name: redis
-          image: redis:7.2-alpine
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: redis
-              containerPort: 6379
-          volumeMounts:
-            - name: redis
-              mountPath: /data
+          containerPort: 6379
+        volumeMounts:
+        - name: redis
+          mountPath: /data
+      volumes:
+      - name: redis
+        persistentVolumeClaim:
+          claimName: harbor-redis
 
 ---
 apiVersion: apps/v1
@@ -407,25 +395,29 @@ spec:
     spec:
       serviceAccountName: harbor
       containers:
+      - name: postgresql
+        image: postgres:15.19-alpine
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: POSTGRES_DB
+          value: registry
+        - name: POSTGRES_USER
+          value: harbor
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: harbor-dev-secrets
+              key: postgresPassword
+        ports:
         - name: postgresql
-          image: postgres:15-alpine
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: POSTGRES_DB
-              value: registry
-            - name: POSTGRES_USER
-              value: harbor
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: harbor-dev-secrets
-                  key: postgresPassword
-          ports:
-            - name: postgresql
-              containerPort: 5432
-          volumeMounts:
-            - name: database
-              mountPath: /var/lib/postgresql/data
+          containerPort: 5432
+        volumeMounts:
+        - name: database
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: database
+        persistentVolumeClaim:
+          claimName: harbor-postgresql
 
 ---
 apiVersion: v1
@@ -452,9 +444,9 @@ spec:
     app.kubernetes.io/name: harbor
     app.kubernetes.io/component: core
   ports:
-    - name: http
-      port: 80
-      targetPort: core
+  - name: http
+    port: 80
+    targetPort: core
 
 ---
 apiVersion: v1
@@ -472,6 +464,6 @@ spec:
     app.kubernetes.io/name: harbor
     app.kubernetes.io/component: registry
   ports:
-    - name: registry
-      port: 5000
-      targetPort: registry
+  - name: registry
+    port: 5000
+    targetPort: registry

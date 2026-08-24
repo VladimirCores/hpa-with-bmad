@@ -11,14 +11,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / "harbor-core-v2.11.3"
+HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / "harbor-core-v2.15.2"
 IMAGE_LIST = ROOT / "output" / "harbor" / "cache-images.txt"
 HARBOR_INGESTION_MANIFEST = ROOT / "output" / "harbor" / "harbor-ingestion-manifest.yaml"
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "preload"
 IMAGE_SOURCE_ALIASES = {
-    "redis:7.2-alpine": "output/harbor/images/redis-7.2-alpine",
-    "postgres:15-alpine": "output/harbor/images/postgres-15-alpine",
+    "redis:7.4-alpine": "output/harbor/images/redis-7.4-alpine",
+    "postgres:15.19-alpine": "output/harbor/images/postgres-15.19-alpine",
 }
 
 
@@ -40,7 +40,7 @@ class ImageRecord:
 
 def ensure_files(root: Path = ROOT) -> None:
     required_paths = (
-        root / "output" / "harbor" / "images" / "harbor-core-v2.11.3",
+        root / "output" / "harbor" / "images" / "harbor-core-v2.15.2",
         root / "output" / "harbor" / "cache-images.txt",
     )
     missing = [path for path in required_paths if not path.exists()]
@@ -52,7 +52,7 @@ def ensure_files(root: Path = ROOT) -> None:
 def validate_manifests(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     required = [
-        root / "output" / "harbor" / "images" / "harbor-core-v2.11.3",
+        root / "output" / "harbor" / "images" / "harbor-core-v2.15.2",
         root / "output" / "harbor" / "cache-images.txt",
         root / "gitops" / "harbor" / "base" / "preload-images.yaml",
         root / "gitops" / "harbor" / "base" / "preload-images-job.yaml",
@@ -71,7 +71,7 @@ def validate_manifests(root: Path = ROOT) -> list[str]:
         failures.append("preload-images.yaml missing offline image cache ConfigMap")
     if "kind: Job" not in preload or "preload-offline-image-cache" not in preload:
         failures.append("preload-images.yaml missing preload Job")
-    if "docker:2.41-cli" not in preload:
+    if "docker:29-cli" not in preload:
         failures.append("preload-images.yaml missing preload image")
     job = (root / "gitops" / "harbor" / "base" / "preload-images-job.yaml").read_text(encoding="utf-8")
     if "kind: ConfigMap" not in job or "preload-images-job-config" not in job:

@@ -12,7 +12,10 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 TALOS_VERSION = "1.13.7"
@@ -26,6 +29,9 @@ DEFAULT_MEMORY_WORKER = "3072"
 DEFAULT_STORAGE = "rook-ceph"
 CLUSTER_NAME = "hpdc-talos"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
+CNI_PATCH = ROOT / "platform" / "talos" / "talos-cni-patch.yaml"
+MIRROR_PATCH = ROOT / "platform" / "talos" / "talos-offline-mirror-patch.yaml"
+ROOT_STATE = Path("/root/.talos/clusters") / CLUSTER_NAME
 
 
 def ensure_dirs() -> None:
@@ -94,15 +100,261 @@ def destroy_existing_cluster() -> None:
         if state_dir.exists():
             shutil.rmtree(state_dir, ignore_errors=True)
 
+    # talosctl runs under sudo during create, so its provisioner state lives in
+    # /root/.talos/clusters/<name>; a leftover there aborts the next create.
+    # rm -rf on an absent path succeeds, so this is idempotent.
+    if shutil.which("sudo"):
+        result = subprocess.run(
+            ["sudo", "-n", "rm", "-rf", str(ROOT_STATE)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode == 0:
+            print(f"Removed root cluster state: {ROOT_STATE}")
+        else:
+            print(f"Warning: could not remove {ROOT_STATE}: {result.stderr.strip()}", file=sys.stderr)
 
-def provision_cluster(args: argparse.Namespace) -> None:
-    validate_runtime()
-    talosctl_cmd = talosctl_command()
 
-    # Destroy existing cluster first
-    destroy_existing_cluster()
+def patch_kubeconfig(path: Path, server: str) -> None:
+    """Patch kubeconfig to use localhost:port for the API server."""
+    import re
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(r"server:\s*https://[^\s]+")
+    patched, count = pattern.subn(f"server: https://{server}", text)
+    path.write_text(patched, encoding="utf-8")
+    print(f"Patched {count} kubeconfig server(s) to https://{server}")
 
-    # Build talosctl cluster create command
+
+def _kubeconfig_name_matches(name: str, prefix: str) -> bool:
+    """Match a kubeconfig entry name against a cluster-name prefix.
+
+    Cluster names are bare ('hpdc-talos'); user and context names embed the
+    cluster as 'admin@hpdc-talos[-N]'. Match either form.
+    """
+    if name.startswith(prefix):
+        return True
+    _, _, cluster_part = name.partition("@")
+    return bool(cluster_part) and cluster_part.startswith(prefix)
+
+
+def prune_kubeconfig_prefix(cfg: dict, prefix: str) -> dict:
+    """Remove every cluster/user/context whose name starts with prefix.
+
+    Keeps the kubeconfig free of stale cluster entries so each bootstrap
+    results in exactly one canonical set of names (no -N merge renames).
+    """
+    if not isinstance(cfg, dict):
+        return {}
+    for key in ("clusters", "users", "contexts"):
+        entries = cfg.get(key)
+        if isinstance(entries, list):
+            cfg[key] = [
+                entry for entry in entries
+                if not (isinstance(entry, dict) and _kubeconfig_name_matches(str(entry.get("name", "")), prefix))
+            ]
+    current = cfg.get("current-context")
+    if isinstance(current, str) and _kubeconfig_name_matches(current, prefix):
+        names = [
+            entry["name"] for entry in cfg.get("contexts", [])
+            if isinstance(entry, dict) and "name" in entry
+        ]
+        if names:
+            cfg["current-context"] = names[0]
+        else:
+            cfg.pop("current-context", None)
+    return cfg
+
+
+def prune_talosconfig_prefix(cfg: dict, prefix: str) -> dict:
+    """Remove every talosconfig context whose key starts with prefix."""
+    if not isinstance(cfg, dict):
+        return {}
+    contexts = cfg.get("contexts")
+    if isinstance(contexts, dict):
+        cfg["contexts"] = {
+            name: value for name, value in contexts.items()
+            if not str(name).startswith(prefix)
+        }
+        remaining = list(cfg["contexts"])
+        current = cfg.get("context")
+        if not isinstance(current, str) or current not in cfg["contexts"]:
+            cfg["context"] = remaining[0] if remaining else ""
+    return cfg
+
+
+def patch_cluster_servers(cfg: dict, server: str) -> tuple[dict, int]:
+    """Point every cluster entry's server at the given URL; returns (cfg, count)."""
+    count = 0
+    if not isinstance(cfg, dict):
+        return cfg, 0
+    clusters = cfg.get("clusters")
+    if isinstance(clusters, list):
+        for entry in clusters:
+            if isinstance(entry, dict):
+                cluster = entry.get("cluster")
+                if not isinstance(cluster, dict):
+                    cluster = {}
+                    entry["cluster"] = cluster
+                cluster["server"] = server
+                count += 1
+    return cfg, count
+
+
+def _read_with_sudo(path: Path) -> str | None:
+    result = subprocess.run(["sudo", "-n", "cat", str(path)], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        print(f"Warning: could not read {path} via sudo: {result.stderr.strip()}", file=sys.stderr)
+        return None
+    return result.stdout
+
+
+def _write_with_sudo(path: Path, text: str) -> bool:
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
+        handle.write(text)
+        tmp_path = Path(handle.name)
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "install", "-m", "600", str(tmp_path), str(path)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            print(f"Warning: could not write {path} via sudo: {result.stderr.strip()}", file=sys.stderr)
+            return False
+        return True
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def purge_stale_cluster_state() -> None:
+    """Drop stale hpdc-talos* entries from root and user kube/talos configs.
+
+    talosctl merges new cluster credentials into $HOME/.kube/config and
+    ~/.talos/config on `cluster create`; under sudo that is /root. Without a
+    pre-create purge, repeated starts accumulate renamed duplicates
+    (hpdc-talos-1..N). Purging guarantees one canonical context per start.
+    """
+    home = Path.home()
+
+    user_kubeconfig = home / ".kube" / "config"
+    if user_kubeconfig.exists():
+        try:
+            cfg = yaml.safe_load(user_kubeconfig.read_text(encoding="utf-8")) or {}
+        except Exception as error:
+            print(f"Warning: could not parse {user_kubeconfig}: {error}", file=sys.stderr)
+            cfg = {}
+        pruned = prune_kubeconfig_prefix(cfg, CLUSTER_NAME)
+        user_kubeconfig.write_text(yaml.safe_dump(pruned, default_flow_style=False), encoding="utf-8")
+
+    user_talosconfig = home / ".talos" / "config"
+    if user_talosconfig.exists():
+        try:
+            cfg = yaml.safe_load(user_talosconfig.read_text(encoding="utf-8")) or {}
+        except Exception as error:
+            print(f"Warning: could not parse {user_talosconfig}: {error}", file=sys.stderr)
+            cfg = {}
+        pruned = prune_talosconfig_prefix(cfg, CLUSTER_NAME)
+        user_talosconfig.write_text(yaml.safe_dump(pruned, default_flow_style=False), encoding="utf-8")
+
+    if shutil.which("sudo") is None:
+        return
+
+    root_kubeconfig_raw = _read_with_sudo(Path("/root/.kube/config"))
+    if root_kubeconfig_raw is not None:
+        try:
+            cfg = yaml.safe_load(root_kubeconfig_raw) or {}
+        except Exception as error:
+            print(f"Warning: could not parse /root/.kube/config: {error}", file=sys.stderr)
+            cfg = {}
+        pruned = prune_kubeconfig_prefix(cfg, CLUSTER_NAME)
+        _write_with_sudo(Path("/root/.kube/config"), yaml.safe_dump(pruned, default_flow_style=False))
+
+    root_talosconfig_raw = _read_with_sudo(Path("/root/.talos/config"))
+    if root_talosconfig_raw is not None:
+        try:
+            cfg = yaml.safe_load(root_talosconfig_raw) or {}
+        except Exception as error:
+            print(f"Warning: could not parse /root/.talos/config: {error}", file=sys.stderr)
+            cfg = {}
+        pruned = prune_talosconfig_prefix(cfg, CLUSTER_NAME)
+        _write_with_sudo(Path("/root/.talos/config"), yaml.safe_dump(pruned, default_flow_style=False))
+
+
+def _generate_kubeconfig_via_talosctl(node_ip: str) -> str | None:
+    """Materialize admin kubeconfig straight from the node.
+
+    Fallback for the expected cni=none readiness timeout, where
+    `talosctl cluster create` exits before merging credentials into
+    /root/.kube/config. Returns kubeconfig YAML or None.
+    """
+    if shutil.which("sudo") is None:
+        return None
+    tmpdir = tempfile.mkdtemp(prefix="hpdc-kubeconfig-")
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "talosctl", "--talosconfig", "/root/.talos/config",
+             "-n", node_ip, "kubeconfig", tmpdir, "--force"],
+            capture_output=True, text=True, check=False,
+        )
+        generated = Path(tmpdir) / "kubeconfig"
+        if result.returncode != 0 or not generated.exists():
+            print(f"Warning: talosctl kubeconfig fallback failed: {result.stderr.strip()}", file=sys.stderr)
+            return None
+        return subprocess.run(
+            ["sudo", "-n", "cat", str(generated)],
+            capture_output=True, text=True, check=False,
+        ).stdout
+    finally:
+        subprocess.run(["sudo", "-n", "rm", "-rf", tmpdir], capture_output=True)
+
+
+def sync_kubeconfigs(server: str, node_ip: str | None = None) -> None:
+    """Write a single-context kubeconfig to the repo and the user's home.
+
+    Reads the merged admin kubeconfig created by `talosctl cluster create`
+    (root's when running under sudo), prunes stale hpdc-talos* leftovers,
+    patches API servers to the host-mapped port, and overwrites both
+    <repo>/.kube/config and ~/.kube/config with exactly one canonical
+    context (admin@hpdc-talos).
+    """
+    raw: str | None = None
+    if shutil.which("sudo"):
+        raw = _read_with_sudo(Path("/root/.kube/config"))
+    if raw is None:
+        candidate = Path.home() / ".kube" / "config"
+        raw = candidate.read_text(encoding="utf-8") if candidate.exists() else ""
+
+    cfg = yaml.safe_load(raw) or {}
+    cfg = prune_kubeconfig_prefix(cfg, CLUSTER_NAME)
+    contexts = [e for e in cfg.get("contexts", []) if isinstance(e, dict)]
+    if not any(_kubeconfig_name_matches(str(e.get("name", "")), CLUSTER_NAME) for e in contexts):
+        if node_ip is None:
+            raise RuntimeError("no admin credentials found for the new cluster; refusing to write empty kubeconfig")
+        generated = _generate_kubeconfig_via_talosctl(node_ip)
+        if not generated:
+            raise RuntimeError("could not materialize admin kubeconfig via talosctl; cluster create merged none")
+        cfg = prune_kubeconfig_prefix(yaml.safe_load(generated) or {}, CLUSTER_NAME)
+    cfg, count = patch_cluster_servers(cfg, server)
+    text = yaml.safe_dump(cfg, default_flow_style=False)
+
+    targets = [ROOT / ".kube" / "config", Path.home() / ".kube" / "config"]
+    for target in targets:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        os.chmod(target, 0o600)
+    print(f"Patched {count} kubeconfig server(s) to {server}")
+    print(f"Wrote single-context kubeconfig to {len(targets)} location(s)")
+
+
+def build_cluster_create_command(talosctl_cmd: list[str], args: argparse.Namespace) -> list[str]:
+    """Build the `talosctl cluster create docker` command.
+
+    Applies platform/talos/talos-cni-patch.yaml so the bundled flannel CNI and
+    kube-proxy are disabled at provision time; Cilium (step 03) is then the
+    only CNI, running in kube-proxy-replacement mode.
+
+    Additionally applies platform/talos/talos-offline-mirror-patch.yaml when
+    present, forcing all node image pulls through the local registry mirror
+    with skipFallback so provisioning never touches the internet.
+    """
     create_cmd = [
         *talosctl_cmd,
         "cluster",
@@ -110,6 +362,14 @@ def provision_cluster(args: argparse.Namespace) -> None:
         "docker",
         "--name",
         CLUSTER_NAME,
+        "--config-patch",
+        f"@{CNI_PATCH}",
+    ]
+
+    if MIRROR_PATCH.exists():
+        create_cmd.extend(["--config-patch", f"@{MIRROR_PATCH}"])
+
+    create_cmd.extend([
         "--subnet",
         args.subnet,
         "--workers",
@@ -122,21 +382,67 @@ def provision_cluster(args: argparse.Namespace) -> None:
         args.memory_workers,
         "--cpus-workers",
         str(args.cpus_workers),
-    ]
+    ])
 
     if args.kubernetes_version:
         create_cmd.extend(["--kubernetes-version", args.kubernetes_version])
 
-    run(create_cmd)
+    return create_cmd
 
-    # Get kubeconfig
-    kubeconfig_path = ROOT / ".kube" / "config"
-    run([*talosctl_cmd, "kubeconfig", "--output", str(kubeconfig_path)])
 
-    # Verify cluster
+def provision_cluster(args: argparse.Namespace) -> None:
+    validate_runtime()
+    talosctl_cmd = talosctl_command()
+
+    if not CNI_PATCH.exists():
+        raise RuntimeError(f"CNI patch not found: {CNI_PATCH}")
+
+    # Idempotent hygiene: drop stale hpdc-talos* entries from kube/talos
+    # configs so the create below merges into a clean namespace and yields
+    # exactly one canonical context instead of -1..-N renames.
+    purge_stale_cluster_state()
+
+    # Destroy existing cluster first
+    destroy_existing_cluster()
+
+    # Build talosctl cluster create command (flannel/kube-proxy disabled via CNI patch)
+    create_cmd = build_cluster_create_command(talosctl_cmd, args)
+
+    # With cni.name=none, nodes stay NotReady until step 03 installs Cilium,
+    # so talosctl's node-readiness wait times out by design. The cluster and
+    # its admin kubeconfig are already materialized at that point; treat the
+    # readiness timeout as non-fatal and verify the API server after sync.
+    create_result = run(create_cmd, check=False)
+    if create_result.returncode != 0:
+        print(
+            "Warning: cluster create reported failure; this is expected when "
+            "the node-readiness wait times out with cni=none. Verifying API server...",
+            file=sys.stderr,
+        )
+
+    # Sync a single-context kubeconfig from the freshly created cluster.
+    # (talosctl merged admin credentials into the invoking user's kubeconfig
+    # during create; under sudo that is /root/.kube/config.)
+    result = subprocess.run(
+        ["docker", "port", f"{CLUSTER_NAME}-controlplane-1", "6443"],
+        capture_output=True, text=True, check=True,
+    )
+    host_port = result.stdout.strip().split("\n")[0].split(":")[-1]
+    controlplane_ip = args.subnet.split("/")[0].rsplit(".", 1)[0] + ".2"
+    sync_kubeconfigs(f"https://127.0.0.1:{host_port}", node_ip=controlplane_ip)
+
+    # Verify cluster: nodes are NotReady until Cilium (step 03) is installed.
+    api = subprocess.run(
+        ["kubectl", "get", "nodes", "--request-timeout=10s"],
+        capture_output=True, text=True, check=False,
+    )
+    if api.returncode != 0:
+        raise RuntimeError(
+            f"cluster API unreachable after provisioning ({api.stderr.strip()}); "
+            "the cluster did not come up — inspect docker ps and container logs"
+        )
+    print(api.stdout)
     run([*talosctl_cmd, "cluster", "show", "--name", CLUSTER_NAME])
-    run(["kubectl", "get", "nodes", "-o", "wide"])
-    run(["kubectl", "get", "pods", "-A"])
 
     print(f"\nCluster '{CLUSTER_NAME}' provisioned successfully.")
     print(f"Storage backend: {args.storage}")

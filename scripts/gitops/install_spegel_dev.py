@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEGEL_VERSION = "0.4.0"
+SPEGEL_VERSION = "0.7.4"
 SPEGEL_IMAGE = ROOT / "output" / "spegel" / "images" / f"spegel-v{SPEGEL_VERSION}"
 SPEGEL_BASE = ROOT / "gitops" / "spegel" / "base"
 SPEGEL_OVERLAY = ROOT / "gitops" / "spegel" / "overlays" / "dev"

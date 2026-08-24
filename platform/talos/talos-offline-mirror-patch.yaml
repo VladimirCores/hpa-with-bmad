@@ -1,0 +1,19 @@
+machine:
+  registries:
+    mirrors:
+      registry.k8s.io:
+        endpoints:
+          - http://10.6.0.1:5000
+        skipFallback: true
+      quay.io:
+        endpoints:
+          - http://10.6.0.1:5000
+        skipFallback: true
+      ghcr.io:
+        endpoints:
+          - http://10.6.0.1:5000
+        skipFallback: true
+      docker.io:
+        endpoints:
+          - http://10.6.0.1:5000
+        skipFallback: true

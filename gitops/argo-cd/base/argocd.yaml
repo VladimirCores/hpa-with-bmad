@@ -339,7 +339,7 @@ spec:
       serviceAccountName: argocd-redis
       containers:
         - name: redis
-          image: public.ecr.aws/docker/library/redis:8.2.3-alpine
+          image: docker.io/library/redis:8.2.8-alpine
           imagePullPolicy: IfNotPresent
           command: [redis-server]
           args: ["--save", "", "--appendonly", "no"]
@@ -391,7 +391,7 @@ spec:
       serviceAccountName: argocd-repo-server
       containers:
         - name: argocd-repo-server
-          image: quay.io/argoproj/argocd:v3.5.0
+          image: quay.io/argoproj/argocd:v3.5.1
           imagePullPolicy: IfNotPresent
           command: [argocd-repo-server]
           ports:
@@ -465,7 +465,7 @@ spec:
       serviceAccountName: argocd-server
       containers:
         - name: argocd-server
-          image: quay.io/argoproj/argocd:v3.5.0
+          image: quay.io/argoproj/argocd:v3.5.1
           imagePullPolicy: IfNotPresent
           command: [argocd-server]
           args:
@@ -540,7 +540,7 @@ spec:
       serviceAccountName: argocd-application-controller
       containers:
         - name: argocd-application-controller
-          image: quay.io/argoproj/argocd:v3.5.0
+          image: quay.io/argoproj/argocd:v3.5.1
           imagePullPolicy: IfNotPresent
           command: [argocd-application-controller]
           args:
@@ -600,7 +600,7 @@ spec:
       serviceAccountName: argocd-applicationset-controller
       containers:
         - name: argocd-applicationset-controller
-          image: quay.io/argoproj/argocd:v3.5.0
+          image: quay.io/argoproj/argocd:v3.5.1
           imagePullPolicy: IfNotPresent
           command: [argocd-applicationset-controller]
           ports:

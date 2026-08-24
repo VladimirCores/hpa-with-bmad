@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import importlib.util
+import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
@@ -60,6 +62,103 @@ def write_log(lines: Iterable[str]) -> None:
         handle.write("\n".join(lines) + "\n")
 
 
+def parse_last_run(log_path: Path) -> dict[str, int]:
+    """Map step name -> exit code from the most recent startup.dev.log."""
+    results: dict[str, int] = {}
+    if not log_path.exists():
+        return results
+    current: str | None = None
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("== ") and ": " in line:
+            current = line[3:].split(": ", 1)[0].strip()
+        elif line.startswith("exit code:") and current is not None:
+            try:
+                results[current] = int(line.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+            current = None
+    return results
+
+
+def render_table(headers: list[str], rows: list[list[str]]) -> str:
+    widths = [len(header) for header in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+    sep = "-+-".join("-" * w for w in widths)
+    head = " | ".join(h.ljust(w) for h, w in zip(headers, widths))
+    body = "\n".join(" | ".join(c.ljust(w) for c, w in zip(row, widths)) for row in rows)
+    return "\n".join([head, sep, body]) if body else head
+
+
+def cluster_summary() -> str:
+    try:
+        result = subprocess.run(
+            ["kubectl", "get", "nodes", "--no-headers", "--request-timeout=5s"],
+            capture_output=True, text=True, check=True,
+        )
+        lines = [l for l in result.stdout.splitlines() if l.strip()]
+        ready = sum(1 for l in lines if l.split()[1] == "Ready")
+        return f"{ready}/{len(lines)} nodes Ready"
+    except Exception:
+        return "unreachable"
+
+
+def registry_summary() -> str:
+    import json
+    import urllib.request
+    try:
+        with urllib.request.urlopen("http://localhost:5000/v2/_catalog", timeout=3) as resp:
+            repos = json.load(resp).get("repositories", [])
+        return f"{len(repos)} image repos cached"
+    except Exception:
+        return "offline (hpa-local-registry not reachable)"
+
+
+def print_status() -> int:
+    steps = discover_steps()
+    last_run = parse_last_run(LOG_PATH)
+
+    step_rows = []
+    for step in steps:
+        if step.name in last_run:
+            code = last_run[step.name]
+            state = "ok" if code == 0 else f"FAIL({code})"
+        else:
+            state = "never-run"
+        desc = step.description if len(step.description) <= 46 else step.description[:43] + "..."
+        step_rows.append([f"{step.number:02d}", state, desc])
+
+    components: dict[str, dict] = {}
+    try:
+        sys.path.insert(0, str(GITOPS_DIR))
+        import _provisioned
+        components = _provisioned.load()
+    except Exception:
+        pass
+    comp_rows = []
+    for name, entry in sorted(components.items()):
+        version = ""
+        if isinstance(entry, dict):
+            version = str(entry.get("version") or entry.get("value") or "")
+            if len(version) > 24:
+                version = version[:21] + "..."
+        comp_rows.append([name, version])
+
+    print(f"Cluster : {cluster_summary()}")
+    print(f"Registry: {registry_summary()}")
+    print()
+    print("Setup steps (last run recorded in output/startup.dev.log):")
+    print(render_table(["STEP", "LAST-RUN", "DESCRIPTION"], step_rows))
+    print()
+    if comp_rows:
+        print("Provisioned components (output/provisioned.yaml):")
+        print(render_table(["COMPONENT", "VERSION"], comp_rows))
+    else:
+        print("Provisioned components: none recorded.")
+    return 0
+
+
 def discover_steps() -> list[Step]:
     if not STEPS_DIR.is_dir():
         return []
@@ -102,7 +201,8 @@ def step_mode_args(step: Step, mode_args: list[str]) -> list[str]:
     else:
         args.append("--dry-run")
     # Pass storage option to steps that need it
-    if "--storage" in mode_args:
+    STORAGE_AWARE_STEPS = {"02-bootstrap-talos-dev.py", "05-install-storage-dev.py"}
+    if "--storage" in mode_args and step.name in STORAGE_AWARE_STEPS:
         idx = mode_args.index("--storage")
         if idx + 1 < len(mode_args):
             args.extend(["--storage", mode_args[idx + 1]])
@@ -231,9 +331,14 @@ def main() -> int:
     parser.add_argument("--apply", action="store_true", help="pass --apply to each selected step")
     parser.add_argument("--check", action="store_true", help="validate each selected step without applying manifests")
     parser.add_argument("--list", action="store_true", help="list ordered setup steps and exit")
+    parser.add_argument("--status", action="store_true", help="show per-step and per-component installation status")
     parser.add_argument("--step", action="append", default=[], help="run only the named step; may be repeated")
     parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default="rook-ceph", help="storage backend for the cluster")
     args = parser.parse_args()
+
+    if args.status:
+        print_status()
+        return 0
 
     if args.list:
         prepare_log()
@@ -276,15 +381,30 @@ def main() -> int:
         write_log(["Cluster teardown complete; proceeding with provisioning."])
 
     failures: list[tuple[str, int]] = []
-    for step in selected:
+    summary_rows: list[list[str]] = []
+    total = len(selected)
+    for idx, step in enumerate(selected, 1):
+        print(f"[{idx}/{total}] {step.name} - {step.description} ...", flush=True)
+        started = time.monotonic()
         try:
             code = run_step(step, mode_args)
         except Exception as error:
             print(f"{step.name} failed: {error}", file=sys.stderr)
             failures.append((step.name, 1))
             continue
+        elapsed = time.monotonic() - started
+        verdict = "OK" if code == 0 else f"FAILED(exit {code})"
+        print(f"[{idx}/{total}] {step.name}: {verdict} in {elapsed:.1f}s", flush=True)
+        summary_rows.append([f"{step.number:02d}", verdict, f"{elapsed:.1f}s", step.description])
         if code != 0:
             failures.append((step.name, code))
+
+    if summary_rows:
+        table = render_table(["STEP", "RESULT", "TIME", "DESCRIPTION"], summary_rows)
+        print("", flush=True)
+        print("Run summary:", flush=True)
+        print(table, flush=True)
+        write_log(["", "Run summary:", table])
 
     if failures:
         print("HPDC dev step run failed:")

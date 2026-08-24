@@ -87,6 +87,8 @@ spec:
             - |
               sleep 10
               curl -fsS http://mtls-server.hpdc-mtls-test.svc.cluster.local/
+              touch /tmp/mtls-ready
+              sleep infinity
           readinessProbe:
             exec:
               command:
