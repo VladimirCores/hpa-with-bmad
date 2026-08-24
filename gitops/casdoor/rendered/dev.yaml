@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: casdoor
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casdoor
+---
+apiVersion: v1
+data:
+  casdoor-config.toml: |
+    providerName = "hpdc"
+    providerDisplayName = "HPDC Casdoor"
+    applicationName = "HPDC"
+    applicationDisplayName = "HPDC"
+    homeLink = "https://*.hpdc.local"
+    appName = "HPDC"
+    appTitle = "HPDC"
+    logo = "/assets/hpdc-logo.png"
+    serverURL = "https://*.hpdc.local"
+    oidc = true
+    saml = true
+    refreshTokenExpireHours = 24
+    sessionMaxLifetimeHours = 12
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: casdoor-config
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casdoor-config
+  namespace: casdoor
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: authn
+    app.kubernetes.io/name: casdoor
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casdoor
+  namespace: casdoor
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+  selector:
+    app.kubernetes.io/component: authn
+    app.kubernetes.io/name: casdoor
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: authn
+    app.kubernetes.io/name: casdoor
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casdoor
+  namespace: casdoor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: authn
+      app.kubernetes.io/name: casdoor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: authn
+        app.kubernetes.io/name: casdoor
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - args:
+        - --configPath
+        - /config/casdoor-config.toml
+        env:
+        - name: CASDOOR_LOG_LEVEL
+          value: debug
+        - name: CASDOOR_ADMIN_PASSWORD
+          value: CasdoorAdmin12345
+        image: docker.io/casdoor/casdoor:v5.19.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /api/v1/ping
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        name: casdoor
+        ports:
+        - containerPort: 8000
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /api/v1/ping
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /config
+          name: config
+          readOnly: true
+      volumes:
+      - configMap:
+          name: casdoor-config
+        name: config
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  labels:
+    app.kubernetes.io/component: authn
+    app.kubernetes.io/name: hpdc-casdoor-jwks
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-casdoor-jwks
+  namespace: casdoor
+spec:
+  hostnames:
+  - casdoor.hpdc.local
+  parentRefs:
+  - name: hpdc-edge
+    namespace: envoy-gateway-system
+    sectionName: https
+  rules:
+  - backendRefs:
+    - kind: Service
+      name: casdoor
+      port: 80
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /.well-known/jwks.json

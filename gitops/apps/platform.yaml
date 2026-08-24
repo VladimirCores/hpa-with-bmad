@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: http://10.6.0.1:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/platform/overlays/dev
+    path: gitops/platform/rendered
   destination:
     server: https://kubernetes.default.svc
     namespace: hpdc-platform

@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: casbin
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casbin
+---
+apiVersion: v1
+data:
+  attributes.csv: |
+    attribute,value
+    time_of_day,06:00-22:00
+    location,region-local
+    device_state,active
+    risk,low
+    clearance,operator
+  evaluation.csv: |
+    model,decision,timeout_ms
+    rbac,deny,5
+    rebac,deny,5
+    abac,deny,10
+  policy.csv: |
+    p, operator, *, *, allow, time_of_day=06:00-22:00
+    p, developer, *, *, allow, risk=low
+    p, viewer, *, *, deny, risk=high
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: casbin-abac-policies
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casbin-abac-policies
+  namespace: casbin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: authz
+    app.kubernetes.io/name: casbin-abac-ext-authz
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casbin-abac-ext-authz
+  namespace: casbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: authz
+      app.kubernetes.io/name: casbin-abac-ext-authz
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: authz
+        app.kubernetes.io/name: casbin-abac-ext-authz
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - args:
+        - --policyPath
+        - /policies
+        - --attributePath
+        - /attributes
+        env:
+        - name: CASBIN_POLICY_FORMAT
+          value: csv
+        - name: CASBIN_ATTRIBUTE_EVALUATION
+          value: "true"
+        - name: CASBIN_POLICY_LOG_LEVEL
+          value: info
+        image: docker.io/casbin/ext-authz:v0.0.1
+        imagePullPolicy: IfNotPresent
+        name: casbin-abac-ext-authz
+        ports:
+        - containerPort: 50053
+          name: grpc
+        volumeMounts:
+        - mountPath: /policies
+          name: policies
+          readOnly: true
+        - mountPath: /attributes
+          name: attributes
+          readOnly: true
+      volumes:
+      - configMap:
+          name: casbin-abac-policies
+        name: policies
+      - configMap:
+          name: casbin-abac-policies
+        name: attributes

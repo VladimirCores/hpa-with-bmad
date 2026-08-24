@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: infisical
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical
+---
+apiVersion: v1
+data:
+  infisical-config.yaml: |
+    secretRotation:
+      enabled: true
+      rotationIntervalDays: 90
+    auditLog:
+      enabled: true
+    operator:
+      enabled: true
+    csiDriver:
+      enabled: true
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: infisical-config
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical-config
+  namespace: infisical
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: secrets
+    app.kubernetes.io/name: infisical
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical
+  namespace: infisical
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/component: secrets
+    app.kubernetes.io/name: infisical
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: secrets
+    app.kubernetes.io/name: infisical
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical
+  namespace: infisical
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: secrets
+      app.kubernetes.io/name: infisical
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: secrets
+        app.kubernetes.io/name: infisical
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - args:
+        - --configPath
+        - /config/infisical-config.yaml
+        env:
+        - name: INFISICAL_DATABASE_HOST
+          value: infisical-postgres
+        - name: INFISICAL_DATABASE_PORT
+          value: "5432"
+        - name: INFISICAL_DATABASE_NAME
+          value: infisical
+        - name: INFISICAL_DATABASE_USER
+          value: infisical
+        - name: INFISICAL_DATABASE_PASSWORD
+          value: InfisicalAdmin12345
+        image: docker.io/infisical/infisical:0.10.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        name: infisical
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /config
+          name: config
+          readOnly: true
+      volumes:
+      - configMap:
+          name: infisical-config
+        name: config
+---
+apiVersion: secrets.infisical.com/v1alpha1
+kind: InfisicalSecret
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-production-secrets
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-production-secrets
+  namespace: infisical
+spec:
+  authentication:
+    universalAuth:
+      credentialsRef:
+        secretName: infisical-universal-auth-credentials
+        secretNamespace: infisical
+      secretsScope:
+        envSlug: dev
+        projectSlug: hpdc
+        secretsPath: /
+  hostAPI: http://infisical.infisical.svc.cluster.local/api
+  managedKubeSecretReferences:
+  - creationPolicy: Orphan
+    secretName: hpdc-prod-credentials
+    secretNamespace: infisical
+  syncConfig:
+    instantUpdates: false
+    resyncInterval: 60s

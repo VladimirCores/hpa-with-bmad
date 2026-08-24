@@ -1,0 +1,124 @@
+apiVersion: v1
+data:
+  _alertSchema.yaml: |-
+    id: https://hpdc.io/schemas/alert/v1
+    $schema: "http://json-schema.org/draft-07/schema#"
+    type: object
+    required:
+      - alert_id
+      - source
+      - severity
+      - timestamp
+      - message
+      - context
+    properties:
+      alert_id:
+        type: string
+        description: "Unique alert identifier (UUID v7)"
+        pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      source:
+        type: string
+        description: "Component emitting the alert"
+      severity:
+        type: string
+        enum: [critical, warning, info]
+      timestamp:
+        type: string
+        format: date-time
+      message:
+        type: string
+        maxLength: 1000
+      context:
+        type: object
+        additionalProperties: true
+      correlation_id:
+        type: string
+        description: "Optional trace/span correlation ID"
+      deduplication_key:
+        type: string
+        description: "Key for deduplication within 60s window"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: alert-schema
+    app.kubernetes.io/part-of: hpdc-platform
+  name: dev-alert-schema
+  namespace: kafka-dev
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: alerts-critical
+    app.kubernetes.io/part-of: hpdc-platform
+  name: dev-alerts.critical
+  namespace: kafka-dev
+spec:
+  config:
+    retention.ms: 604800000
+  partitions: 3
+  replicas: 3
+  topicName: alerts.critical
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: alerts-dlq
+    app.kubernetes.io/part-of: hpdc-platform
+  name: dev-alerts.dlq
+  namespace: kafka-dev
+spec:
+  config:
+    retention.ms: 2592000000
+  partitions: 3
+  replicas: 3
+  topicName: alerts.dlq
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: alerts-incoming
+    app.kubernetes.io/part-of: hpdc-platform
+  name: dev-alerts.incoming
+  namespace: kafka-dev
+spec:
+  config:
+    retention.ms: 604800000
+    segment.bytes: "1073741824"
+  partitions: 12
+  replicas: 3
+  topicName: alerts.incoming
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: alerts-state
+    app.kubernetes.io/part-of: hpdc-platform
+  name: dev-alerts.state
+  namespace: kafka-dev
+spec:
+  config:
+    cleanup.policy: compact
+    min.cleanable.delta.ms: "1000"
+    retention.ms: 604800000
+    segment.bytes: "1073741824"
+  partitions: 3
+  topicName: alerts.state
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: alerts-warning
+    app.kubernetes.io/part-of: hpdc-platform
+  name: dev-alerts.warning
+  namespace: kafka-dev
+spec:
+  config:
+    retention.ms: 604800000
+  partitions: 6
+  replicas: 3
+  topicName: alerts.warning

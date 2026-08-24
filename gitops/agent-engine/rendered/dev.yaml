@@ -1,0 +1,301 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: agent-engine
+---
+apiVersion: v1
+data:
+  routing.yaml: |
+    channel: authenticated
+    require_registered_sender: true
+    prevent_unauthorized_impersonation: true
+    discovery: registered_agents_only
+    transport: kafka
+    topic: hpdc.agent.messages
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: a2a-messaging-config
+  namespace: agent-engine
+---
+apiVersion: v1
+data:
+  agents.yaml: |
+    - name: agent-1
+      id: agent-1@hpdc.local
+      authenticated: true
+      capabilities:
+        - alert-analysis
+        - entity-query
+    - name: agent-2
+      id: agent-2@hpdc.local
+      authenticated: true
+      capabilities:
+        - telemetry-processing
+        - workflow-trigger
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: agent-registry
+  namespace: agent-engine
+---
+apiVersion: v1
+data:
+  audit.yaml: |
+    log_fields:
+      - agent_id
+      - tool_name
+      - parameters
+      - result
+    storage: vmlogs
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-audit-log-config
+  namespace: agent-engine
+---
+apiVersion: v1
+data:
+  policy.yaml: |
+    validation:
+      security_policy: required
+      allow_list:
+        - query_database
+        - call_api
+        - trigger_workflow
+      require_agent_id: true
+      require_tool_name: true
+      require_parameter_schema: true
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-security-policy
+  namespace: agent-engine
+---
+apiVersion: v1
+data:
+  tools.json: |
+    {
+      "tools": [
+        {
+          "name": "query_database",
+          "description": "Query a platform database through the GraphQL gateway",
+          "parameters": ["region", "database", "query"]
+        },
+        {
+          "name": "call_api",
+          "description": "Invoke a platform API endpoint",
+          "parameters": ["method", "path", "body"]
+        },
+        {
+          "name": "trigger_workflow",
+          "description": "Trigger a Kargo or Argo Workflows pipeline",
+          "parameters": ["workflow", "parameters"]
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-tool-definitions
+  namespace: agent-engine
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: a2a-broker
+  namespace: agent-engine
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-server
+  namespace: agent-engine
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: a2a-broker
+  namespace: agent-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ai-agent
+      app.kubernetes.io/name: hpdc-agent-engine
+      app.kubernetes.io/part-of: hpdc-platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: ai-agent
+        app.kubernetes.io/name: hpdc-agent-engine
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - image: ghcr.io/hpdc/a2a-broker:dev
+        imagePullPolicy: IfNotPresent
+        name: a2a-broker
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /a2a/health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /etc/a2a/registry
+          name: agent-registry
+          readOnly: true
+        - mountPath: /etc/a2a/config
+          name: messaging-config
+          readOnly: true
+      volumes:
+      - configMap:
+          name: agent-registry
+        name: agent-registry
+      - configMap:
+          name: a2a-messaging-config
+        name: messaging-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-server
+  namespace: agent-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ai-agent
+      app.kubernetes.io/name: hpdc-agent-engine
+      app.kubernetes.io/part-of: hpdc-platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: ai-agent
+        app.kubernetes.io/name: hpdc-agent-engine
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - image: ghcr.io/hpdc/mcp-server:dev
+        imagePullPolicy: IfNotPresent
+        name: mcp-server
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /mcp/tools
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /etc/mcp/tools
+          name: tool-definitions
+          readOnly: true
+        - mountPath: /etc/mcp/policy
+          name: security-policy
+          readOnly: true
+      volumes:
+      - configMap:
+          name: mcp-tool-definitions
+        name: tool-definitions
+      - configMap:
+          name: mcp-security-policy
+        name: security-policy
+---
+apiVersion: hpdc.io/v1
+kind: AgentCommunication
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: authenticated-agent-communication
+  namespace: agent-engine
+spec:
+  channel:
+    authenticated: true
+  impersonation:
+    discovery: registered_agents_only
+    unauthorized_prevented: true
+  registration:
+    registered_agents_required: true
+---
+apiVersion: hpdc.io/v1
+kind: MCPToolRegistry
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: platform-capabilities-mcp-tools
+  namespace: agent-engine
+spec:
+  agents:
+  - agent-1
+  - agent-2
+  logging:
+    agent_id: required
+    tool_name: required
+  tools:
+    call_apis: true
+    query_databases: true
+    trigger_workflows: true
+  validation:
+    security_policy: required

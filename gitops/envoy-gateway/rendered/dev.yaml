@@ -1,0 +1,483 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: envoy-gateway-system
+    app.kubernetes.io/part-of: hpdc-platform
+  name: envoy-gateway-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: telemetry-ingestion
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/name: envoy-gateway
+    app.kubernetes.io/part-of: hpdc-platform
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: pulsar-telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: pulsar-telemetry-ingestion
+  namespace: telemetry-ingestion
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-envoy-gateway
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-envoy-gateway
+rules:
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  - gatewayclasses
+  - httproutes
+  - grpcroutes
+  - tcproutes
+  - tlsroutes
+  - referencegrants
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - gateway.envoyproxy.io
+  resources:
+  - envoyproxies
+  - securitypolicies
+  - ratelimitpolicies
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - endpointslices
+  - namespaces
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-envoy-gateway
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-envoy-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hpdc-envoy-gateway
+subjects:
+- kind: ServiceAccount
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+---
+apiVersion: v1
+data:
+  envoy-gateway.yaml: |
+    apiVersion: gateway.envoyproxy.io/v1alpha1
+    kind: EnvoyGateway
+    gatewayControllerNamespace: envoy-gateway-system
+    gateway:
+      name: hpdc-envoy-gateway
+      provider:
+        type: Kubernetes
+        kubernetes:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+    auth:
+      xdsServer:
+        accessLogging:
+          format: json
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: envoy-gateway-config
+    app.kubernetes.io/part-of: hpdc-platform
+  name: envoy-gateway-config
+  namespace: envoy-gateway-system
+---
+apiVersion: v1
+data:
+  capacity.yaml: |
+    default: 5000
+    deviceTypes:
+      actuator: 25000
+      gateway: 10000
+      sensor: 25000
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: telemetry-ingestion-capacity
+    app.kubernetes.io/part-of: hpdc-platform
+  name: telemetry-ingestion-capacity
+  namespace: telemetry-ingestion
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: pulsar-telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: pulsar-telemetry-ingestion
+  namespace: telemetry-ingestion
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: http
+  - name: grpc
+    port: 6669
+    protocol: TCP
+    targetPort: grpc
+  - name: mqtt
+    port: 1884
+    protocol: TCP
+    targetPort: mqtt
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/name: envoy-gateway
+    app.kubernetes.io/part-of: hpdc-platform
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: control-plane
+      app.kubernetes.io/name: envoy-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: control-plane
+        app.kubernetes.io/name: envoy-gateway
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - args:
+        - manager
+        - --configPath
+        - /config/envoy-gateway.yaml
+        env:
+        - name: GATEWAY_API_RESTRICTED_GATEWAY
+          value: "true"
+        image: docker.io/envoyproxy/gateway:v1.8.3
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        name: envoy-gateway
+        ports:
+        - containerPort: 18000
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /config
+          name: config
+          readOnly: true
+      serviceAccountName: envoy-gateway
+      volumes:
+      - configMap:
+          name: envoy-gateway-config
+        name: config
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-envoy-proxy
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-envoy-proxy
+  namespace: envoy-gateway-system
+spec:
+  proxyAccessLog:
+    format: json
+  proxySupplementalConfig:
+    type: YAML
+    value: |
+      admin:
+        access_log:
+          - path: /dev/null
+      static_resources:
+        listeners:
+          - name: hpdc-edge-https
+            address:
+              socket_address:
+                address: 0.0.0.0
+                port_value: 443
+            filter_chains:
+              - filters:
+                  - name: envoy.filters.network.http_connection_manager
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                      stat_prefix: hpdc-edge-https
+                      route_config:
+                        name: hpdc-edge-routes
+                        virtual_hosts:
+                          - name: hpdc-edge
+                            domains:
+                              - "*.hpdc.local"
+                            routes:
+                              - match:
+                                  prefix: /
+                                route:
+                                  cluster: placeholder
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: hpdc-telemetry-grpc-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-grpc-ingestion
+  namespace: telemetry-ingestion
+spec:
+  hostnames:
+  - '*.hpdc.local'
+  parentRefs:
+  - name: hpdc-edge
+    namespace: envoy-gateway-system
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: pulsar-telemetry-ingestion
+      port: 6669
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /hpdc.telemetry.v1.TelemetryService
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-edge
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-edge
+  namespace: envoy-gateway-system
+spec:
+  gatewayClassName: hpdc-envoy-gateway
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: '*.hpdc.local'
+    name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: hpdc-edge-tls
+      mode: Terminate
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: '*.hpdc.local'
+    name: http-redirect
+    port: 80
+    protocol: HTTP
+    redirects:
+      fromPort: 80
+      scheme: HTTPS
+      toPort: 443
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: '*.hpdc.local'
+    name: mqtt
+    port: 1884
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-envoy-gateway
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-envoy-gateway
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: hpdc-envoy-proxy
+    namespace: envoy-gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.envoyproxy.io/rate-limit: '{"requestsPerUnit":1000,"unit":"minute"}'
+  labels:
+    app.kubernetes.io/name: hpdc-edge-domain-routes
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-edge-domain-routes
+  namespace: envoy-gateway-system
+spec:
+  hostnames:
+  - '*.hpdc.local'
+  parentRefs:
+  - name: hpdc-edge
+    sectionName: https
+  rules:
+  - backendRefs:
+    - kind: Service
+      name: couchdb
+      port: 5984
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /data
+  - backendRefs:
+    - kind: Service
+      name: knative
+      port: 80
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /api
+  - backendRefs:
+    - kind: Service
+      name: kafka
+      port: 9094
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /events
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.envoyproxy.io/rate-limit: '{"requestsPerUnit":100000,"unit":"second"}'
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: hpdc-telemetry-http-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-http-ingestion
+  namespace: telemetry-ingestion
+spec:
+  hostnames:
+  - '*.hpdc.local'
+  parentRefs:
+  - name: hpdc-edge
+    namespace: envoy-gateway-system
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: pulsar-telemetry-ingestion
+      port: 8080
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /telemetry
+---
+apiVersion: gateway.networking.k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: hpdc-telemetry-mqtt-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-mqtt-ingestion
+  namespace: telemetry-ingestion
+spec:
+  parentRefs:
+  - name: hpdc-edge
+    namespace: envoy-gateway-system
+    sectionName: mqtt
+  rules:
+  - backendRefs:
+    - name: pulsar-telemetry-ingestion
+      port: 1884
+      weight: 1

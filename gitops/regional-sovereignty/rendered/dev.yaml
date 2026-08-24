@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-sovereignty
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-sovereignty
+---
+apiVersion: v1
+data:
+  routes.yaml: |
+    - region: region-1
+      couchdb: couchdb.region-1.svc:5984
+      yugabytedb: yugabytedb.region-1.svc:5433
+      clickhouse: clickhouse.region-1.svc:8123
+      arcadedb: arcadedb.region-1.svc:2480
+      keydb: keydb.region-1.svc:6379
+      postgresql: postgresql.region-1.svc:5432
+    - region: region-2
+      couchdb: couchdb.region-2.svc:5984
+      yugabytedb: yugabytedb.region-2.svc:5433
+      clickhouse: clickhouse.region-2.svc:8123
+      arcadedb: arcadedb.region-2.svc:2480
+      keydb: keydb.region-2.svc:6379
+      postgresql: postgresql.region-2.svc:5432
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-sovereignty
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-route-config
+  namespace: regional-sovereignty
+---
+apiVersion: v1
+data:
+  policy.yaml: |
+    default_replication: disabled
+    explicit_configuration_required: true
+    allowed_after_approval: true
+    require_region_scoped_credentials: true
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-sovereignty
+    app.kubernetes.io/part-of: hpdc-platform
+  name: replication-policy-config
+  namespace: regional-sovereignty
+---
+apiVersion: hpdc.io/v1
+kind: RegionalDataSovereignty
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-sovereignty
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-data-sovereignty
+  namespace: regional-sovereignty
+spec:
+  regional_stores:
+    arcadedb: true
+    clickhouse: true
+    couchdb: true
+    keydb: true
+    postgresql: true
+    yugabytedb: true
+  regions:
+  - name: region-1
+    stores:
+    - couchdb
+    - yugabytedb
+    - clickhouse
+    - arcadedb
+    - keydb
+    - postgresql
+  - name: region-2
+    stores:
+    - couchdb
+    - yugabytedb
+    - clickhouse
+    - arcadedb
+    - keydb
+    - postgresql
+  replication:
+    default: disabled
+    explicit_configuration_required: true

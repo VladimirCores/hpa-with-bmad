@@ -1,0 +1,477 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: victoria-metrics
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: victoria-metrics
+  namespace: victoria-metrics
+---
+apiVersion: v1
+data:
+  otel-collector.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch:
+      probabilistic_sampler:
+        sampling_percentage: 25
+        hash_seed: 42
+    exporters:
+      otlp/victoriametrics:
+        endpoint: vminsert:8480
+        tls:
+          insecure: true
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [probabilistic_sampler, batch]
+          exporters: [otlp/victoriametrics]
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: otel-collector
+    app.kubernetes.io/name: otel-collector-config
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: otel-collector-config
+  namespace: victoria-metrics
+---
+apiVersion: v1
+data:
+  sampling.yaml: |
+    default: 25
+    per_service:
+      entity-api: 100
+      graphql-gateway: 50
+      alert-handler: 10
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: otel-collector
+    app.kubernetes.io/name: otel-sampling-config
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: otel-sampling-config
+  namespace: victoria-metrics
+---
+apiVersion: v1
+data:
+  retention.yaml: |
+    dev: 24h
+    staging: 7d
+    prod: configurable
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: victoria-metrics-retention
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: victoria-metrics-retention
+  namespace: victoria-metrics
+---
+apiVersion: v1
+data:
+  vmlogs.yaml: |
+    search_within_seconds: 5
+    indexed_fields:
+      - namespace
+      - app
+      - level
+      - host
+    ingestion_endpoint: /insert/loki/api/v1/push
+    query_endpoint: /select/loki/api/v1/query
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: vmlogs
+    app.kubernetes.io/name: vmlogs-config
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmlogs-config
+  namespace: victoria-metrics
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: otel-collector
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: otel-collector
+  namespace: victoria-metrics
+spec:
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: otlp-grpc
+  - name: otlp-http
+    port: 4318
+    targetPort: otlp-http
+  selector:
+    app.kubernetes.io/name: otel-collector
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: vminsert
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vminsert
+  namespace: victoria-metrics
+spec:
+  ports:
+  - name: http
+    port: 8480
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: vminsert
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: vmlogs
+    app.kubernetes.io/name: vmlogs
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmlogs
+  namespace: victoria-metrics
+spec:
+  ports:
+  - name: http
+    port: 9428
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: vmlogs
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: vmselect
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmselect
+  namespace: victoria-metrics
+spec:
+  ports:
+  - name: http
+    port: 8481
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: vmselect
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: vmstorage
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmstorage
+  namespace: victoria-metrics
+spec:
+  ports:
+  - name: http
+    port: 8482
+    targetPort: http
+  - name: vminsert
+    port: 8400
+    targetPort: vminsert
+  - name: vmselect
+    port: 8401
+    targetPort: vmselect
+  selector:
+    app.kubernetes.io/name: vmstorage
+    environment: dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: otel-collector
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: otel-collector
+  namespace: victoria-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+      environment: dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: otel-collector
+        app.kubernetes.io/name: otel-collector
+        app.kubernetes.io/part-of: hpdc-platform
+        environment: dev
+    spec:
+      containers:
+      - args:
+        - --config=/etc/otel-collector/otel-collector.yaml
+        image: otel/opentelemetry-collector-contrib:latest
+        name: otel-collector
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: otlp-http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /etc/otel-collector
+          name: config
+      volumes:
+      - configMap:
+          name: otel-collector-config
+        name: config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: vminsert
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vminsert
+  namespace: victoria-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vminsert
+      environment: dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: victoria-metrics
+        app.kubernetes.io/name: vminsert
+        app.kubernetes.io/part-of: hpdc-platform
+        environment: dev
+    spec:
+      containers:
+      - args:
+        - -storageNode=vmstorage:8400
+        image: victoriametrics/vminsert:latest
+        name: vminsert
+        ports:
+        - containerPort: 8480
+          name: http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      serviceAccountName: victoria-metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: vmlogs
+    app.kubernetes.io/name: vmlogs
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmlogs
+  namespace: victoria-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmlogs
+      environment: dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: vmlogs
+        app.kubernetes.io/name: vmlogs
+        app.kubernetes.io/part-of: hpdc-platform
+        environment: dev
+    spec:
+      containers:
+      - args:
+        - -search.maxQueryDuration=5s
+        image: victoriametrics/victoria-logs:latest
+        name: vmlogs
+        ports:
+        - containerPort: 9428
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /select/loki/api/v1/query
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: vmselect
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmselect
+  namespace: victoria-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmselect
+      environment: dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: victoria-metrics
+        app.kubernetes.io/name: vmselect
+        app.kubernetes.io/part-of: hpdc-platform
+        environment: dev
+    spec:
+      containers:
+      - args:
+        - -storageNode=vmstorage:8401
+        image: victoriametrics/vmselect:latest
+        name: vmselect
+        ports:
+        - containerPort: 8481
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /select/0/prometheus/api/v1/status/buildinfo
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      serviceAccountName: victoria-metrics
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: vmstorage
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: vmstorage
+  namespace: victoria-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmstorage
+      environment: dev
+  serviceName: vmstorage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: victoria-metrics
+        app.kubernetes.io/name: vmstorage
+        app.kubernetes.io/part-of: hpdc-platform
+        environment: dev
+    spec:
+      containers:
+      - args:
+        - -retentionPeriod=24h
+        image: victoriametrics/vmstorage:latest
+        name: vmstorage
+        ports:
+        - containerPort: 8482
+          name: http
+        - containerPort: 8400
+          name: vminsert
+        - containerPort: 8401
+          name: vmselect
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: /victoria-metrics-data
+          name: vmstorage-data
+      serviceAccountName: victoria-metrics
+      volumes:
+      - emptyDir: {}
+        name: vmstorage-data
+---
+apiVersion: hpdc.io/v1
+kind: ObservabilityPipeline
+metadata:
+  labels:
+    app.kubernetes.io/component: victoria-metrics
+    app.kubernetes.io/name: platform-observability-pipeline
+    app.kubernetes.io/part-of: hpdc-platform
+    environment: dev
+  name: platform-observability-pipeline
+  namespace: victoria-metrics
+spec:
+  metrics_cluster:
+    victoriametrics:
+      components:
+      - vmstorage
+      - vminsert
+      - vmselect
+      retention:
+        dev: 24h
+        prod: configurable
+        staging: 7d

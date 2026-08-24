@@ -1,0 +1,530 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-handling
+    app.kubernetes.io/name: alert-handler-api
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-alert-handler-api
+  namespace: hpdc-alerts-dev
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: alert-handler-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: llm-decision-support
+    app.kubernetes.io/name: llm-decision-support-api
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-llm-decision-support-api
+  namespace: hpdc-alerts-dev
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: llm-decision-support-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-handling
+    app.kubernetes.io/name: alert-handler-api
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-alert-handler-api
+  namespace: hpdc-alerts-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alert-handler-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: alert-handling
+        app.kubernetes.io/name: alert-handler-api
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - env:
+        - name: AUDIT_LOG_PATH
+          value: /var/log/alerts/audit.ndjson
+        - name: STATE_STORE
+          value: couchdb
+        image: hpdc.local/alert-handler:0.1.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        name: alert-handler
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/log/alerts
+          name: audit-log
+      serviceAccountName: alert-handler
+      volumes:
+      - emptyDir: {}
+        name: audit-log
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: llm-decision-support
+    app.kubernetes.io/name: llm-decision-support-api
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-llm-decision-support-api
+  namespace: hpdc-alerts-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llm-decision-support-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: llm-decision-support
+        app.kubernetes.io/name: llm-decision-support-api
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - env:
+        - name: DECISION_LOG_PATH
+          value: /var/log/alerts/decisions.ndjson
+        - name: PROVIDER
+          value: configured
+        image: hpdc.local/llm-decision-support:0.1.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        name: llm-decision-support
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/log/alerts
+          name: decision-log
+      serviceAccountName: alert-handler
+      volumes:
+      - emptyDir: {}
+        name: decision-log
+---
+apiVersion: hpdc.io/v1
+kind: AlertAuditTrail
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-handling
+    app.kubernetes.io/name: default-alert-audit-trail
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-default-alert-audit-trail
+  namespace: hpdc-alerts-dev
+spec:
+  actions:
+  - acknowledge
+  - investigate
+  - add_note
+  - resolve
+  - close
+  actor_validation:
+    required: true
+    unauthorized_response:
+      http_status: 403
+      record_attempt: true
+  concurrent_edit_policy:
+    prevent_same_state_update: true
+  invalid_transition_response:
+    http_status: 409
+    include_current_state: true
+    record_attempt: true
+  retention:
+    entries: 10000
+    history_days: 90
+  visibility:
+    audit_history: true
+    authorized_users: true
+    latest_state: true
+---
+apiVersion: hpdc.io/v1
+kind: AlertHandlerActions
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-handling
+    app.kubernetes.io/name: default-alert-handler-actions
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-default-alert-handler-actions
+  namespace: hpdc-alerts-dev
+spec:
+  actions:
+    acknowledge:
+      from:
+      - initial
+      - investigating
+      requires_reason: false
+      roles:
+      - oncall
+      - platform-engineer
+      - admin
+      to: acknowledged
+    add_note:
+      from:
+      - initial
+      - acknowledged
+      - investigating
+      - resolved
+      requires_reason: false
+      roles:
+      - oncall
+      - platform-engineer
+      - admin
+      - observer
+      to: same
+    close:
+      from:
+      - resolved
+      - initial
+      - acknowledged
+      - investigating
+      requires_reason: true
+      roles:
+      - admin
+      to: closed
+    investigate:
+      from:
+      - acknowledged
+      requires_reason: false
+      roles:
+      - oncall
+      - platform-engineer
+      - admin
+      to: investigating
+    reopen:
+      from:
+      - resolved
+      - closed
+      requires_reason: true
+      roles:
+      - oncall
+      - platform-engineer
+      - admin
+      to: initial
+    resolve:
+      from:
+      - acknowledged
+      - investigating
+      requires_reason: true
+      roles:
+      - oncall
+      - platform-engineer
+      - admin
+      to: resolved
+  allowed_transitions:
+    acknowledged:
+    - investigating
+    - resolved
+    - closed
+    closed: []
+    initial:
+    - acknowledged
+    - closed
+    investigating:
+    - resolved
+    - acknowledged
+    - closed
+    resolved:
+    - closed
+    - reopened
+  roles:
+    admin:
+    - acknowledge
+    - investigate
+    - add_note
+    - resolve
+    - close
+    - reopen
+    observer:
+    - add_note
+    oncall:
+    - acknowledge
+    - investigate
+    - add_note
+    - resolve
+    platform-engineer:
+    - acknowledge
+    - investigate
+    - add_note
+    - resolve
+  users:
+    alice@hpdc: oncall
+    bob@hpdc: platform-engineer
+    carol@hpdc: admin
+    dave@hpdc: observer
+---
+apiVersion: hpdc.io/v1
+kind: AlertResponseEngine
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-responses
+    app.kubernetes.io/name: default-alert-response-engine
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-default-alert-response-engine
+  namespace: hpdc-alerts-dev
+spec:
+  enabled_actions:
+    delete_pod:
+      description: Delete specific Pod
+      latency_target_ms: 2000
+      requires_approval: false
+    increase_hpa_target:
+      description: Increase HPA target value
+      latency_target_ms: 1000
+      requires_approval: false
+    restart_deployment:
+      description: Restart Kubernetes Deployment
+      latency_target_ms: 5000
+      requires_approval: false
+    scale_deployment:
+      description: Scale Deployment replicas
+      latency_target_ms: 3000
+      requires_approval: false
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 10
+  rate_limits:
+    max_actions_per_alert: 3
+    max_actions_per_minute: 100
+---
+apiVersion: hpdc.io/v1
+kind: AlertWorkflow
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-workflows
+    app.kubernetes.io/name: default-alert-workflows
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-default-alert-workflows
+  namespace: hpdc-alerts-dev
+spec:
+  default_action: notify_with_context
+  notification_templates:
+    email: |-
+      Alert: {{alert.name}} ({{alert.severity}})
+      Source: {{alert.source}}
+      Context: {{alert.context}}
+      Workflow: {{workflow.name}}
+    slack: |
+      ⚠️ *Alert:* {{alert.name}}
+      *Severity:* {{alert.severity}}
+      *Source:* {{alert.source}}
+      *Context:* {{alert.context}}
+      *Response:* {{workflow.name}} (pending approval)
+  workflows:
+  - actions:
+    - namespace: '{{alert.context.namespace}}'
+      target_selector: deployment={{alert.context.deployment_name}}
+      type: restart_deployment
+    conditions:
+    - '{{alert.context.restart_count | default(0) < 3}}'
+    description: Automatically restart a Deployment when the service becomes unhealthy
+    id: restart-service
+    name: Restart Service on Failure
+    on_failure:
+    - update_alert:
+        reason: restart_failed
+        state: awaiting_approval
+    - notification:
+        channel: slack:ops-alerts
+    on_success:
+    - update_alert:
+        reason: auto_restart_success
+        state: resolved
+    trigger:
+      alert_type: service_down
+      cooldown_minutes: 5
+      severity: critical
+  - actions:
+    - adjustment: "+50"
+      max_replicas: 100
+      metric: memory
+      namespace: '{{alert.context.namespace}}'
+      target_selector: hpa={{alert.context.hpa_name}}
+      type: increase_hpa_target
+    conditions:
+    - '{{alert.context.current_replicas < 50}}'
+    description: Increase CPU/Memory for memory-pressure alerts
+    id: scale-up-memory
+    name: Scale Up Memory-Intensive Workloads
+    on_failure:
+    - fallback_action:
+        channel: slack:oncall
+        type: notify
+    on_success:
+    - update_alert:
+        reason: scale_up_success
+        state: resolved
+    trigger:
+      alert_type: memory_pressure
+      cooldown_minutes: 10
+      severity: warning
+  - actions:
+    - namespace: '{{alert.context.namespace}}'
+      node: '{{alert.context.node_name}}'
+      target_selector: pod={{alert.context.pod_name}}
+      type: delete_pod
+    batch_size: 10
+    description: Evict pods from failing nodes
+    id: pod-delete-for-node-failure
+    name: Delete Pods on Node Failure
+    on_success:
+    - update_alert:
+        reason: pod_evicted
+        state: resolved
+    trigger:
+      alert_type: node_unreachable
+      cooldown_minutes: 1
+      severity: warning
+---
+apiVersion: hpdc.io/v1
+kind: LlmDecisionSupport
+metadata:
+  labels:
+    app.kubernetes.io/component: llm-decision-support
+    app.kubernetes.io/name: default-llm-decision-support
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-default-llm-decision-support
+  namespace: hpdc-alerts-dev
+spec:
+  approval:
+    allow_sensitive_auto_execute: false
+    required_for:
+    - restart_deployment
+    - scale_deployment
+    - delete_pod
+    - increase_hpa_target
+  approvers:
+  - alice@hpdc
+  - carol@hpdc
+  confidence:
+    auto_execute_threshold: 0.85
+    manual_review_threshold: 0.5
+  logging:
+    decision_context: true
+    input: true
+    output: true
+  provider: configured
+  rate_limits:
+    max_recommendations_per_minute: 60
+  response_scope: actionable_recommendations_only
+  sensitive_action_policy:
+    execute_without_approval: false
+---
+apiVersion: pulsar.streamnative.io/v1alpha1
+kind: PulsarFunction
+metadata:
+  labels:
+    app.kubernetes.io/component: alert-responses
+    app.kubernetes.io/name: alert-response-function
+    app.kubernetes.io/part-of: hpdc-platform
+    namespace: hpdc-alerts-dev
+  name: dev-alert-response-function
+  namespace: hpdc-alerts-dev
+spec:
+  autoCommit: true
+  dead_letter_queue: hpdc-alerts.alerts.dlq
+  inputs:
+  - topics:
+    - name: alerts.state
+      partition_key: alert_id
+      type: PARTITIONED
+  metrics:
+    enabled: true
+    expose_internal: true
+  runtime: GO
+  sink:
+    job_template: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: alert-action-{{alerting.alert_id}}
+      spec:
+        backoffLimit: 2
+        template:
+          spec:
+            serviceAccountName: alert-response-trigger
+            containers:
+              - name: executor
+                image: bitnami/kubectl:latest
+                command: ["/bin/sh", "-c"]
+                args:
+                  - |
+                    echo "Executing alert action: {{alerting.action}}"
+                    if [[ "{{alerting.action}}" == "restart_deployment" ]]; then
+                      kubectl rollout restart deployment/{{alerting.target}} -n {{alerting.namespace}}
+                    elif [[ "{{alerting.action}}" == "scale_deployment" ]]; then
+                      kubectl scale deployment/{{alerting.target}} --replicas={{alerting.replicas}} -n {{alerting.namespace}}
+                    elif [[ "{{alerting.action}}" == "delete_pod" ]]; then
+                      kubectl delete pod {{alerting.target}} -n {{alerting.namespace}}
+                    fi
+          restartPolicy: Never
+    namespace: hpdc-alerts
+    type: kubernetes_job
+  source:
+    subscriptionNamePrefix: alerts.state
+    typeName: AlertStateMachine
+  user_config:
+    job_ttl_seconds: 3600
+    max_retry_attempts: 3
+    retry_interval_ms: 5000
+    timeout_seconds: 30
+  windowing:
+    kind: COOKIE
+    length: 5000ms

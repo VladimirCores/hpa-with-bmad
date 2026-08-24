@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/part-of: hpdc-platform
+  name: backstage
+---
+apiVersion: v1
+data:
+  app-config.yaml: |
+    app:
+      title: HPDC Developer Portal
+    backend:
+      baseUrl: https://backstage.hpdc.local
+      auth:
+        keys:
+          - secret: backstage-backend-secret
+    auth:
+      providers:
+        casdoor:
+          development:
+            clientId: hpdc-backstage
+            clientSecret: backstage-client-secret
+            issuerUrl: https://casdoor.hpdc.local
+            scopes:
+              - openid
+              - profile
+              - email
+    catalog:
+      imports:
+        - type: url
+          url: https://raw.githubusercontent.com/backstage/backstage/master/examples/org.yaml
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: backstage-config
+    app.kubernetes.io/part-of: hpdc-platform
+  name: backstage-config
+  namespace: backstage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: portal
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/part-of: hpdc-platform
+  name: backstage
+  namespace: backstage
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 7007
+  selector:
+    app.kubernetes.io/component: portal
+    app.kubernetes.io/name: backstage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: portal
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/part-of: hpdc-platform
+  name: backstage
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: portal
+      app.kubernetes.io/name: backstage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: portal
+        app.kubernetes.io/name: backstage
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - args:
+        - start
+        env:
+        - name: NODE_ENV
+          value: production
+        image: ghcr.io/backstage/backstage:1.42.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        name: backstage
+        ports:
+        - containerPort: 7007
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10

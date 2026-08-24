@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: http://10.6.0.1:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/regional-sovereignty/overlays/dev
+    path: gitops/regional-sovereignty/rendered
   destination:
     server: https://kubernetes.default.svc
     namespace: regional-sovereignty

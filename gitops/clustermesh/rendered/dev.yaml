@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+  name: clustermesh
+---
+apiVersion: v1
+data:
+  clustermesh.yaml: |
+    clusters:
+      - name: region-1
+        service: cluster-service-region-1.clustermesh.svc
+        port: 2379
+      - name: region-2
+        service: cluster-service-region-2.clustermesh.svc
+        port: 2379
+  wireguard.yaml: |
+    encryption:
+      type: wireguard
+      interface: cilium_wg0
+      nodeEncryption: true
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+  name: clustermesh-config
+  namespace: clustermesh
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    io.cilium/cluster: region-1
+  name: cluster-service-region-1
+  namespace: clustermesh
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    io.cilium/cluster: region-1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    io.cilium/cluster: region-2
+  name: cluster-service-region-2
+  namespace: clustermesh
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+    io.cilium/cluster: region-2
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumClusterWideConfig
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-clustermesh
+  namespace: clustermesh
+spec:
+  clustermesh:
+    config:
+      clusters:
+      - name: region-1
+        port: 2379
+        service: cluster-service-region-1.clustermesh.svc
+      - name: region-2
+        port: 2379
+        service: cluster-service-region-2.clustermesh.svc
+    enable: true
+  encryption:
+    nodeEncryption: true
+    type: wireguard
+---
+apiVersion: hpdc.io/v1
+kind: ClusterMesh
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-clustermesh
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-clustermesh
+  namespace: clustermesh
+spec:
+  discovery:
+    cross_cluster: true
+    manual_per_service_discovery: false
+  protocol: WireGuard
+  regions:
+  - region-1
+  - region-2
+  traffic:
+    encrypted: true

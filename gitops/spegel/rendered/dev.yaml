@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: spegel
+    app.kubernetes.io/part-of: hpdc-platform
+  name: spegel
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: spegel
+    app.kubernetes.io/part-of: hpdc-platform
+  name: spegel
+  namespace: spegel
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: spegel
+    app.kubernetes.io/part-of: hpdc-platform
+  name: spegel-registry
+  namespace: spegel
+spec:
+  ports:
+  - name: registry
+    port: 7979
+    targetPort: registry
+  selector:
+    app.kubernetes.io/name: spegel
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/name: spegel
+    app.kubernetes.io/part-of: hpdc-platform
+  name: spegel
+  namespace: spegel
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spegel
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spegel
+    spec:
+      containers:
+      - args:
+        - --namespace=spegel
+        - --registry=registry.k8s.io
+        - --containerd-address=/run/containerd/containerd.sock
+        image: ghcr.io/spegel-org/spegel:v0.7.4
+        imagePullPolicy: IfNotPresent
+        name: spegel
+        ports:
+        - containerPort: 7979
+          name: registry
+        volumeMounts:
+        - mountPath: /run/containerd
+          name: containerd
+          readOnly: true
+      serviceAccountName: spegel

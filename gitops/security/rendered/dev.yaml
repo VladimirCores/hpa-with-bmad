@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: security
+    app.kubernetes.io/part-of: hpdc-platform
+  name: security
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: events-api-key
+    app.kubernetes.io/part-of: hpdc-platform
+  name: events-api-key
+  namespace: security
+stringData:
+  events-key: hpdc-events-dev-key
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-api-key
+    app.kubernetes.io/part-of: hpdc-platform
+  name: telemetry-api-key
+  namespace: security
+stringData:
+  telemetry-key: hpdc-telemetry-dev-key
+type: Opaque
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-graphql-gateway-jwt-authn
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-graphql-gateway-jwt-authn
+  namespace: security
+spec:
+  jwt:
+    providers:
+    - issuer: https://casdoor.hpdc.local
+      name: casdoor-hpdc
+      remoteJWKS:
+        uri: https://casdoor.hpdc.local/.well-known/jwks.json
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: hpdc-graphql-gateway
+    namespace: entity-store
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-messaging-api-key-authn
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-messaging-api-key-authn
+  namespace: security
+spec:
+  apiKeyAuth:
+  - methods:
+    - parameter:
+        name: X-API-Key
+        type: Header
+      path:
+        type: PathPrefix
+        value: /data
+    - parameter:
+        name: X-API-Key
+        type: Header
+      path:
+        type: PathPrefix
+        value: /api
+    - parameter:
+        name: X-API-Key
+        type: Header
+      path:
+        type: PathPrefix
+        value: /events
+    name: events-api-key
+    secretRef:
+      name: events-api-key
+  jwt: []
+  localJWTProviders: []
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: hpdc-edge-domain-routes
+    namespace: envoy-gateway-system
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-grpc-api-key-authn
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-grpc-api-key-authn
+  namespace: security
+spec:
+  apiKeyAuth:
+  - methods:
+    - parameter:
+        name: X-API-Key
+        type: Header
+      path:
+        type: PathPrefix
+        value: /hpdc.telemetry.v1.TelemetryService
+    name: telemetry-api-key
+    secretRef:
+      name: telemetry-api-key
+  jwt: []
+  localJWTProviders: []
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: hpdc-telemetry-grpc-ingestion
+    namespace: telemetry-ingestion
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-http-api-key-authn
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-http-api-key-authn
+  namespace: security
+spec:
+  apiKeyAuth:
+  - methods:
+    - parameter:
+        name: X-API-Key
+        type: Header
+      path:
+        type: PathPrefix
+        value: /telemetry
+    name: telemetry-api-key
+    secretRef:
+      name: telemetry-api-key
+  jwt: []
+  localJWTProviders: []
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: hpdc-telemetry-http-ingestion
+    namespace: telemetry-ingestion

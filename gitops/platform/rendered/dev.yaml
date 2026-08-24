@@ -1,0 +1,893 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-platform
+    app.kubernetes.io/part: platform-offline-scaffold
+    environment: dev
+  name: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: alert-handler
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: alert-handler
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: entity-handler
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: entity-handler
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: mcp-agent-handler
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: mcp-agent-handler
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: observability-handler
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: observability-handler
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: regional-api-handler
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: regional-api-handler
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-ingestion
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-ingestion
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-processor
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-processor
+  namespace: hpdc-platform
+---
+apiVersion: v1
+data:
+  dead_letter_policy:
+    max_redeliver_count: 3
+  default_partitions: "12"
+  ordering_key: device_id
+  partition_keys: |
+    device_type,region_id
+  persistence:
+    storage_class: hpdc-ceph
+  retention:
+    dev: 24h
+    prod: configurable
+    staging: 7d
+  topic_namespace: hpdc.telemetry
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: pulsar-topic-policy
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: pulsar-topic-policy
+  namespace: hpdc-platform
+---
+apiVersion: v1
+data:
+  compatibility: BACKWARD
+  max_payload_bytes: "65536"
+  schema.proto: |
+    syntax = "proto3";
+    package hpdc.telemetry.v1;
+
+    message CommonEnvelope {
+      string idempotency_key = 1;
+      string device_id = 2;
+      string device_type = 3;
+      string event_type = 4;
+      int64 timestamp = 5;
+      bytes payload = 6;
+      string region_id = 7;
+      string origin = 8;
+    }
+
+    service TelemetryService {
+      rpc PublishTelemetry(CommonEnvelope) returns (TelemetryAck);
+    }
+
+    message TelemetryAck {
+      string idempotency_key = 1;
+      bool accepted = 2;
+      string error_code = 3;
+      string error_message = 4;
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-common-envelope
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-common-envelope
+  namespace: hpdc-platform
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: alert-api
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: alert-api
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 8080
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: alert-api
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: clickhouse-sink
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: clickhouse-sink
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: jdbc
+    port: 8123
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: clickhouse-sink
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: entity-api
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: entity-api
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 8080
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: entity-api
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: keydb-cache
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: keydb-cache
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: redis
+    port: 6379
+  - name: metrics
+    port: 9121
+  selector:
+    app.kubernetes.io/name: keydb-cache
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: mcp-tools
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: mcp-tools
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 8080
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: mcp-tools
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: observability-ui
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: observability-ui
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 3000
+  selector:
+    app.kubernetes.io/name: observability-ui
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: pulsar-functions
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: pulsar-functions
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: pulsar-functions
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: regional-apis
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: regional-apis
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 8080
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: regional-apis
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: spin-functions
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: spin-functions
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 3000
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: spin-functions
+    environment: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-normalizer
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-normalizer
+  namespace: hpdc-platform
+spec:
+  ports:
+  - name: http
+    port: 8080
+  - name: metrics
+    port: 9090
+  selector:
+    app.kubernetes.io/name: telemetry-normalizer
+    environment: dev
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/name: spin-functions-lag
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: spin-functions-lag
+  namespace: hpdc-platform
+spec:
+  maxReplicas: 100
+  metrics:
+  - external:
+      metric:
+        name: kafka_consumer_lag
+      target:
+        averageValue: 10000
+        type: AverageValue
+    type: External
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: spin-functions
+---
+apiVersion: hpdc.io/v1
+kind: AgentCommunication
+metadata:
+  labels:
+    app.kubernetes.io/name: authenticated-agent-communication
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: authenticated-agent-communication
+  namespace: hpdc-platform
+spec:
+  channel:
+    authenticated: true
+  impersonation:
+    discovery: registered_agents_only
+    unauthorized_prevented: true
+  registration:
+    registered_agents_required: true
+---
+apiVersion: hpdc.io/v1
+kind: AlertAuditTrail
+metadata:
+  labels:
+    app.kubernetes.io/name: alert-audit-trail
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: alert-audit-trail
+  namespace: hpdc-platform
+spec:
+  actions:
+  - acknowledge
+  - investigate
+  - add_note
+  - resolve
+  concurrent_edit_policy:
+    prevent_same_state_update: true
+  visibility:
+    audit_history: true
+    authorized_users: true
+    latest_state: true
+---
+apiVersion: hpdc.io/v1
+kind: AlertResponseEngine
+metadata:
+  labels:
+    app.kubernetes.io/name: alert-response-engine
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: alert-response-engine
+  namespace: hpdc-platform
+spec:
+  ai_suggestion_policy:
+    low_confidence: escalate_to_manual_review
+    sensitive_actions: require_human_approval
+  correlation_id: alert_id
+  device_communication_latency_ms: 200
+  webhook_attempts: 3
+  webhook_backoff: exponential
+  webhook_delivery_latency_ms: 500
+  workflow_start: required
+---
+apiVersion: hpdc.io/v1
+kind: AlertSignalStream
+metadata:
+  labels:
+    app.kubernetes.io/name: directed-alert-signals
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: directed-alert-signals
+  namespace: hpdc-platform
+spec:
+  error_response:
+    structured_http_error: true
+  payload_fields:
+    alert_id: required
+    device_id: required
+    metadata: required
+    severity: required
+    timestamp: required
+  routing:
+    separate_from_telemetry: true
+  topic: hpdc.alerts
+---
+apiVersion: hpdc.io/v1
+kind: AlertStateMachine
+metadata:
+  labels:
+    app.kubernetes.io/name: alert-state-machine
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: alert-state-machine
+  namespace: hpdc-platform
+spec:
+  audit:
+    actor: required
+    change_diff: required
+    timestamp: required
+  invalid_transition_response:
+    http_status: 409
+    include_current_state: true
+  latency_targets:
+    couchdb_write_ms: 100
+    keydb_update_ms: 50
+  persistence:
+    couchdb: true
+    keydb: true
+  valid_path:
+  - initial
+  - acknowledged
+  - investigating
+  - resolved
+  - closed
+---
+apiVersion: hpdc.io/v1
+kind: ClickHouseTable
+metadata:
+  labels:
+    app.kubernetes.io/name: device_metrics
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: device_metrics
+  namespace: hpdc-platform
+spec:
+  database: telemetry
+  retention:
+    dev: 24h
+    prod: configurable
+    staging: 7d
+  storage:
+    storage_class: hpdc-ceph
+  tableName: device_metrics
+  template: |
+    CREATE TABLE telemetry.device_metrics
+    (
+      device_type LowCardinality(String),
+      region_id LowCardinality(String),
+      device_id String,
+      event_type String,
+      processed_timestamp DateTime64(3, 'UTC'),
+      message_timestamp DateTime64(3, 'UTC'),
+      payload String,
+      origin String,
+      idempotency_key String,
+      ingest_timestamp DateTime64(3, 'UTC') DEFAULT now64(3)
+    )
+    ENGINE = ReplacingMergeTree(ingest_timestamp)
+    PARTITION BY toYYYYMM(processed_timestamp)
+    ORDER BY (device_type, processed_timestamp)
+---
+apiVersion: hpdc.io/v1
+kind: ClusterMesh
+metadata:
+  labels:
+    app.kubernetes.io/name: regional-clustermesh
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: regional-clustermesh
+  namespace: hpdc-platform
+spec:
+  discovery:
+    cross_cluster: true
+    manual_per_service_discovery: false
+  protocol: WireGuard
+  traffic:
+    encrypted: true
+---
+apiVersion: hpdc.io/v1
+kind: EntityChangeFeed
+metadata:
+  labels:
+    app.kubernetes.io/name: entity-change-feed
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: entity-change-feed
+  namespace: hpdc-platform
+spec:
+  reaction_time_ms: 500
+  retry_policy:
+    automatic_retry: true
+    dead_letter_queue: hpdc.entity.dead.letter
+  sources:
+  - couchdb._changes
+  - yugabytedb.cdc
+  workflow:
+    exactly_once: true
+    knative: true
+    restate: true
+---
+apiVersion: hpdc.io/v1
+kind: EntityCrud
+metadata:
+  labels:
+    app.kubernetes.io/name: entity-crud-and-bulk-operations
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: entity-crud-and-bulk-operations
+  namespace: hpdc-platform
+spec:
+  bulk_limit: 1000
+  entity_types:
+  - company
+  - client
+  - device
+  - asset
+  latency_budget_ms: 200
+  mutation_logging:
+    actor: required
+    change_diff: required
+    timestamp: required
+---
+apiVersion: hpdc.io/v1
+kind: EntityStore
+metadata:
+  labels:
+    app.kubernetes.io/name: entity-hierarchy-store
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: entity-hierarchy-store
+  namespace: hpdc-platform
+spec:
+  stateful_storage:
+    ceph_backed: true
+  stores:
+    arcadedb:
+      graph_lineage: true
+      relationship_data: true
+    couchdb:
+      document_crud: true
+      document_hierarchy: true
+    yugabytedb:
+      internal_transactional_state: true
+---
+apiVersion: hpdc.io/v1
+kind: HasuraGraphQL
+metadata:
+  labels:
+    app.kubernetes.io/name: cross-store-entity-graphql
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: cross-store-entity-graphql
+  namespace: hpdc-platform
+spec:
+  endpoint: /gql
+  joins:
+    clickhouse_telemetry: true
+    couchdb_entities: true
+    yugabytedb_resources: true
+  latency_budget_ms: 2000
+  permissions:
+    role_model: configured
+---
+apiVersion: hpdc.io/v1
+kind: KeyDBCache
+metadata:
+  labels:
+    app.kubernetes.io/name: hot-device-state-and-alert-context
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: hot-device-state-and-alert-context
+  namespace: hpdc-platform
+spec:
+  cache_miss_policy:
+    fallback_timeout_ms: 100
+    propagate_cache_errors: false
+  default_ttl_seconds: 300
+  fallback_stores:
+  - couchdb
+  - clickhouse
+  - yugabytedb
+  metrics:
+    cache_hit_total: enabled
+    cache_latency_ms_p99: enabled
+    cache_miss_total: enabled
+  refresh_triggers:
+  - telemetry
+  - alert_state
+  - entity_change
+---
+apiVersion: hpdc.io/v1
+kind: LlmDecisionSupport
+metadata:
+  labels:
+    app.kubernetes.io/name: llm-decision-support
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: llm-decision-support
+  namespace: hpdc-platform
+spec:
+  logging:
+    decision_context: true
+    input: true
+    output: true
+  provider: configured
+  response_scope: actionable_recommendations_only
+  sensitive_action_policy:
+    execute_without_approval: false
+---
+apiVersion: hpdc.io/v1
+kind: MCPToolRegistry
+metadata:
+  labels:
+    app.kubernetes.io/name: platform-capabilities-mcp-tools
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: platform-capabilities-mcp-tools
+  namespace: hpdc-platform
+spec:
+  logging:
+    agent_id: required
+    parameters: required
+    result: required
+    tool_name: required
+  tools:
+    call_apis: true
+    query_databases: true
+    trigger_workflows: true
+  validation:
+    security_policy: required
+---
+apiVersion: hpdc.io/v1
+kind: ObservabilityPipeline
+metadata:
+  labels:
+    app.kubernetes.io/name: platform-observability-pipeline
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: platform-observability-pipeline
+  namespace: hpdc-platform
+spec:
+  alertmanager:
+    routing: configured
+    stale_metric_warning_minutes: 5
+  dashboards:
+    grafana:
+      alert_statistics: true
+      business_metrics: true
+      platform_health: true
+      telemetry_throughput: true
+  logs:
+    search_within_seconds: 5
+    vmlog: true
+  metrics_cluster:
+    victoriametrics:
+      components:
+      - vmstorage
+      - vminsert
+      - vmselect
+      retention:
+        dev: 24h
+        prod: configurable
+        staging: 7d
+  traces:
+    backend: victoriametrics
+    opentelemetry_collector: true
+---
+apiVersion: hpdc.io/v1
+kind: PulsarFunction
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-windowed-aggregator
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-windowed-aggregator
+  namespace: hpdc-platform
+spec:
+  retry_policy:
+    max_retries: 3
+  runtime: JAVA
+  sink:
+    ack_path: jdbc_sink
+    batch_size: 25000
+    database: clickhouse
+    flush_interval_ms: 500
+    table: device_metrics
+    type: jdbc
+  source:
+    subscriptionNamePrefix: telemetry-normalized
+  user_config:
+    aggregation_window: 500ms
+    batch_size: 25000
+    dead_letter_queue: hpdc.telemetry.dead.letter
+    flush_interval_ms: 500
+---
+apiVersion: hpdc.io/v1
+kind: RegionalApiHub
+metadata:
+  labels:
+    app.kubernetes.io/name: regional-apis
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: regional-apis
+  namespace: hpdc-platform
+spec:
+  aggregate_metrics: true
+  auth:
+    region_scoped: true
+  central_hub:
+    per_region_drilldown: true
+    stores_regional_data: false
+---
+apiVersion: hpdc.io/v1
+kind: RegionalDataSovereignty
+metadata:
+  labels:
+    app.kubernetes.io/name: regional-data-sovereignty
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: regional-data-sovereignty
+  namespace: hpdc-platform
+spec:
+  regional_stores:
+    arcadedb: true
+    clickhouse: true
+    couchdb: true
+    keydb: true
+    postgresql: true
+    yugabytedb: true
+  replication:
+    default: disabled
+    explicit_configuration_required: true
+---
+apiVersion: hpdc.io/v1
+kind: SpinWasmFunction
+metadata:
+  labels:
+    app.kubernetes.io/name: event-telemetry-transform
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: event-telemetry-transform
+  namespace: hpdc-platform
+spec:
+  enrichment:
+    device_type: enabled
+    origin: enabled
+    region_id: enabled
+  field_mapping:
+    device_id: device_id
+    device_type: device_type
+    event_type: event_type
+    payload: payload
+    region_id: region_id
+    timestamp: timestamp
+  function_type: filtering
+  latency_budget_ms: 10
+  scale:
+    metric: kafka.consumer.lag
+    target_lag_per_replica: 10000
+  topic: hpdc.telemetry.events
+---
+apiVersion: hpdc.io/v1
+kind: TelemetryBackpressurePolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-backpressure-policy
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: hpdc-telemetry-backpressure-policy
+  namespace: hpdc-platform
+spec:
+  drop_policy:
+    drop_when_buffer_full: true
+    reason_labels:
+      buffer_full: enabled
+      consumer_lag: enabled
+      schema_error: enabled
+  exponential_backoff:
+    initial_ms: 50
+    max_ms: 5000
+    multiplier: 2
+  max_buffer_bytes: 1073741824
+  max_consumer_lag: 50000
+  memory_ceiling:
+    hard_limit_mb: 2048
+    soft_limit_mb: 1536
+  metrics:
+    ingestion_dropped_total:
+      labels:
+        device_type: enabled
+        reason: enabled
+        region_id: enabled
+---
+apiVersion: hpdc.io/v1
+kind: ToolUIRoute
+metadata:
+  labels:
+    app.kubernetes.io/name: grafana-hubble-tool-ui-routes
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: grafana-hubble-tool-ui-routes
+  namespace: hpdc-platform
+spec:
+  authz:
+    casdoor_casbin_ext_authz: false
+  routes:
+  - host: grafana.hpdc.local
+    native_auth: true
+    service: grafana
+  - host: hubble.hpdc.local
+    native_auth: true
+    service: hubble
+  tls:
+    termination: envoy_gateway
+---
+apiVersion: pulsar.streamnative.io/v1alpha1
+kind: PulsarTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-normalized
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-normalized
+  namespace: hpdc-platform
+spec:
+  partitions: 12
+  properties:
+    device_type: enabled
+    origin: enabled
+    region_id: enabled
+  retention:
+    dev: 24h
+    prod: configurable
+    staging: 7d
+  topicType: partitioned
+---
+apiVersion: pulsar.streamnative.io/v1alpha1
+kind: PulsarTopic
+metadata:
+  labels:
+    app.kubernetes.io/name: telemetry-normalized-dev
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: telemetry-normalized-dev
+  namespace: hpdc-platform
+spec:
+  partitions: 4
+  properties:
+    device_type: enabled
+    origin: enabled
+    region_id: enabled
+  retention:
+    dev: 24h
+  topicType: partitioned

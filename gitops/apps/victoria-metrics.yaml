@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: http://10.6.0.1:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/victoria-metrics/overlays/dev
+    path: gitops/victoria-metrics/rendered
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

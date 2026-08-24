@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-hub
+---
+apiVersion: v1
+data:
+  visibility.yaml: |
+    aggregate_metrics: true
+    per_region_drilldown: true
+    store_regional_data: false
+    query_regional_apis: true
+    auth: region_scoped
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hub-visibility-config
+  namespace: regional-hub
+---
+apiVersion: v1
+data:
+  regions.yaml: |
+    - region: region-1
+      api: https://region-1.api.hpdc.local
+      auth: region_scoped_token
+    - region: region-2
+      api: https://region-2.api.hpdc.local
+      auth: region_scoped_token
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-api-config
+  namespace: regional-hub
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-hub-spa
+  namespace: regional-hub
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-hub-spa
+  namespace: regional-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: multi-region
+      app.kubernetes.io/name: hpdc-regional-hub
+      app.kubernetes.io/part-of: hpdc-platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: multi-region
+        app.kubernetes.io/name: hpdc-regional-hub
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - image: ghcr.io/hpdc/regional-hub-spa:dev
+        imagePullPolicy: IfNotPresent
+        name: regional-hub-spa
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /etc/regional-hub
+          name: regional-api-config
+          readOnly: true
+      volumes:
+      - configMap:
+          name: regional-api-config
+        name: regional-api-config
+---
+apiVersion: hpdc.io/v1
+kind: RegionalApiHub
+metadata:
+  labels:
+    app.kubernetes.io/component: multi-region
+    app.kubernetes.io/name: hpdc-regional-hub
+    app.kubernetes.io/part-of: hpdc-platform
+  name: regional-apis
+  namespace: regional-hub
+spec:
+  aggregate_metrics: true
+  auth:
+    region_scoped: true
+  central_hub:
+    per_region_drilldown: true
+    stores_regional_data: false
+  regions:
+  - region-1
+  - region-2
