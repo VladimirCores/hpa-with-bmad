@@ -39,3 +39,4 @@ __pycache__/
 .tox/
 .venv/
 venv/
+.kube/

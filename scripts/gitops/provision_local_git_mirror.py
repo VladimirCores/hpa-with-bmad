@@ -54,7 +54,7 @@ def refresh_bare_mirror() -> None:
     """Clone/update a bare mirror of this repository for dumb-HTTP serving."""
     if BARE_REPO.exists():
         subprocess.run(
-            ["git", "fetch", "--all", "--prune"],
+            ["git", "fetch", "origin", "+refs/heads/*:refs/heads/*", "--prune"],
             cwd=BARE_REPO, capture_output=True, text=True, check=False,
         )
     else:
@@ -82,7 +82,7 @@ def serve_mirror() -> None:
     MIRROR_LOG.parent.mkdir(parents=True, exist_ok=True)
     with MIRROR_LOG.open("a", encoding="utf-8") as log:
         subprocess.Popen(
-            ["python3", "-m", "http.server", str(MIRROR_PORT), "--bind", "0.0.0.0"],
+            [sys.executable, str(ROOT / "scripts" / "services" / "git-smart-http.py")],
             cwd=MIRROR_DIR,
             stdout=log,
             stderr=log,

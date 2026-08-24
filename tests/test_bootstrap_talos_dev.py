@@ -8,8 +8,10 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+GITOPS_DIR = SCRIPTS_DIR / "gitops"
+for entry in (SCRIPTS_DIR, GITOPS_DIR):
+    if str(entry) not in sys.path:
+        sys.path.insert(0, str(entry))
 REQUIRED_FILES = [
     ROOT / "scripts/startup.dev.py",
     ROOT / "scripts" / "steps" / "02-bootstrap-talos-dev.py",
@@ -80,6 +82,175 @@ def test_configure_talosconfig_creates_placeholder_when_missing() -> None:
         finally:
             module.TALOSCONFIG = original
         assert talosconfig.exists(), "missing talosconfig must be seeded with a placeholder"
+
+
+def test_prune_kubeconfig_prefix_removes_all_matching_entries() -> None:
+    import bootstrap_talos_dev as module
+
+    cfg = {
+        "clusters": [
+            {"name": "hpdc-talos", "cluster": {"server": "https://127.0.0.1:1"}},
+            {"name": "hpdc-talos-9", "cluster": {"server": "https://127.0.0.1:2"}},
+            {"name": "other", "cluster": {"server": "https://127.0.0.1:3"}},
+        ],
+        "users": [
+            {"name": "admin@hpdc-talos"},
+            {"name": "admin@hpdc-talos-9"},
+            {"name": "admin@other"},
+        ],
+        "contexts": [
+            {"name": "admin@hpdc-talos", "context": {"cluster": "hpdc-talos", "user": "admin@hpdc-talos"}},
+            {"name": "admin@hpdc-talos-9", "context": {"cluster": "hpdc-talos-9", "user": "admin@hpdc-talos-9"}},
+            {"name": "admin@other", "context": {"cluster": "other", "user": "admin@other"}},
+        ],
+        "current-context": "admin@hpdc-talos-9",
+    }
+    pruned = module.prune_kubeconfig_prefix(cfg, "hpdc-talos")
+    assert [c["name"] for c in pruned["clusters"]] == ["other"]
+    assert [u["name"] for u in pruned["users"]] == ["admin@other"]
+    assert [c["name"] for c in pruned["contexts"]] == ["admin@other"]
+    assert pruned["current-context"] == "admin@other"
+
+
+def test_prune_kubeconfig_prefix_keeps_untouched_current_context() -> None:
+    import bootstrap_talos_dev as module
+
+    cfg = {
+        "clusters": [{"name": "keep", "cluster": {}}],
+        "users": [{"name": "admin@keep"}],
+        "contexts": [{"name": "admin@keep", "context": {"cluster": "keep"}}],
+        "current-context": "admin@keep",
+    }
+    pruned = module.prune_kubeconfig_prefix(cfg, "hpdc-talos")
+    assert pruned["current-context"] == "admin@keep"
+    assert len(pruned["contexts"]) == 1
+
+
+def test_prune_kubeconfig_prefix_handles_missing_sections() -> None:
+    import bootstrap_talos_dev as module
+
+    assert module.prune_kubeconfig_prefix({}, "hpdc-talos") == {}
+    pruned = module.prune_kubeconfig_prefix({"current-context": "admin@hpdc-talos"}, "hpdc-talos")
+    assert "current-context" not in pruned or pruned["current-context"] != "admin@hpdc-talos"
+
+
+def test_prune_talosconfig_prefix_resets_context_to_sole_survivor() -> None:
+    import bootstrap_talos_dev as module
+
+    cfg = {
+        "context": "hpdc-talos-4",
+        "contexts": {
+            "hpdc-talos": {"endpoints": ["127.0.0.1:1"]},
+            "hpdc-talos-4": {"endpoints": ["127.0.0.1:2"]},
+        },
+    }
+    pruned = module.prune_talosconfig_prefix(cfg, "hpdc-talos")
+    assert list(pruned["contexts"]) == []
+    assert pruned["context"] == ""
+
+
+def test_patch_cluster_servers_rewrites_every_cluster() -> None:
+    import bootstrap_talos_dev as module
+
+    cfg = {
+        "clusters": [
+            {"name": "a", "cluster": {"server": "https://10.6.0.2:6443"}},
+            {"name": "b", "cluster": {"certificate-authority": "ca.crt"}},
+        ],
+    }
+    patched, count = module.patch_cluster_servers(cfg, "https://127.0.0.1:46861")
+    assert count == 2
+    servers = [c["cluster"]["server"] for c in patched["clusters"]]
+    assert servers == ["https://127.0.0.1:46861", "https://127.0.0.1:46861"]
+    assert patched["clusters"][1]["cluster"]["certificate-authority"] == "ca.crt"
+
+
+def test_purge_stale_cluster_state_cleans_root_and_user_configs() -> None:
+    import unittest.mock
+    import bootstrap_talos_dev as module
+
+    stale = {
+        "clusters": [{"name": "hpdc-talos-3", "cluster": {"server": "https://127.0.0.1:1"}}],
+        "users": [{"name": "admin@hpdc-talos-3"}],
+        "contexts": [{"name": "admin@hpdc-talos-3", "context": {}}],
+        "current-context": "admin@hpdc-talos-3",
+    }
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["sudo", "cat"]:
+            return unittest.mock.Mock(returncode=0, stdout=__import__("yaml").safe_dump(stale))
+        return unittest.mock.Mock(returncode=0, stdout="")
+
+    with unittest.mock.patch.object(module.shutil, "which", return_value="/usr/bin/sudo"), \
+         unittest.mock.patch.object(module.subprocess, "run", side_effect=fake_run), \
+         tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp) / "home"
+        (home / ".kube").mkdir(parents=True)
+        (home / ".kube" / "config").write_text(__import__("yaml").safe_dump(stale), encoding="utf-8")
+        with unittest.mock.patch.object(module.Path, "home", return_value=home):
+            module.purge_stale_cluster_state()
+
+        kept = __import__("yaml").safe_load((home / ".kube" / "config").read_text(encoding="utf-8"))
+        assert kept["clusters"] == []
+        assert kept.get("current-context") != "admin@hpdc-talos-3"
+
+
+def test_cluster_create_command_disables_flannel_and_kube_proxy() -> None:
+    import bootstrap_talos_dev as module
+
+    args = module.argparse.Namespace(
+        workers=3,
+        cpus_controlplanes=2.0,
+        cpus_workers=2.0,
+        memory_controlplanes="2048",
+        memory_workers="3072",
+        subnet="10.6.0.0/24",
+        kubernetes_version=None,
+    )
+    cmd = module.build_cluster_create_command(["sudo", "-E", "talosctl"], args)
+    assert "--name" in cmd and "hpdc-talos" in cmd
+    idx = cmd.index("--config-patch")
+    assert cmd[idx + 1] == f"@{module.CNI_PATCH}"
+    patch_path = Path(module.CNI_PATCH)
+    assert patch_path.exists(), "CNI patch file must exist"
+
+
+def test_cni_patch_disables_bundled_cni_and_kube_proxy() -> None:
+    import yaml
+    import bootstrap_talos_dev as module
+
+    cfg = yaml.safe_load(Path(module.CNI_PATCH).read_text(encoding="utf-8"))
+    assert "apiVersion" not in cfg and "kind" not in cfg, (
+        "patch must be a bare strategic-merge fragment; talosctl rejects apiVersion/kind wrappers"
+    )
+    cluster = cfg["cluster"]
+    assert cluster["network"]["cni"]["name"] == "none", (
+        "flannel must be disabled (network.cni none) so Cilium is the only CNI (Talos >= 1.13 schema)"
+    )
+    assert cluster["proxy"]["disabled"] is True, "kube-proxy must be disabled; Cilium KPR replaces it"
+
+
+def test_destroy_cleans_root_provisioner_state() -> None:
+    import unittest.mock
+    import bootstrap_talos_dev as module
+
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[:3] == ["sudo", "-n", "cat"]:
+            return unittest.mock.Mock(returncode=1, stdout="", stderr="no file")
+        return unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+    with unittest.mock.patch.object(module.shutil, "which", return_value="/usr/bin/sudo"), \
+         unittest.mock.patch.object(module.subprocess, "run", side_effect=fake_run):
+        module.destroy_existing_cluster()
+
+    rm_calls = [c for c in calls if c[:3] == ["sudo", "-n", "rm"]]
+    assert rm_calls, "destroy must remove root's leftover provisioner state directory"
+    assert any(str(module.ROOT_STATE.parent) in " ".join(c) and module.CLUSTER_NAME in " ".join(c) for c in rm_calls), (
+        f"expected rm targeting {module.CLUSTER_NAME} under root talos clusters dir, got: {rm_calls}"
+    )
 
 
 if __name__ == "__main__":
