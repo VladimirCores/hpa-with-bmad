@@ -52,7 +52,7 @@ spec:
     spec:
       containers:
         - name: infisical
-          image: docker.io/infisical/infisical:0.10.0
+          image: docker.io/infisical/infisical:v0.162.24
           imagePullPolicy: IfNotPresent
           args:
             - --configPath

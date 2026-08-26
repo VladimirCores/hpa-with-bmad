@@ -19,6 +19,10 @@ from pathlib import Path
 
 import yaml
 
+from component_versions import DEFAULTS as _VERSION_DEFAULTS
+from component_versions import load_dotenv as _load_dotenv_impl
+import component_versions
+
 ROOT = Path(__file__).resolve().parents[2]
 TALOS_VERSION = "1.13.7"
 TALOS_VERSION_ARG = f"v{TALOS_VERSION}"
@@ -31,7 +35,7 @@ DEFAULT_MEMORY_WORKER = "3072"
 DEFAULT_STORAGE = "rook-ceph"
 # Pin to the k8s minor whose control-plane images are pre-cached in the local
 # registry mirror (skipFallback makes any uncached tag a hard failure).
-DEFAULT_KUBERNETES_VERSION = "1.35.2"
+DEFAULT_KUBERNETES_VERSION = _VERSION_DEFAULTS["HPDC_KUBERNETES_VERSION"]
 CLUSTER_NAME = "hpdc-talos"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
 CNI_PATCH = ROOT / "platform" / "talos" / "talos-cni-patch.yaml"
@@ -722,21 +726,11 @@ def load_dotenv() -> None:
 
     Lets cluster sizing/topology live in a committed .env.example with local
     overrides in .env (gitignored). Safe under sudo: path is repo-relative.
+
+    Implementation lives in component_versions (single dotenv dialect for the
+    whole toolchain); kept as a thin wrapper for backward compatibility.
     """
-    env_file = ROOT / ".env"
-    if not env_file.exists():
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        if line.startswith("export "):
-            line = line[len("export "):].strip()
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.split(" #", 1)[0].strip().strip('"').strip("'")
-        if key and value:
-            os.environ.setdefault(key, value)
+    component_versions.load_dotenv(ROOT / ".env")
 
 
 def main() -> int:

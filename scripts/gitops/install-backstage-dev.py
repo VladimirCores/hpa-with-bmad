@@ -8,8 +8,12 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
+
+component_versions.load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
+BACKSTAGE_VERSION = component_versions.get("HPDC_BACKSTAGE_VERSION")
 BACKSTAGE_BASE = ROOT / "gitops" / "backstage" / "base"
 BACKSTAGE_OVERLAY = ROOT / "gitops" / "backstage" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "backstage-developer-portal.md"
@@ -31,7 +35,7 @@ def validate_manifests() -> list[str]:
     manifest = (BACKSTAGE_BASE / "backstage.yaml").read_text(encoding="utf-8")
     required_fragments = [
         "kind: Deployment",
-        "image: ghcr.io/backstage/backstage:1.42.0",
+        f"image: ghcr.io/backstage/backstage:{BACKSTAGE_VERSION}",
         "kind: ConfigMap",
         "name: backstage-config",
         "casdoor",

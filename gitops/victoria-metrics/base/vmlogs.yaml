@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
         - name: vmlogs
-          image: victoriametrics/victoria-logs:latest
+          image: victoriametrics/victoria-logs:v1.52.0
           args:
             - -search.maxQueryDuration=5s
           ports:

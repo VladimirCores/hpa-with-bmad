@@ -8,9 +8,11 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
 
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-ARGO_EVENTS_VERSION = "1.9.11"
+ARGO_EVENTS_VERSION = component_versions.get("HPDC_ARGO_EVENTS_VERSION")
 ARGO_EVENTS_IMAGE = ROOT / "output" / "argo-events" / "images" / f"argo-events-v{ARGO_EVENTS_VERSION}"
 ARGO_EVENTS_BASE = ROOT / "gitops" / "argo-events" / "base"
 ARGO_EVENTS_OVERLAY = ROOT / "gitops" / "argo-events" / "overlays" / "dev"

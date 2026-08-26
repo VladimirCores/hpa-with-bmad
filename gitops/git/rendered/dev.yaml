@@ -64,7 +64,7 @@ spec:
         - |
           mkdir -p /data
           echo "Offline Git mirror placeholder" > /data/README.md
-        image: alpine/git:2.45.2
+        image: alpine/git:2.54.0
         imagePullPolicy: IfNotPresent
         name: git
         ports:

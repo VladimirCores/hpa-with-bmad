@@ -9,8 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-CILIUM_VERSION = "1.20.1"
+CILIUM_VERSION = component_versions.get("HPDC_CILIUM_VERSION")
 CILIUM_BASE = ROOT / "gitops" / "cilium" / "base"
 CILIUM_OVERLAY = ROOT / "gitops" / "cilium" / "overlays" / "dev"
 

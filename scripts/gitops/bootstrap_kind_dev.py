@@ -20,7 +20,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WORKERS = 3
 DEFAULT_STORAGE = "local-path"
 KIND_CONFIG = Path("/tmp/kind-hpdc.yaml")
-CILIUM_VERSION = "1.16.5"
+import component_versions as _cv
+
+_cv.load_dotenv()
+CILIUM_VERSION = _cv.get("HPDC_CILIUM_VERSION")
 
 
 def load_env() -> dict[str, str]:
@@ -191,9 +194,9 @@ metadata:
   namespace: kube-system
 spec:
   serviceSelector:
-    matchLabels: {}
+    matchLabels: {{}}
   nodeSelector:
-    matchLabels: {}
+    matchLabels: {{}}
 """
     # Write config to temp file and apply
     config_path = Path("/tmp/cilium-l2-config.yaml")

@@ -8,9 +8,11 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
 
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-ARGO_ROLLOUTS_VERSION = "1.9.1"
+ARGO_ROLLOUTS_VERSION = component_versions.get("HPDC_ARGO_ROLLOUTS_VERSION")
 ARGO_ROLLOUTS_IMAGE = ROOT / "output" / "argo-rollouts" / "images" / f"argo-rollouts-v{ARGO_ROLLOUTS_VERSION}"
 ARGO_ROLLOUTS_BASE = ROOT / "gitops" / "argo-rollouts" / "base"
 ARGO_ROLLOUTS_OVERLAY = ROOT / "gitops" / "argo-rollouts" / "overlays" / "dev"

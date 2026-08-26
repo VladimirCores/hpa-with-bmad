@@ -141,9 +141,15 @@ def print_status() -> int:
         step_rows.append([step_label(step.number), state, desc])
 
     components: dict[str, dict] = {}
+    resolved_versions: dict[str, str] = {}
     try:
         sys.path.insert(0, str(GITOPS_DIR))
         import _provisioned
+        import component_versions
+        component_versions.load_dotenv()
+        for component, ref in component_versions.image_refs():
+            tag = ref.rsplit(":", 1)[-1]
+            resolved_versions.setdefault(component, tag)
         components = _provisioned.load()
     except Exception:
         pass
@@ -154,7 +160,9 @@ def print_status() -> int:
             version = str(entry.get("version") or entry.get("value") or "")
             if len(version) > 24:
                 version = version[:21] + "..."
-        comp_rows.append([name, version])
+        wanted = resolved_versions.get(name, "")
+        drift = "" if not wanted or wanted in version else f"  (resolved: {wanted})"
+        comp_rows.append([name, version + drift])
 
     print(f"Cluster : {cluster_summary()}")
     print(f"Registry: {registry_summary()}")
@@ -163,7 +171,7 @@ def print_status() -> int:
     print(render_table(["STEP", "LAST-RUN", "DESCRIPTION"], step_rows))
     print()
     if comp_rows:
-        print("Provisioned components (output/provisioned.yaml):")
+        print("Provisioned components (output/provisioned.yaml; 'resolved:' = .env catalog):")
         print(render_table(["COMPONENT", "VERSION"], comp_rows))
     else:
         print("Provisioned components: none recorded.")

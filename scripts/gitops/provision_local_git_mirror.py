@@ -10,8 +10,12 @@ import time
 from pathlib import Path
 
 from _provisioned import require, value
+import component_versions
+
+component_versions.load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
+GIT_MIRROR_IMAGE_VERSION = component_versions.get("HPDC_GIT_MIRROR_IMAGE_VERSION")
 GIT_BASE = ROOT / "gitops" / "git" / "base"
 GIT_OVERLAY = ROOT / "gitops" / "git" / "overlays" / "dev"
 MIRROR_LOG = ROOT / "output" / "git-mirror.log"
@@ -35,7 +39,7 @@ def validate_manifests() -> list[str]:
     mirror = (GIT_BASE / "git-mirror.yaml").read_text(encoding="utf-8")
     if "kind: Deployment" not in mirror or "name: git-mirror" not in mirror:
         failures.append("git-mirror.yaml missing Git mirror Deployment")
-    if "alpine/git:2.45.2" not in mirror:
+    if f"alpine/git:{GIT_MIRROR_IMAGE_VERSION}" not in mirror:
         failures.append("git-mirror.yaml missing Git image")
     if "storageClassName: rook-ceph-rbd" not in mirror:
         failures.append("git-mirror.yaml missing Rook-Ceph PVC storageClass")

@@ -79,7 +79,7 @@ spec:
           value: debug
         - name: CASDOOR_ADMIN_PASSWORD
           value: CasdoorAdmin12345
-        image: docker.io/casbin/casdoor:latest
+        image: docker.io/casbin/casdoor:3.159.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

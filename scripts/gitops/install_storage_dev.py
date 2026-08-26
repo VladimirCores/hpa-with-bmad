@@ -16,10 +16,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
+LOCAL_PATH_VERSION = component_versions.get("HPDC_LOCAL_PATH_PROVISIONER_VERSION")
 LOCAL_PATH_MANIFEST = ROOT / "platform" / "storage" / "local-path-storage.yaml"
-LOCAL_PATH_MANIFEST_URL = "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml"
+LOCAL_PATH_MANIFEST_URL = f"https://raw.githubusercontent.com/rancher/local-path-provisioner/{LOCAL_PATH_VERSION}/deploy/local-path-storage.yaml"
 
 
 def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:

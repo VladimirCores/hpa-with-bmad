@@ -1,13 +1,8 @@
-# Single provisioning-footprint registry for the HPDC dev cluster.
-#
-# Replaces the per-component `output/<component>/*-workspaces.txt`
-# markers. Install scripts gate on `require("<component>")` via
-# scripts/gitops/_provisioned.py; acceptance tests assert the same keys.
 version: 1
 provisioned:
   argocd:
     value: argocd
-    version: 3.5.0
+    version: 3.5.1
   argo-events:
     value: offline-gitops
     version: 1.9.11
@@ -16,26 +11,29 @@ provisioned:
     version: 1.9.1
   kargo:
     value: kargo
-    version: 1.11.0
+    version: 1.11.2
   git-mirror:
     value: git-mirror
   api-key-authn:
     notes:
-      - "hpdc-edge-domain-routes apiKeyAuth (X-API-Key, secretRef events-api-key): /data, /api, /events"
-      - "hpdc-telemetry-http-api-key-authn (X-API-Key, secretRef telemetry-api-key): /telemetry"
-      - "hpdc-telemetry-grpc-api-key-authn (telemetry-api-key store)"
-      - "events-key authenticates only /events; telemetry-key authenticates only /telemetry (R-009)"
+    - 'hpdc-edge-domain-routes apiKeyAuth (X-API-Key, secretRef events-api-key): /data,
+      /api, /events'
+    - 'hpdc-telemetry-http-api-key-authn (X-API-Key, secretRef telemetry-api-key):
+      /telemetry'
+    - hpdc-telemetry-grpc-api-key-authn (telemetry-api-key store)
+    - events-key authenticates only /events; telemetry-key authenticates only /telemetry
+      (R-009)
   harbor-image-cache:
-    value: harbor-2.11.3
+    value: harbor-2.15.2
     images:
-      - name: harbor/harbor-core:v2.11.3
-        source: output/harbor/images/harbor-core-v2.11.3
-        digest: sha256:offline-core
-        changed: false
-      - name: harbor/harbor-registry:v2.11.3
-        source: output/harbor/images/harbor-registry-v2.11.3
-        digest: sha256:offline-registry
-        changed: false
+    - name: harbor/harbor-core:v2.15.2
+      source: output/harbor/images/harbor-core-v2.15.2
+      digest: sha256:offline-core
+      changed: false
+    - name: harbor/harbor-registry:v2.15.2
+      source: output/harbor/images/harbor-registry-v2.15.2
+      digest: sha256:offline-registry
+      changed: false
   envoy-gateway: {}
   casbin-rbac: {}
   casbin-rebac: {}

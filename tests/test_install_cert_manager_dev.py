@@ -10,6 +10,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+
+component_versions.load_dotenv()
+CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
 REQUIRED = [
     "gitops/cert-manager/base/cert-manager.yaml",
     "gitops/cert-manager/overlays/dev/kustomization.yaml",
@@ -34,9 +39,9 @@ def test_cert_manager_tls_termination() -> None:
         assert f"kind: {kind}" in manifest, kind
     assert "name: hpdc-edge-tls" in manifest
     assert "hpdc-selfsigned" in manifest
-    assert "quay.io/jetstack/cert-manager-controller:v1.18.2" in manifest
-    assert "quay.io/jetstack/cert-manager-webhook:v1.18.2" in manifest
-    assert "quay.io/jetstack/cert-manager-cainjector:v1.18.2" in manifest
+    assert f"quay.io/jetstack/cert-manager-controller:v{CERT_MANAGER_VERSION}" in manifest
+    assert f"quay.io/jetstack/cert-manager-webhook:v{CERT_MANAGER_VERSION}" in manifest
+    assert f"quay.io/jetstack/cert-manager-cainjector:v{CERT_MANAGER_VERSION}" in manifest
     envoy = (ROOT / "gitops/envoy-gateway/base/envoy-gateway.yaml").read_text(encoding="utf-8")
     assert "name: hpdc-edge-tls" in envoy
     assert "scheme: HTTPS" in envoy

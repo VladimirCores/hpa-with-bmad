@@ -8,9 +8,13 @@ import sys
 from pathlib import Path
 
 from _provisioned import record
+import component_versions
+
+component_versions.load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
-HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / "harbor-core-v2.11.3"
+HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
+HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}"
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "refresh"
 
@@ -38,7 +42,7 @@ def validate_manifests() -> list[str]:
         failures.append("image-cache-refresh.yaml missing ConfigMap")
     if "digest:" not in refresh or "changed: false" not in refresh:
         failures.append("image-cache-refresh.yaml missing digest/change fields")
-    core = next((image for image in images if image.get("name") == "harbor/harbor-core:v2.11.3"), None)
+    core = next((image for image in images if image.get("name") == f"harbor/harbor-core:v{HARBOR_VERSION}"), None)
     if core is None or core.get("digest") != "sha256:offline-core":
         failures.append("provisioned.yaml harbor-image-cache missing Harbor core digest")
     return failures

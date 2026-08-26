@@ -103,7 +103,7 @@ spec:
     spec:
       containers:
         - name: alertmanager
-          image: prom/alertmanager:latest
+          image: prom/alertmanager:v0.34.0
           ports:
             - name: http
               containerPort: 9093

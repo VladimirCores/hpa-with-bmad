@@ -8,8 +8,11 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
 
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
+ENVOY_GATEWAY_VERSION = component_versions.get("HPDC_ENVOY_GATEWAY_VERSION")
 ENVOY_BASE = ROOT / "gitops" / "envoy-gateway" / "base"
 ENVOY_OVERLAY = ROOT / "gitops" / "envoy-gateway" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "envoy-gateway-edge-routing.md"
@@ -47,7 +50,7 @@ def validate_manifests() -> list[str]:
         if route in manifest:
             failures.append(f"envoy-gateway.yaml must not route {route} (moved to its own route in 10.2)")
 
-    if "image: docker.io/envoyproxy/gateway:v1.8.3" not in manifest:
+    if f"image: docker.io/envoyproxy/gateway:v{ENVOY_GATEWAY_VERSION}" not in manifest:
         failures.append("envoy-gateway.yaml missing pinned Envoy Gateway image")
 
     if "controllerName: gateway.envoyproxy.io/gatewayclass-controller" not in manifest:

@@ -85,7 +85,7 @@ spec:
         env:
         - name: NODE_ENV
           value: production
-        image: ghcr.io/backstage/backstage:1.42.0
+        image: ghcr.io/backstage/backstage:1.54.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

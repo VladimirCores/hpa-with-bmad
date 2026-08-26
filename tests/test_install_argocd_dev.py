@@ -10,6 +10,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+
+component_versions.load_dotenv()
+ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
 
 
 
@@ -27,13 +32,13 @@ def validate() -> None:
     assert "kind: ApplicationSet" in argocd and "name: hpdc-applications" in argocd
     assert "argocd.argoproj.io/sync-wave" in argocd
     assert "git://git-mirror/git-mirror" in argocd
-    assert "quay.io/argoproj/argocd:v3.5.0" in argocd
-    assert (ROOT / "output/argocd/images/argocd-v3.5.0").exists()
+    assert f"quay.io/argoproj/argocd:v{ARGOCD_VERSION}" in argocd
+    assert (ROOT / f"output/argocd/images/argocd-v{ARGOCD_VERSION}").exists()
     for component in ["argocd-server", "argocd-repo-server", "argocd-application-controller", "argocd-applicationset-controller", "argocd-redis"]:
         assert f"name: {component}" in argocd
     provisioned = _load_provisioned()
     assert provisioned["argocd"]["value"] == "argocd"
-    assert provisioned["argocd"]["version"] == "3.5.0"
+    assert provisioned["argocd"]["version"] == ARGOCD_VERSION
 
 
 def main() -> int:

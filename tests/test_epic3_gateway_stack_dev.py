@@ -10,6 +10,15 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+
+component_versions.load_dotenv()
+CASDOOR_VERSION = component_versions.get("HPDC_CASDOOR_VERSION")
+INFISICAL_VERSION = component_versions.get("HPDC_INFISICAL_VERSION")
+SWAGGER_UI_VERSION = component_versions.get("HPDC_SWAGGER_UI_VERSION")
+BACKSTAGE_VERSION = component_versions.get("HPDC_BACKSTAGE_VERSION")
+
 PROVISIONED_COMPONENTS = [
     "api-key-authn",
     "casdoor",
@@ -78,7 +87,7 @@ def test_epic3_gateway_stack() -> None:
     assert "telemetry-api-key" in telemetry_http
 
     casdoor = (ROOT / "gitops/casdoor/base/casdoor.yaml").read_text(encoding="utf-8")
-    assert "casdoor/casdoor:v5.19.0" in casdoor
+    assert f"casbin/casdoor:{CASDOOR_VERSION}" in casdoor
     assert "oidc = true" in casdoor
     assert "saml = true" in casdoor
 
@@ -97,12 +106,12 @@ def test_epic3_gateway_stack() -> None:
     assert "device_state" in abac
 
     infisical = (ROOT / "gitops/infisical/base/infisical.yaml").read_text(encoding="utf-8")
-    assert "infisical/infisical:0.10.0" in infisical
+    assert f"infisical/infisical:{INFISICAL_VERSION}" in infisical
     assert "rotationIntervalDays: 90" in infisical
     assert "csiDriver" in infisical
 
     openapi = (ROOT / "gitops/openapi/base/openapi.yaml").read_text(encoding="utf-8")
-    assert "swagger-ui:v5.32.0" in openapi
+    assert f"swagger-ui:{SWAGGER_UI_VERSION}" in openapi
     assert "name: swagger-ui" in openapi
     spec = (ROOT / "specs/api/hpdc-edge-api.yaml").read_text(encoding="utf-8")
     assert "openapi: 3.0.3" in spec
@@ -112,7 +121,7 @@ def test_epic3_gateway_stack() -> None:
     assert "/gql" in spec
 
     backstage = (ROOT / "gitops/backstage/base/backstage.yaml").read_text(encoding="utf-8")
-    assert "backstage/backstage:1.42.0" in backstage
+    assert f"backstage/backstage:{BACKSTAGE_VERSION}" in backstage
     assert "casdoor" in backstage
     assert "catalog" in backstage
 

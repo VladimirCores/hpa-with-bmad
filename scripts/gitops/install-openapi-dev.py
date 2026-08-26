@@ -8,8 +8,12 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
+
+component_versions.load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
+SWAGGER_UI_VERSION = component_versions.get("HPDC_SWAGGER_UI_VERSION")
 OPENAPI_BASE = ROOT / "gitops" / "openapi" / "base"
 OPENAPI_OVERLAY = ROOT / "gitops" / "openapi" / "overlays" / "dev"
 SPEC = ROOT / "specs" / "api" / "hpdc-edge-api.yaml"
@@ -34,7 +38,7 @@ def validate_manifests() -> list[str]:
     manifest = (OPENAPI_BASE / "openapi.yaml").read_text(encoding="utf-8")
     required_fragments = [
         "kind: Deployment",
-        "image: docker.io/swaggerapi/swagger-ui:v5.32.0",
+        f"image: docker.io/swaggerapi/swagger-ui:{SWAGGER_UI_VERSION}",
         "name: swagger-ui",
         "name: swagger-ui-config",
     ]

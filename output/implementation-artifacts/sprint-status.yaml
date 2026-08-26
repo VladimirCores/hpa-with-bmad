@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-25T23:59:00Z
+# last_updated: 2026-08-26T09:30:00Z
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-24T22:00:00Z
+last_updated: 2026-08-26T09:30:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -146,6 +146,8 @@ development_status:
   11-4-live-cluster-verification: in-progress # blocked_by: 11-5 (Tasks 2-3 need converged platform)
   11-5-platform-convergence-app-of-apps: in-progress # split from NEXT.md §A; prerequisite to 11-4 completion
   11-6-tighten-hpdc-crd-schemas: backlog # NEXT.md §A.3 follow-up candidate promoted
+  # Component versions -> .env single source (consultation 2026-08-26); soft-gated on 11-5 to avoid rendered-artifact churn mid-convergence
+  11-7-centralize-component-image-versions-in-env: review # blocked_by (soft): 11-5-platform-convergence-app-of-apps
 
   # QEMU migration (prerequisite: 11-5 → Q1 → Q2 → resume 11-4)
   q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed

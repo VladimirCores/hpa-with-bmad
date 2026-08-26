@@ -8,7 +8,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEGEL_VERSION = "0.4.0"
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+
+component_versions.load_dotenv()
+SPEGEL_VERSION = component_versions.get("HPDC_SPEGEL_VERSION")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -21,7 +25,7 @@ def validate() -> None:
     assert "name: spegel" in spegel
     assert f"ghcr.io/spegel-org/spegel:v{SPEGEL_VERSION}" in spegel
     assert "kind: Service" in spegel and "name: spegel-registry" in spegel
-    assert (ROOT / "output/spegel/images/spegel-v0.4.0").exists()
+    assert (ROOT / f"output/spegel/images/spegel-v{SPEGEL_VERSION}").exists()
 
 
 def main() -> int:

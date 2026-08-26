@@ -81,7 +81,7 @@ spec:
           value: infisical
         - name: INFISICAL_DATABASE_PASSWORD
           value: InfisicalAdmin12345
-        image: docker.io/infisical/infisical:0.10.0
+        image: docker.io/infisical/infisical:v0.162.24
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

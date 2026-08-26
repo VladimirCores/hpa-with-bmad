@@ -8,8 +8,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CILIUM_VERSION = "1.20.1"
-SPIRE_VERSION = "1.15.3"
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+CILIUM_VERSION = component_versions.get("HPDC_CILIUM_VERSION")
+SPIRE_VERSION = component_versions.get("HPDC_SPIRE_VERSION")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -54,7 +56,7 @@ def test_dry_run_mode() -> None:
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert f"Cilium version: {CILIUM_VERSION}" in log
     assert f"SPIRE version: {SPIRE_VERSION}" in log
-    assert "Rook-Ceph cache: output/rook-ceph/images/rook-ceph-v1.20.6" in log
+    assert f"Rook-Ceph cache: output/rook-ceph/images/rook-ceph-v{component_versions.get('HPDC_ROOK_CEPH_VERSION')}" in log
     assert "GitOps overlay: gitops/cilium/overlays/mesh" in log
 
 

@@ -8,8 +8,12 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
+
+component_versions.load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
+INFISICAL_VERSION = component_versions.get("HPDC_INFISICAL_VERSION")
 INFISICAL_BASE = ROOT / "gitops" / "infisical" / "base"
 INFISICAL_OVERLAY = ROOT / "gitops" / "infisical" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "infisical-secrets-management.md"
@@ -31,7 +35,7 @@ def validate_manifests() -> list[str]:
     manifest = (INFISICAL_BASE / "infisical.yaml").read_text(encoding="utf-8")
     required_fragments = [
         "kind: Deployment",
-        "image: docker.io/infisical/infisical:0.10.0",
+        f"image: docker.io/infisical/infisical:{INFISICAL_VERSION}",
         "secretRotation",
         "rotationIntervalDays: 90",
         "auditLog",

@@ -63,13 +63,20 @@ All project automation scripts must be written in Python 3. Shell wrappers are n
 
 ## DRY Principle (Mandatory)
 
-All configuration must be centralized in `.env` — no hardcoded IPs, ports, or domains in scripts. See `Epic 12: DRY Principle Investigation & Refactoring` for full scope.
+All configuration must be centralized in `.env` — no hardcoded IPs, ports, domains — **or component image versions** — in scripts. Component versions resolve through `scripts/gitops/component_versions.py` (the single catalog consumed by installers, validators, `image-preflight.py` and the GitOps renderer). See `Epic 12: DRY Principle Investigation & Refactoring` for full scope.
 
 **Rules:**
 1. All configurable values go in `.env` (copy `.env.example` to `.env`)
-2. Scripts load config via `load_env()` utility function
+2. Scripts load config via `load_env()` utility function; component versions via `component_versions.get("HPDC_<COMPONENT>_VERSION")` — never declare local version constants
 3. No magic numbers or hardcoded strings in scripts
 4. `.env.example` must document every variable with descriptions
+5. Never commit a mutable `:latest` image tag; pin exact versions (AD-19)
+
+**Changing a component version (offline-safe runbook):**
+1. Edit the variable in `.env`
+2. `python3 scripts/services/image-preflight.py --check` — the mirror gate fails with exact fill commands for any tag missing from `localhost:5000`; run them (`skopeo copy --all …`)
+3. `python3 scripts/gitops/render_overlays.py` → commit regenerated `gitops/<comp>/rendered/dev.yaml`
+4. Rerun step 09 (refresh local git mirror) → hard-refresh ArgoCD apps
 
 ## Prerequisites
 

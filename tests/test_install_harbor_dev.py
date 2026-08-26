@@ -10,8 +10,10 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-HARBOR_VERSION = "2.15.2"
-HARBOR_CHART_VERSION = "1.19.2"
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
+HARBOR_CHART_VERSION = component_versions.get("HPDC_HARBOR_CHART_VERSION")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -79,7 +81,7 @@ def test_dry_run_mode() -> None:
     assert result.returncode == 0
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert f"Harbor version: {HARBOR_VERSION}" in log
-    assert "Rook-Ceph cache: output/rook-ceph/images/rook-ceph-v1.20.6" in log
+    assert f"Rook-Ceph cache: output/rook-ceph/images/rook-ceph-v{component_versions.get('HPDC_ROOK_CEPH_VERSION')}" in log
     assert "GitOps overlay: gitops/harbor/overlays/dev" in log
 
 

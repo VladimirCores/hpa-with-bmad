@@ -8,8 +8,11 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
 
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
+CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
 CERT_MANAGER_BASE = ROOT / "gitops" / "cert-manager" / "base"
 CERT_MANAGER_OVERLAY = ROOT / "gitops" / "cert-manager" / "overlays" / "dev"
 ENVOY_MANIFEST = ROOT / "gitops" / "envoy-gateway" / "base" / "envoy-gateway.yaml"
@@ -48,11 +51,11 @@ def validate_manifests() -> list[str]:
         failures.append("cert-manager.yaml missing hpdc-edge-tls certificate")
     if "clusterIssuer" not in manifest and "ClusterIssuer" not in manifest:
         failures.append("cert-manager.yaml missing hpdc-selfsigned issuer")
-    if "quay.io/jetstack/cert-manager-controller:v1.18.2" not in manifest:
+    if f"quay.io/jetstack/cert-manager-controller:v{CERT_MANAGER_VERSION}" not in manifest:
         failures.append("cert-manager.yaml missing pinned controller image")
-    if "quay.io/jetstack/cert-manager-webhook:v1.18.2" not in manifest:
+    if f"quay.io/jetstack/cert-manager-webhook:v{CERT_MANAGER_VERSION}" not in manifest:
         failures.append("cert-manager.yaml missing pinned webhook image")
-    if "quay.io/jetstack/cert-manager-cainjector:v1.18.2" not in manifest:
+    if f"quay.io/jetstack/cert-manager-cainjector:v{CERT_MANAGER_VERSION}" not in manifest:
         failures.append("cert-manager.yaml missing pinned cainjector image")
 
     envoy = ENVOY_MANIFEST.read_text(encoding="utf-8")

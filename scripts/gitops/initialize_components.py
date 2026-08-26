@@ -12,6 +12,11 @@ import sys
 import time
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
+CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -50,7 +55,7 @@ def install_cert_manager() -> None:
 
     # Apply cert-manager CRDs
     print("Applying cert-manager CRDs...")
-    run(["kubectl", "apply", "-f", "https://github.com/cert-manager/cert-manager/releases/download/v1.16.3/cert-manager.crds.yaml"])
+    run(["kubectl", "apply", "-f", f"https://github.com/cert-manager/cert-manager/releases/download/v{CERT_MANAGER_VERSION}/cert-manager.crds.yaml"])
 
     # Create namespace
     print("Creating cert-manager namespace...")

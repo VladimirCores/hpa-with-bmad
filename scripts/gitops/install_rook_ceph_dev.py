@@ -11,8 +11,11 @@ import sys
 import urllib.request
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-ROOK_VERSION = "1.20.3"
+ROOK_VERSION = component_versions.get("HPDC_ROOK_CEPH_VERSION")
 ROOK_IMAGE_REF = f"quay.io/rook/ceph:v{ROOK_VERSION}"
 REGISTRY = "http://localhost:5000"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
@@ -21,10 +24,10 @@ ROOK_BASE = ROOT / "gitops" / "rook-ceph" / "base"
 ROOK_OVERLAY = ROOT / "gitops" / "rook-ceph" / "overlays" / "dev"
 ROOK_DIRS_FIXER = ROOT / "gitops" / "rook-ceph" / "base" / "rook-dirs-bootstrap.yaml"
 ROOK_RENDERED = ROOT / "gitops" / "rook-ceph" / "rendered" / "dev.yaml"
-ROOK_CRDS = ROOT / "platform" / "manifests" / "rook-ceph-crds-v1.20.3.yaml"
-ROOK_COMMON = ROOT / "platform" / "manifests" / "rook-ceph-common-v1.20.3.yaml"
-ROOK_OPERATOR = ROOT / "platform" / "manifests" / "rook-ceph-operator-v1.20.3.yaml"
-ROOK_CSI_OPERATOR = ROOT / "platform" / "manifests" / "rook-ceph-csi-operator-v1.20.3.yaml"
+ROOK_CRDS = ROOT / "platform" / "manifests" / f"rook-ceph-crds-v{ROOK_VERSION}.yaml"
+ROOK_COMMON = ROOT / "platform" / "manifests" / f"rook-ceph-common-v{ROOK_VERSION}.yaml"
+ROOK_OPERATOR = ROOT / "platform" / "manifests" / f"rook-ceph-operator-v{ROOK_VERSION}.yaml"
+ROOK_CSI_OPERATOR = ROOT / "platform" / "manifests" / f"rook-ceph-csi-operator-v{ROOK_VERSION}.yaml"
 VENDORED_MANIFESTS = [ROOK_CRDS, ROOK_COMMON, ROOK_CSI_OPERATOR, ROOK_OPERATOR]
 
 
@@ -102,8 +105,8 @@ def validate_manifests() -> list[str]:
             failures.append(str(path.relative_to(ROOT)))
     rook = (ROOK_BASE / "rook-ceph.yaml").read_text(encoding="utf-8")
     storage = (ROOK_BASE / "storageclasses.yaml").read_text(encoding="utf-8")
-    if "quay.io/rook/ceph:v1.20.3" not in rook:
-        failures.append("rook-ceph.yaml missing Rook-Ceph 1.20.3 image")
+    if f"quay.io/rook/ceph:v{ROOK_VERSION}-root" not in rook:
+        failures.append(f"rook-ceph.yaml missing Rook-Ceph v{ROOK_VERSION}-root image")
     if "kind: CephCluster" not in rook:
         failures.append("rook-ceph.yaml missing CephCluster")
     if "count: 1" not in rook:

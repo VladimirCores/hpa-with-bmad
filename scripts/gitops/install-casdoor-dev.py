@@ -8,8 +8,12 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
+
+component_versions.load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
+CASDOOR_VERSION = component_versions.get("HPDC_CASDOOR_VERSION")
 CASDOOR_BASE = ROOT / "gitops" / "casdoor" / "base"
 CASDOOR_OVERLAY = ROOT / "gitops" / "casdoor" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "casdoor-jwt-authn.md"
@@ -31,7 +35,7 @@ def validate_manifests() -> list[str]:
     manifest = (CASDOOR_BASE / "casdoor.yaml").read_text(encoding="utf-8")
     required_fragments = [
         "kind: Deployment",
-        "image: docker.io/casdoor/casdoor:v5.19.0",
+        f"image: docker.io/casbin/casdoor:{CASDOOR_VERSION}",
         "oidc = true",
         "saml = true",
         "refreshTokenExpireHours = 24",

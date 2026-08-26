@@ -10,14 +10,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-CILIUM_VERSION = "1.20.1"
-SPIRE_VERSION = "1.15.3"
+CILIUM_VERSION = component_versions.get("HPDC_CILIUM_VERSION")
+SPIRE_VERSION = component_versions.get("HPDC_SPIRE_VERSION")
+ROOK_VERSION = component_versions.get("HPDC_ROOK_CEPH_VERSION")
 CILIUM_IMAGE = ROOT / "output" / "cilium" / "images" / f"cilium-v{CILIUM_VERSION}"
 SPIRE_AGENT_IMAGE = ROOT / "output" / "cilium" / "images" / f"spire-agent-v{SPIRE_VERSION}"
 SPIRE_SERVER_IMAGE = ROOT / "output" / "cilium" / "images" / f"spire-server-v{SPIRE_VERSION}"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
-ROOK_MARKER = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v1.20.6"
+ROOK_MARKER = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v{ROOK_VERSION}"
 CILIUM_MTLS_BASE = ROOT / "gitops" / "cilium" / "base"
 CILIUM_MTLS_OVERLAY = ROOT / "gitops" / "cilium" / "overlays" / "mesh"
 

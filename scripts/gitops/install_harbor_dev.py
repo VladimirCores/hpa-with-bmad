@@ -12,11 +12,18 @@ from pathlib import Path
 
 import yaml
 
+import component_versions
+
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-HARBOR_VERSION = "2.15.2"
+HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
+HARBOR_REDIS_VERSION = component_versions.get("HPDC_HARBOR_REDIS_VERSION")
+HARBOR_POSTGRES_VERSION = component_versions.get("HPDC_HARBOR_POSTGRES_VERSION")
 HARBOR_IMAGE = ROOT / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
-ROOK_MARKER = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v1.20.6"
+ROOK_MARKER = ROOT / "output" / "rook-ceph" / "images" / (
+    f"rook-ceph-v{component_versions.get('HPDC_ROOK_CEPH_VERSION')}"
+)
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "dev"
 
@@ -32,8 +39,8 @@ def ensure_offline_image_cache() -> None:
         ROOT / "output" / "harbor" / "images" / f"registry-photon-v{HARBOR_VERSION}",
         ROOT / "output" / "harbor" / "images" / f"harbor-jobservice-v{HARBOR_VERSION}",
         ROOT / "output" / "harbor" / "images" / f"trivy-adapter-photon-v{HARBOR_VERSION}",
-        ROOT / "output" / "harbor" / "images" / "redis-7.4-alpine",
-        ROOT / "output" / "harbor" / "images" / "postgres-15.19-alpine",
+        ROOT / "output" / "harbor" / "images" / f"redis-{HARBOR_REDIS_VERSION}",
+        ROOT / "output" / "harbor" / "images" / f"postgres-{HARBOR_POSTGRES_VERSION}",
     ]
     missing = [path for path in required if not path.exists()]
     if not missing:
@@ -125,7 +132,7 @@ def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = 
 
 
 # Official Harbor Helm chart; chart 1.19.x tracks app 2.15.x.
-HARBOR_CHART_VERSION = "1.19.2"
+HARBOR_CHART_VERSION = component_versions.get("HPDC_HARBOR_CHART_VERSION")
 HARBOR_CHART_LOCAL = ROOT / "platform" / "charts" / f"harbor-{HARBOR_CHART_VERSION}.tgz"
 HARBOR_HELM_VALUES: list[tuple[str, str]] = [
     ("expose.type", "clusterIP"),

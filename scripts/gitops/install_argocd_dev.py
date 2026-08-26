@@ -11,9 +11,11 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
 
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-ARGOCD_VERSION = "3.5.1"
+ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
 ARGOCD_IMAGE = ROOT / "output" / "argocd" / "images" / f"argocd-v{ARGOCD_VERSION}"
 ARGOCD_BASE = ROOT / "gitops" / "argo-cd" / "base"
 ARGOCD_OVERLAY = ROOT / "gitops" / "argo-cd" / "overlays" / "dev"
@@ -57,7 +59,10 @@ ARGOCD_INSTALL_MANIFEST = (
 )
 ARGOCD_INSTALL_MANIFEST_LOCAL = ROOT / "platform" / "manifests" / f"argocd-install-v{ARGOCD_VERSION}.yaml"
 # public.ecr.aws is unreachable from dev nodes; use the same redis via docker.io
-REDIS_IMAGE = "docker.io/library/redis:8.2.8-alpine"
+REDIS_IMAGE = (
+    "docker.io/library/redis:"
+    + component_versions.get("HPDC_ARGOCD_REDIS_VERSION")
+)
 
 
 def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = None, input_text: str | None = None) -> int:

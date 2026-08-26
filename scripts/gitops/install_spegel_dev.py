@@ -7,8 +7,11 @@ import argparse
 import sys
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-SPEGEL_VERSION = "0.7.4"
+SPEGEL_VERSION = component_versions.get("HPDC_SPEGEL_VERSION")
 SPEGEL_IMAGE = ROOT / "output" / "spegel" / "images" / f"spegel-v{SPEGEL_VERSION}"
 SPEGEL_BASE = ROOT / "gitops" / "spegel" / "base"
 SPEGEL_OVERLAY = ROOT / "gitops" / "spegel" / "overlays" / "dev"

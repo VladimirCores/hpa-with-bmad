@@ -324,7 +324,7 @@ spec:
         envFrom:
         - configMapRef:
             name: kargo-controller
-        image: ghcr.io/akuity/kargo:v1.11.1
+        image: ghcr.io/akuity/kargo:v1.11.2
         imagePullPolicy: IfNotPresent
         name: controller
         resources:

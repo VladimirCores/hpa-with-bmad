@@ -14,7 +14,7 @@ metadata: {name: ceph-consumer, namespace: rook-ceph}
 spec:
   containers:
     - name: w
-      image: quay.io/rook/ceph:v1.20.3-root
+      image: quay.io/rook/ceph:v1.20.6-root
       command: ["sh", "-c", "echo hpdc-ceph-$(date +%s) > /mnt/data/probe; cat /mnt/data/probe; sleep 600"]
       volumeMounts: [{name: d, mountPath: /mnt/data}]
   volumes:

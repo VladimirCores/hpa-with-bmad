@@ -10,9 +10,11 @@ import sys
 from pathlib import Path
 
 from _provisioned import require
+import component_versions
 
+component_versions.load_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
-KARGO_VERSION = "1.11.1"
+KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")
 KARGO_IMAGE = ROOT / "output" / "kargo" / "images" / f"kargo-v{KARGO_VERSION}"
 KARGO_BASE = ROOT / "gitops" / "kargo" / "base"
 KARGO_OVERLAY = ROOT / "gitops" / "kargo" / "overlays" / "dev"
@@ -61,10 +63,10 @@ def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = 
 
 # Official Kargo chart (OCI); chart 1.11.x tracks app 1.11.x. Requires
 # cert-manager CRDs for its internal Certificate/Issuer resources.
-KARGO_CHART_VERSION = "1.11.1"
+KARGO_CHART_VERSION = component_versions.get("HPDC_KARGO_CHART_VERSION")
 KARGO_OCI_CHART = "oci://ghcr.io/akuity/kargo-charts/kargo"
 KARGO_CHART_LOCAL = ROOT / "platform" / "charts" / f"kargo-{KARGO_CHART_VERSION}.tgz"
-CERT_MANAGER_CHART_VERSION = "v1.21.1"
+CERT_MANAGER_CHART_VERSION = component_versions.get("HPDC_CERT_MANAGER_CHART_VERSION")
 CERT_MANAGER_CHART_LOCAL = ROOT / "platform" / "charts" / f"cert-manager-{CERT_MANAGER_CHART_VERSION}.tgz"
 
 

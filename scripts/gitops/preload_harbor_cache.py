@@ -10,15 +10,22 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import component_versions
+
+component_versions.load_dotenv()
+
 ROOT = Path(__file__).resolve().parents[2]
-HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / "harbor-core-v2.15.2"
+HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
+HARBOR_REDIS_VERSION = component_versions.get("HPDC_HARBOR_REDIS_VERSION")
+HARBOR_POSTGRES_VERSION = component_versions.get("HPDC_HARBOR_POSTGRES_VERSION")
+HARBOR_MARKER = ROOT / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}"
 IMAGE_LIST = ROOT / "output" / "harbor" / "cache-images.txt"
 HARBOR_INGESTION_MANIFEST = ROOT / "output" / "harbor" / "harbor-ingestion-manifest.yaml"
 HARBOR_BASE = ROOT / "gitops" / "harbor" / "base"
 HARBOR_OVERLAY = ROOT / "gitops" / "harbor" / "overlays" / "preload"
 IMAGE_SOURCE_ALIASES = {
-    "redis:7.4-alpine": "output/harbor/images/redis-7.4-alpine",
-    "postgres:15.19-alpine": "output/harbor/images/postgres-15.19-alpine",
+    f"redis:{HARBOR_REDIS_VERSION}": f"output/harbor/images/redis-{HARBOR_REDIS_VERSION}",
+    f"postgres:{HARBOR_POSTGRES_VERSION}": f"output/harbor/images/postgres-{HARBOR_POSTGRES_VERSION}",
 }
 
 
@@ -40,7 +47,7 @@ class ImageRecord:
 
 def ensure_files(root: Path = ROOT) -> None:
     required_paths = (
-        root / "output" / "harbor" / "images" / "harbor-core-v2.15.2",
+        root / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}",
         root / "output" / "harbor" / "cache-images.txt",
     )
     missing = [path for path in required_paths if not path.exists()]
@@ -52,7 +59,7 @@ def ensure_files(root: Path = ROOT) -> None:
 def validate_manifests(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     required = [
-        root / "output" / "harbor" / "images" / "harbor-core-v2.15.2",
+        root / "output" / "harbor" / "images" / f"harbor-core-v{HARBOR_VERSION}",
         root / "output" / "harbor" / "cache-images.txt",
         root / "gitops" / "harbor" / "base" / "preload-images.yaml",
         root / "gitops" / "harbor" / "base" / "preload-images-job.yaml",

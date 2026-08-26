@@ -16,6 +16,15 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from _provisioned import record  # noqa: E402
 
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # noqa: E402
+
+component_versions.load_dotenv()
+SPEGEL_VERSION = component_versions.get("HPDC_SPEGEL_VERSION")
+ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
+KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")
+HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
+
 PROVISIONED_COMPONENTS = ["git-mirror", "kargo", "argocd", "argo-rollouts", "argo-events"]
 
 
@@ -42,9 +51,9 @@ def validate() -> None:
         "gitops/cert-manager/base/cert-manager.yaml",
         "gitops/cert-manager/overlays/dev/kustomization.yaml",
         "output/harbor/cache-images.txt",
-        "output/spegel/images/spegel-v0.4.0",
-        "output/argocd/images/argocd-v3.5.0",
-        "output/kargo/images/kargo-v1.11.0",
+        f"output/spegel/images/spegel-v{SPEGEL_VERSION}",
+        f"output/argocd/images/argocd-v{ARGOCD_VERSION}",
+        f"output/kargo/images/kargo-v{KARGO_VERSION}",
         "output/argo-rollouts/images/argo-rollouts-v1.9.1",
         "output/argo-events/images/argo-events-v1.9.11",
         "output/provisioned.yaml",
@@ -57,12 +66,12 @@ def validate() -> None:
     assert set(PROVISIONED_COMPONENTS) <= set(provisioned), "provisioned.yaml missing components"
     for component in PROVISIONED_COMPONENTS:
         assert provisioned[component].get("value"), f"provisioned.yaml: {component} has no value"
-    assert provisioned["argocd"].get("version") == "3.5.0"
-    assert provisioned["kargo"].get("version") == "1.11.0"
+    assert provisioned["argocd"].get("version") == ARGOCD_VERSION
+    assert provisioned["kargo"].get("version") == KARGO_VERSION
     assert provisioned["argo-rollouts"].get("version") == "1.9.1"
     assert provisioned["argo-events"].get("version") == "1.9.11"
     images = (record("harbor-image-cache") or {}).get("images") or []
-    assert any(image.get("name") == "harbor/harbor-core:v2.11.3" for image in images), "provisioned.yaml: harbor-image-cache missing core"
+    assert any(image.get("name") == f"harbor/harbor-core:v{HARBOR_VERSION}" for image in images), "provisioned.yaml: harbor-image-cache missing core"
     assert "kind: Rollout" in (ROOT / "gitops/argo-rollouts/base/argorollouts.yaml").read_text(encoding="utf-8")
     assert "kind: Workflow" in (ROOT / "gitops/argo-events/base/argoevents.yaml").read_text(encoding="utf-8")
     assert "kind: HTTPRoute" in (ROOT / "gitops/envoy-gateway/base/envoy-gateway.yaml").read_text(encoding="utf-8")

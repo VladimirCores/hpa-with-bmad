@@ -240,7 +240,7 @@ spec:
       containers:
       - args:
         - --config=/etc/otel-collector/otel-collector.yaml
-        image: otel/opentelemetry-collector-contrib:latest
+        image: otel/opentelemetry-collector-contrib:0.159.0
         name: otel-collector
         ports:
         - containerPort: 4317
@@ -295,7 +295,7 @@ spec:
       containers:
       - args:
         - -storageNode=vmstorage:8400
-        image: victoriametrics/vminsert:latest
+        image: victoriametrics/vminsert:v1.150.0-cluster
         name: vminsert
         ports:
         - containerPort: 8480
@@ -336,7 +336,7 @@ spec:
       containers:
       - args:
         - -search.maxQueryDuration=5s
-        image: victoriametrics/victoria-logs:latest
+        image: victoriametrics/victoria-logs:v1.52.0
         name: vmlogs
         ports:
         - containerPort: 9428
@@ -382,7 +382,7 @@ spec:
       containers:
       - args:
         - -storageNode=vmstorage:8401
-        image: victoriametrics/vmselect:latest
+        image: victoriametrics/vmselect:v1.150.0-cluster
         name: vmselect
         ports:
         - containerPort: 8481
@@ -430,7 +430,7 @@ spec:
       containers:
       - args:
         - -retentionPeriod=24h
-        image: victoriametrics/vmstorage:latest
+        image: victoriametrics/vmstorage:v1.150.0-cluster
         name: vmstorage
         ports:
         - containerPort: 8482

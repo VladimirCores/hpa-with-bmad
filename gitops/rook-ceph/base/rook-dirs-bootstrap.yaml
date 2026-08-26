@@ -23,7 +23,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: fix
-          image: quay.io/rook/ceph:v1.20.3-root
+          image: quay.io/rook/ceph:v1.20.6-root
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
