@@ -183,25 +183,6 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/component: entity-store
-    app.kubernetes.io/name: entity-api
-    app.kubernetes.io/part-of: hpdc-platform
-    environment: dev
-  name: entity-api
-  namespace: entity-store
-spec:
-  ports:
-  - name: http
-    port: 8080
-    targetPort: http
-  selector:
-    app.kubernetes.io/name: entity-api
-    environment: dev
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/component: entity-store
     app.kubernetes.io/name: entity-change-processor
     app.kubernetes.io/part-of: hpdc-platform
     environment: dev
@@ -214,25 +195,6 @@ spec:
     targetPort: http
   selector:
     app.kubernetes.io/name: entity-change-processor
-    environment: dev
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/component: entity-store
-    app.kubernetes.io/name: graphql-gateway
-    app.kubernetes.io/part-of: hpdc-platform
-    environment: dev
-  name: graphql-gateway
-  namespace: entity-store
-spec:
-  ports:
-  - name: http
-    port: 8080
-    targetPort: http
-  selector:
-    app.kubernetes.io/name: graphql-gateway
     environment: dev
 ---
 apiVersion: v1
@@ -309,100 +271,6 @@ spec:
     requests:
       storage: 20Gi
   storageClassName: hpdc-entity-ceph
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: entity-store
-    app.kubernetes.io/name: entity-api
-    app.kubernetes.io/part-of: hpdc-platform
-    environment: dev
-  name: entity-api
-  namespace: entity-store
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: entity-api
-      environment: dev
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: entity-store
-        app.kubernetes.io/name: entity-api
-        app.kubernetes.io/part-of: hpdc-platform
-        environment: dev
-    spec:
-      containers:
-      - env:
-        - name: MUTATION_LOG_PATH
-          value: /var/log/entity-store/mutations.ndjson
-        - name: ENTITY_STORE_NS
-          value: entity-store
-        image: hpdc.local/entity-api:0.1.0
-        name: entity-api
-        ports:
-        - containerPort: 8080
-          name: http
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        volumeMounts:
-        - mountPath: /var/log/entity-store
-          name: mutation-log
-      serviceAccountName: entity-store
-      volumes:
-      - emptyDir: {}
-        name: mutation-log
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: entity-store
-    app.kubernetes.io/name: graphql-gateway
-    app.kubernetes.io/part-of: hpdc-platform
-    environment: dev
-  name: graphql-gateway
-  namespace: entity-store
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: graphql-gateway
-      environment: dev
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: entity-store
-        app.kubernetes.io/name: graphql-gateway
-        app.kubernetes.io/part-of: hpdc-platform
-        environment: dev
-    spec:
-      containers:
-      - image: hpdc.local/graphql-gateway:0.1.0
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: http
-          initialDelaySeconds: 10
-          periodSeconds: 30
-        name: graphql-gateway
-        ports:
-        - containerPort: 8080
-          name: http
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
         - name: casdoor
-          image: docker.io/casdoor/casdoor:v5.19.0
+          image: docker.io/casbin/casdoor:latest
           imagePullPolicy: IfNotPresent
           args:
             - --configPath

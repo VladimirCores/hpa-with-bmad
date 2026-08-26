@@ -53,7 +53,7 @@ spec:
     spec:
       containers:
         - name: grafana
-          image: docker.io/grafana/grafana:12.2.0
+          image: docker.io/grafana/grafana:13.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -96,7 +96,7 @@ spec:
     spec:
       containers:
         - name: hubble-ui
-          image: docker.io/cilium/hubble-ui:0.16.0
+          image: docker.io/cilium/hubble-ui:v0.13.5
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
