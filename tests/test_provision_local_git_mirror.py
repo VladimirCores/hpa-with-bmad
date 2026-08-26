@@ -26,7 +26,7 @@ def validate() -> None:
     mirror = (ROOT / "gitops/git/base/git-mirror.yaml").read_text(encoding="utf-8")
     assert "kind: Deployment" in mirror
     assert "name: git-mirror" in mirror
-    assert "alpine/git:2.45.2" in mirror
+    assert "alpine/git:2.54.0" in mirror
     assert "storageClassName: rook-ceph-rbd" in mirror
     provisioned = _load_provisioned()
     assert provisioned["git-mirror"]["value"] == "git-mirror"

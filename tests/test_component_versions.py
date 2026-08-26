@@ -177,7 +177,7 @@ def main() -> int:
     test_resolve_defaults_and_env_wins()
     test_catalog_has_no_latest_and_all_markers()
     test_env_example_documents_every_var()
-    test_substitution_map_rook_first_wins()
+    test_substitution_map_rook_plain_tag()
     test_render_substitution_unit()
     test_preflight_images_derive_from_catalog()
     test_mirror_repo_path_host_stripping()

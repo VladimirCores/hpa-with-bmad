@@ -106,7 +106,7 @@ def validate_manifests() -> list[str]:
     rook = (ROOK_BASE / "rook-ceph.yaml").read_text(encoding="utf-8")
     storage = (ROOK_BASE / "storageclasses.yaml").read_text(encoding="utf-8")
     if f"quay.io/rook/ceph:v{ROOK_VERSION}" not in rook:
-        failures.append(f"rook-ceph.yaml missing Rook-Ceph v{ROOK_VERSION}-root image")
+        failures.append(f"rook-ceph.yaml missing Rook-Ceph v{ROOK_VERSION} image")
     if "kind: CephCluster" not in rook:
         failures.append("rook-ceph.yaml missing CephCluster")
     if "count: 1" not in rook:
@@ -260,7 +260,7 @@ def main() -> int:
     if args.dry_run:
         print("Rook-Ceph dev cluster dry-run passed.")
         print(f"Rook-Ceph version: {ROOK_VERSION}")
-        print(f"Rook-Ceph image refs: {ROOK_IMAGE_REF} + root variant (registry-probed)")
+        print(f"Rook-Ceph image refs: {ROOK_IMAGE_REF} (registry-probed)")
         print(f"Talos config: {TALOSCONFIG.relative_to(ROOT)}")
         print(f"Persistent QEMU disk: /dev/vdb (worker data disk, cluster state under {QEMU_DISK.relative_to(ROOT)})")
         print(f"GitOps overlay: {ROOK_OVERLAY.relative_to(ROOT)}")
