@@ -7,6 +7,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 sys.path.insert(0, str(ROOT / "scripts" / "services"))
@@ -169,6 +171,92 @@ def test_no_latest_image_lines_in_committed_gitops() -> None:
     assert not offenders, f"mutable :latest image refs committed: {offenders}"
 
 
+def test_is_enabled_default_false() -> None:
+    """Non-core components default to disabled when no env var is set."""
+    for key in list(os.environ):
+        if key.startswith("HPDC_"):
+            del os.environ[key]
+    # KARGO has default False in ENABLED_DEFAULTS
+    assert cv.is_enabled("KARGO") is False
+    assert cv.is_enabled("BACKSTAGE") is False
+    assert cv.is_enabled("GRAFANA") is False
+    assert cv.is_enabled("INFISICAL") is False
+
+
+def test_is_enabled_disabled() -> None:
+    """Explicit false in env disables a component."""
+    os.environ["HPDC_KARGO_ENABLED"] = "false"
+    try:
+        assert cv.is_enabled("KARGO") is False
+    finally:
+        del os.environ["HPDC_KARGO_ENABLED"]
+    # Also test with "False" (mixed case)
+    os.environ["HPDC_KARGO_ENABLED"] = "False"
+    try:
+        assert cv.is_enabled("KARGO") is False
+    finally:
+        del os.environ["HPDC_KARGO_ENABLED"]
+
+
+def test_core_always_enabled() -> None:
+    """Core components are always True regardless of env."""
+    for key in ("HPDC_CILIUM_ENABLED", "HPDC_HUBBLE_ENABLED",
+                "HPDC_HARBOR_ENABLED", "HPDC_SPEGEL_ENABLED"):
+        os.environ[key] = "false"
+    try:
+        assert cv.is_enabled("CILIUM") is True
+        assert cv.is_enabled("HUBBLE") is True
+        assert cv.is_enabled("HARBOR") is True
+        assert cv.is_enabled("SPEGEL") is True
+    finally:
+        for key in ("HPDC_CILIUM_ENABLED", "HPDC_HUBBLE_ENABLED",
+                    "HPDC_HARBOR_ENABLED", "HPDC_SPEGEL_ENABLED"):
+            del os.environ[key]
+
+
+def test_storage_backend_mutex() -> None:
+    """Both storage backends enabled raises ValueError."""
+    os.environ["HPDC_ROOK_CEPH_ENABLED"] = "true"
+    os.environ["HPDC_LOCAL_PATH_ENABLED"] = "true"
+    os.environ["HPDC_STORAGE_BACKEND"] = "rook-ceph"
+    try:
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            cv.is_enabled("ROOK_CEPH")
+    finally:
+        del os.environ["HPDC_ROOK_CEPH_ENABLED"]
+        del os.environ["HPDC_LOCAL_PATH_ENABLED"]
+        del os.environ["HPDC_STORAGE_BACKEND"]
+
+
+def test_storage_backend_rook_ceph() -> None:
+    """Storage backend=rook-ceph sets ROOK_CEPH=true, LOCAL_PATH=false."""
+    os.environ["HPDC_STORAGE_BACKEND"] = "rook-ceph"
+    try:
+        assert cv.is_enabled("ROOK_CEPH") is True
+        assert cv.is_enabled("LOCAL_PATH") is False
+    finally:
+        del os.environ["HPDC_STORAGE_BACKEND"]
+
+
+def test_storage_backend_local_path() -> None:
+    """Storage backend=local-path sets ROOK_CEPH=false, LOCAL_PATH=true."""
+    os.environ["HPDC_STORAGE_BACKEND"] = "local-path"
+    try:
+        assert cv.is_enabled("ROOK_CEPH") is False
+        assert cv.is_enabled("LOCAL_PATH") is True
+    finally:
+        del os.environ["HPDC_STORAGE_BACKEND"]
+
+
+def test_list_toggles() -> None:
+    """list_toggles returns all toggle vars with resolved values."""
+    toggles = cv.list_toggles()
+    assert "HPDC_CILIUM_ENABLED" in toggles
+    assert "HPDC_KARGO_ENABLED" in toggles
+    assert toggles["HPDC_CILIUM_ENABLED"] is True
+    assert toggles["HPDC_KARGO_ENABLED"] is False
+
+
 def main() -> int:
     import tempfile
 
@@ -183,6 +271,13 @@ def main() -> int:
     test_mirror_repo_path_host_stripping()
     test_remediation_format()
     test_no_latest_image_lines_in_committed_gitops()
+    test_is_enabled_default_false()
+    test_is_enabled_disabled()
+    test_core_always_enabled()
+    test_storage_backend_mutex()
+    test_storage_backend_rook_ceph()
+    test_storage_backend_local_path()
+    test_list_toggles()
     print("component versions validation passed.")
     return 0
 

@@ -245,6 +245,58 @@ python3 scripts/startup.dev.py --offline --apply --storage local-path
 python3 scripts/startup.dev.py --offline --apply --storage rook-ceph
 ```
 
+#### Component feature toggles
+
+Per-component and per-sub-system toggles (`HPDC_*_ENABLED=true|false`) control which steps run. Toggle values live in environment-specific `.env` files.
+
+**Quick start:**
+```bash
+# Dev defaults (minimal footprint — core + auth + gateway only)
+cp .env.dev .env
+
+# Production defaults (full stack)
+cp .env.prod .env
+```
+
+**Toggle resolution priority:**
+1. Core components (`CILIUM`, `HUBBLE`, `HARBOR`, `SPEGEL`): always enabled
+2. `HPDC_STORAGE_BACKEND` resolves `ROOK_CEPH_ENABLED` / `LOCAL_PATH_ENABLED` (mutually exclusive)
+3. `os.environ["HPDC_<COMPONENT>_ENABLED"]` (shell export or `.env`)
+4. `ENABLED_DEFAULTS` in `component_versions.py` (per-component hardcoded default)
+5. `False` (safe default — opt-in, not opt-out)
+
+**Dev vs prod defaults:**
+
+| Category | Dev | Prod |
+|----------|-----|------|
+| Core (Cilium, Hubble, Harbor, Spegel) | always on | always on |
+| Storage | `rook-ceph` | `rook-ceph` |
+| Git Mirror, Envoy Gateway, Casdoor, Casbin | on | on |
+| Kargo, ArgoCD, Argo-Rollouts, Argo-Events | off | on |
+| Cert-Manager, Infisical, Backstage | off | on |
+| Observability (Grafana, VictoriaMetrics, OTEL, Alertmanager) | off | on |
+| Sub-systems (mTLS, SPIRE, API-Key-Auth, Casbin RBAC/ReBAC/ABAC) | off | on |
+
+**Status and debugging:**
+```bash
+# Show status (skipped steps hidden)
+python3 scripts/startup.dev.py --status
+
+# Show all steps including skipped
+python3 scripts/startup.dev.py --status --all
+```
+
+**ArgoCD app filtering:**
+```bash
+# Preview which apps would be deployed
+python3 scripts/gitops/render_app_of_apps.py --dry-run
+
+# Filter apps by toggles (writes enabled apps to gitops/apps/)
+python3 scripts/gitops/render_app_of_apps.py
+```
+
+Disabled components are excluded from `gitops/apps/` — ArgoCD only syncs the apps present in that directory.
+
 ## Quick health check
 
 ```python

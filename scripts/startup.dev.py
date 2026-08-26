@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -29,6 +30,33 @@ LOG_PATH = ROOT / "output" / "startup.dev.log"
 for entry in (SCRIPTS_DIR, GITOPS_DIR):
     if entry not in sys.path:
         sys.path.insert(0, str(entry))
+
+# ── Step-to-toggle mapping ───────────────────────────────────────────────────
+# Maps step filename prefix -> toggle variable name (without HPDC_ prefix).
+# Steps not listed here are always enabled (bootstrap, validation, etc.).
+STEP_TOGGLE_MAP: dict[str, str] = {
+    "03-install-cilium-dev": "CILIUM_ENABLED",
+    "03-install-cilium-online": "CILIUM_ENABLED",
+    "04-install-cilium-mtls-dev": "MTLS_ENABLED",
+    "05-install-rook-ceph-dev": "ROOK_CEPH_ENABLED",
+    "05-install-storage-dev": "STORAGE_BACKEND",  # special: resolves to rook-ceph or local-path
+    "06-install-harbor-dev": "HARBOR_ENABLED",
+    "07-preload-harbor-cache": "HARBOR_ENABLED",
+    "08-refresh-harbor-cache": "HARBOR_ENABLED",
+    "09-provision-local-git-mirror": "GIT_MIRROR_ENABLED",
+    "10-install-spegel-dev": "SPEGEL_ENABLED",
+    "11-install-kargo-dev": "KARGO_ENABLED",
+    "12-install-argocd-dev": "ARGOCD_ENABLED",
+    "13-install-argorollouts-dev": "ARGO_ROLLOUTS_ENABLED",
+    "14-install-argoevents-dev": "ARGO_EVENTS_ENABLED",
+    "16-install-envoy-gateway-dev": "ENVOY_GATEWAY_ENABLED",
+    "17-install-cert-manager-dev": "CERT_MANAGER_ENABLED",
+    "18-install-api-key-auth-dev": "API_KEY_AUTH_ENABLED",
+    "19-install-casdoor-dev": "CASDOOR_ENABLED",
+    "20-install-casbin-dev": "CASBIN_ENABLED",
+    "21-install-casbin-rebac-dev": "CASBIN_REBAC_ENABLED",
+    "22-install-casbin-abac-dev": "CASBIN_ABAC_ENABLED",
+}
 
 
 @dataclass(frozen=True)
@@ -126,13 +154,20 @@ def registry_summary() -> str:
         return "offline (hpa-local-registry not reachable)"
 
 
-def print_status() -> int:
+def print_status(show_all: bool = False) -> int:
     steps = discover_steps()
     last_run = parse_last_run(LOG_PATH)
 
     step_rows = []
+    skipped_count = 0
     for step in steps:
-        if step.name in last_run:
+        skip_reason = _step_toggle_reason(step)
+        if skip_reason and not show_all:
+            skipped_count += 1
+            continue
+        if skip_reason:
+            state = "skipped"
+        elif step.name in last_run:
             code = last_run[step.name]
             state = "ok" if code == 0 else f"FAIL({code})"
         else:
@@ -176,6 +211,34 @@ def print_status() -> int:
     else:
         print("Provisioned components: none recorded.")
     return 0
+
+
+def _is_step_enabled(step: Step) -> bool:
+    """Check if a step should run based on its component toggle."""
+    stem = step.path.stem
+    toggle_var = STEP_TOGGLE_MAP.get(stem)
+    if toggle_var is None:
+        return True  # no toggle mapped — always enabled
+    if toggle_var == "STORAGE_BACKEND":
+        # Storage steps: enabled if the chosen backend matches
+        import component_versions as cv
+        backend = os.environ.get("HPDC_STORAGE_BACKEND", "rook-ceph").strip().lower()
+        if stem == "05-install-rook-ceph-dev":
+            return backend == "rook-ceph"
+        if stem == "05-install-storage-dev":
+            return True  # storage-dev handles both backends
+        return True
+    import component_versions as cv
+    return cv.is_enabled(toggle_var)
+
+
+def _step_toggle_reason(step: Step) -> str | None:
+    """Return the SKIP reason string if the step is disabled, else None."""
+    if _is_step_enabled(step):
+        return None
+    stem = step.path.stem
+    toggle_var = STEP_TOGGLE_MAP.get(stem, "UNKNOWN")
+    return f"[SKIP] {stem}: component disabled via HPDC_{toggle_var}=false"
 
 
 def discover_steps() -> list[Step]:
@@ -365,13 +428,14 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="validate each selected step without applying manifests")
     parser.add_argument("--list", action="store_true", help="list ordered setup steps and exit")
     parser.add_argument("--status", action="store_true", help="show per-step and per-component installation status")
+    parser.add_argument("--all", action="store_true", help="show all steps including skipped (with --status)")
     parser.add_argument("--step", action="append", default=[], help="run only the named step; may be repeated")
     parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default="rook-ceph", help="storage backend for the cluster")
     parser.add_argument("--provider", choices=["docker", "qemu"], default="qemu", help="Talos provisioner (default: qemu)")
     args = parser.parse_args()
 
     if args.status:
-        print_status()
+        print_status(show_all=args.all)
         return 0
 
     if args.list:
@@ -425,8 +489,15 @@ def main() -> int:
 
     failures: list[tuple[str, int]] = []
     summary_rows: list[list[str]] = []
+    skipped: list[str] = []
     total = len(selected)
     for idx, step in enumerate(selected, 1):
+        skip_reason = _step_toggle_reason(step)
+        if skip_reason:
+            skipped.append(skip_reason)
+            print(f"[{idx}/{total}] {skip_reason}", flush=True)
+            write_log([skip_reason])
+            continue
         print(f"[{idx}/{total}] {step.name} - {step.description} ...", flush=True)
         started = time.monotonic()
         try:
@@ -445,6 +516,11 @@ def main() -> int:
     if summary_rows:
         table = render_table(["STEP", "RESULT", "TIME", "DESCRIPTION"], summary_rows)
         print("", flush=True)
+        if skipped:
+            print(f"Skipped {len(skipped)} disabled steps (use --all to show):", flush=True)
+            for reason in skipped:
+                print(f"  {reason}", flush=True)
+            write_log(["", f"Skipped {len(skipped)} disabled steps:"] + skipped)
         print("Run summary:", flush=True)
         print(table, flush=True)
         write_log(["", "Run summary:", table])

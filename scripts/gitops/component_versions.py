@@ -53,6 +53,117 @@ def load_dotenv(env_file: Path | None = None) -> None:
             os.environ.setdefault(key, value)
 
 
+# ── Toggle variables ──────────────────────────────────────────────────────────
+# var name -> committed default (mirrored in .env.dev.example; keep in sync).
+
+CORE_TOGGLES: frozenset[str] = frozenset({
+    "HPDC_CILIUM_ENABLED",
+    "HPDC_HUBBLE_ENABLED",
+    "HPDC_ROOK_CEPH_ENABLED",
+    "HPDC_LOCAL_PATH_ENABLED",
+    "HPDC_HARBOR_ENABLED",
+    "HPDC_SPEGEL_ENABLED",
+})
+
+STORAGE_BACKEND_VAR = "HPDC_STORAGE_BACKEND"
+
+ENABLED_DEFAULTS: dict[str, bool] = {
+    # Core (always on; toggle is informational)
+    "HPDC_CILIUM_ENABLED": True,
+    "HPDC_HUBBLE_ENABLED": True,
+    "HPDC_ROOK_CEPH_ENABLED": True,
+    "HPDC_LOCAL_PATH_ENABLED": False,
+    "HPDC_HARBOR_ENABLED": True,
+    "HPDC_SPEGEL_ENABLED": True,
+    # Optional components
+    "HPDC_GIT_MIRROR_ENABLED": True,
+    "HPDC_KARGO_ENABLED": False,
+    "HPDC_ARGOCD_ENABLED": False,
+    "HPDC_ARGO_ROLLOUTS_ENABLED": False,
+    "HPDC_ARGO_EVENTS_ENABLED": False,
+    "HPDC_ENVOY_GATEWAY_ENABLED": True,
+    "HPDC_CERT_MANAGER_ENABLED": False,
+    "HPDC_CASDOOR_ENABLED": True,
+    "HPDC_CASBIN_ENABLED": True,
+    "HPDC_INFISICAL_ENABLED": False,
+    "HPDC_BACKSTAGE_ENABLED": False,
+    "HPDC_GRAFANA_ENABLED": False,
+    "HPDC_VICTORIA_METRICS_ENABLED": False,
+    "HPDC_OTEL_ENABLED": False,
+    "HPDC_ALERTMANAGER_ENABLED": False,
+    "HPDC_SWAGGER_UI_ENABLED": False,
+    # Sub-system toggles
+    "HPDC_MTLS_ENABLED": False,
+    "HPDC_SPIRE_ENABLED": False,
+    "HPDC_API_KEY_AUTH_ENABLED": False,
+    "HPDC_CASBIN_RBAC_ENABLED": False,
+    "HPDC_CASBIN_REBAC_ENABLED": False,
+    "HPDC_CASBIN_ABAC_ENABLED": False,
+}
+
+_STORAGE_MUTEX_REMEDIATION = (
+    f"Set {STORAGE_BACKEND_VAR} to one of: rook-ceph, local-path"
+)
+
+
+def _resolve_storage_backend() -> None:
+    """Apply HPDC_STORAGE_BACKEND mutual exclusion.
+
+    Sets ROOK_CEPH_ENABLED / LOCAL_PATH_ENABLED based on STORAGE_BACKEND,
+    or errors if both are explicitly true in the environment.
+    """
+    backend = os.environ.get(STORAGE_BACKEND_VAR, "rook-ceph").strip().lower()
+    if backend not in ("rook-ceph", "local-path"):
+        raise ValueError(
+            f"invalid {STORAGE_BACKEND_VAR}={backend!r}; {_STORAGE_MUTEX_REMEDIATION}"
+        )
+    rook = os.environ.get("HPDC_ROOK_CEPH_ENABLED", "").lower()
+    local = os.environ.get("HPDC_LOCAL_PATH_ENABLED", "").lower()
+    # If both are explicitly "true", that's an error
+    if rook == "true" and local == "true":
+        raise ValueError(
+            f"HPDC_ROOK_CEPH_ENABLED=true and HPDC_LOCAL_PATH_ENABLED=true are "
+            f"mutually exclusive. {_STORAGE_MUTEX_REMEDIATION}"
+        )
+    if backend == "rook-ceph":
+        os.environ["HPDC_ROOK_CEPH_ENABLED"] = "true"
+        os.environ["HPDC_LOCAL_PATH_ENABLED"] = "false"
+    else:
+        os.environ["HPDC_ROOK_CEPH_ENABLED"] = "false"
+        os.environ["HPDC_LOCAL_PATH_ENABLED"] = "true"
+
+
+def is_enabled(component: str) -> bool:
+    """Return whether a component is enabled via toggle.
+
+    Resolution priority:
+    1. Core components: always True (override ignored)
+    2. os.environ[f"HPDC_{component}_ENABLED"] (set by shell export or .env)
+    3. ENABLED_DEFAULTS[component] (hardcoded per-component default)
+    4. False (safe default: opt-in, not opt-out)
+    """
+    var = f"HPDC_{component}_ENABLED"
+    # Core components are always on
+    if var in CORE_TOGGLES and component in (
+        "CILIUM", "HUBBLE", "HARBOR", "SPEGEL",
+    ):
+        return True
+    # ROOK_CEPH and LOCAL_PATH are governed by storage backend
+    if var in ("HPDC_ROOK_CEPH_ENABLED", "HPDC_LOCAL_PATH_ENABLED"):
+        _resolve_storage_backend()
+        return os.environ.get(var, "").lower() == "true"
+    env_val = os.environ.get(var)
+    if env_val is not None:
+        return env_val.strip().lower() == "true"
+    return ENABLED_DEFAULTS.get(var, False)
+
+
+def list_toggles() -> dict[str, bool]:
+    """Return all component toggles and their resolved values."""
+    return {var: is_enabled(var.removeprefix("HPDC_").removesuffix("_ENABLED"))
+            for var in ENABLED_DEFAULTS}
+
+
 # ── Version variables ───────────────────────────────────────────────────────
 # var name -> committed default (mirrored in .env.example; keep in sync).
 
@@ -238,6 +349,11 @@ def resolve() -> dict[str, str]:
     for var, default in DEFAULTS.items():
         _resolved[var] = os.environ.get(var) or default
         _resolved[_normalize_var_key(var)] = _resolved[var]
+    # Apply storage backend mutual exclusion
+    try:
+        _resolve_storage_backend()
+    except ValueError:
+        pass  # let consumers handle the error when they call is_enabled()
     return dict(_resolved)
 
 

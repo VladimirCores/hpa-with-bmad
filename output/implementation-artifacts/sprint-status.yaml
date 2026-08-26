@@ -148,6 +148,8 @@ development_status:
   11-6-tighten-hpdc-crd-schemas: backlog # NEXT.md §A.3 follow-up candidate promoted
   # Component versions -> .env single source (consultation 2026-08-26); soft-gated on 11-5 to avoid rendered-artifact churn mid-convergence
   11-7-centralize-component-image-versions-in-env: done # code review 2026-08-26: 2 patches applied; 93 pass / 5 pre-existing
+  # Feature toggles: per-component/sub-system enable/disable via .env (consultation 2026-08-26)
+  11-8-component-feature-toggles: review
 
   # QEMU migration (prerequisite: 11-5 → Q1 → Q2 → resume 11-4)
   q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed
