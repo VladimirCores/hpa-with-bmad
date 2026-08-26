@@ -147,7 +147,7 @@ development_status:
   11-5-platform-convergence-app-of-apps: in-progress # split from NEXT.md §A; prerequisite to 11-4 completion
   11-6-tighten-hpdc-crd-schemas: backlog # NEXT.md §A.3 follow-up candidate promoted
   # Component versions -> .env single source (consultation 2026-08-26); soft-gated on 11-5 to avoid rendered-artifact churn mid-convergence
-  11-7-centralize-component-image-versions-in-env: review # blocked_by (soft): 11-5-platform-convergence-app-of-apps
+  11-7-centralize-component-image-versions-in-env: done # code review 2026-08-26: 2 patches applied; 93 pass / 5 pre-existing
 
   # QEMU migration (prerequisite: 11-5 → Q1 → Q2 → resume 11-4)
   q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed

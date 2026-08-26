@@ -133,9 +133,6 @@ CATALOG: dict[str, list[tuple[str, str, str]]] = {
         ("ghcr.io/spiffe/spire-agent", "{spire_version}", "cilium/images/spire-agent-{spire_version}"),
     ],
     "rook-ceph": [
-        # -root spelling appears in committed gitops manifests; keep it first so
-        # substitution_map()'s first-wins resolution keys the repo correctly
-        ("quay.io/rook/ceph", "v{rook_ceph_version}-root", "rook-ceph/images/rook-ceph-v{rook_ceph_version}-root"),
         ("quay.io/rook/ceph", "v{rook_ceph_version}", "rook-ceph/images/rook-ceph-v{rook_ceph_version}"),
     ],
     "harbor": [

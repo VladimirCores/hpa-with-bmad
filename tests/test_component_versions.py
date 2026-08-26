@@ -107,9 +107,9 @@ def test_env_example_documents_every_var() -> None:
     assert not missing, f".env.example missing variables: {missing}"
 
 
-def test_substitution_map_rook_first_wins() -> None:
+def test_substitution_map_rook_plain_tag() -> None:
     sm = cv.substitution_map()
-    assert sm["quay.io/rook/ceph"].endswith("-root")
+    assert sm["quay.io/rook/ceph"] == f"quay.io/rook/ceph:v{cv.get('HPDC_ROOK_CEPH_VERSION')}"
 
 
 def test_render_substitution_unit() -> None:
@@ -153,9 +153,9 @@ def test_mirror_repo_path_host_stripping() -> None:
 
 
 def test_remediation_format() -> None:
-    fix = pf.remediation_for("quay.io/rook/ceph:v1.20.3-root")
-    assert fix.startswith("skopeo copy --all docker://quay.io/rook/ceph:v1.20.3-root docker://localhost:5000/rook/ceph:v1.20.3-root")
-    assert "mirror-image.py quay.io/rook/ceph:v1.20.3-root rook/ceph:v1.20.3-root" in fix
+    fix = pf.remediation_for("quay.io/rook/ceph:v1.20.6")
+    assert fix.startswith("skopeo copy --all docker://quay.io/rook/ceph:v1.20.6 docker://localhost:5000/rook/ceph:v1.20.6")
+    assert "mirror-image.py quay.io/rook/ceph:v1.20.6 rook/ceph:v1.20.6" in fix
 
 
 def test_no_latest_image_lines_in_committed_gitops() -> None:

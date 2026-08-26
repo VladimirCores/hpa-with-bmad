@@ -24,7 +24,7 @@ def validate_manifests() -> None:
     storage = read("gitops/rook-ceph/base/storageclasses.yaml")
     overlay = read("gitops/rook-ceph/overlays/dev/kustomization.yaml")
 
-    assert f"quay.io/rook/ceph:v{ROOK_VERSION}-root" in rook
+    assert f"quay.io/rook/ceph:v{ROOK_VERSION}" in rook
     assert "kind: CephCluster" in rook
     assert "count: 1" in rook
     assert "dataDirHostPath: /var/lib/rook" in rook

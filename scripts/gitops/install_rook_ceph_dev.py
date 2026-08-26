@@ -50,11 +50,11 @@ def _registry_has(repo: str, tag: str) -> bool:
 def ensure_offline_image_cache() -> None:
     # Rook operator + daemon image served through the local mirror
     # (quay.io -> localhost:5000 path-preserving).
-    if _registry_has("rook/ceph", f"v{ROOK_VERSION}-root") and _registry_has("rook/ceph", f"v{ROOK_VERSION}"):
+    if _registry_has("rook/ceph", f"v{ROOK_VERSION}"):
         return
     raise RuntimeError(
-        f"rook/ceph requires BOTH tags v{ROOK_VERSION} and v{ROOK_VERSION}-root "
-        f"in the local registry mirror (operator pulls upstream ref; daemons use root variant)"
+        f"rook/ceph requires tag v{ROOK_VERSION} "
+        f"in the local registry mirror (path-preserving quay.io -> localhost:5000)"
     )
 
 
@@ -105,7 +105,7 @@ def validate_manifests() -> list[str]:
             failures.append(str(path.relative_to(ROOT)))
     rook = (ROOK_BASE / "rook-ceph.yaml").read_text(encoding="utf-8")
     storage = (ROOK_BASE / "storageclasses.yaml").read_text(encoding="utf-8")
-    if f"quay.io/rook/ceph:v{ROOK_VERSION}-root" not in rook:
+    if f"quay.io/rook/ceph:v{ROOK_VERSION}" not in rook:
         failures.append(f"rook-ceph.yaml missing Rook-Ceph v{ROOK_VERSION}-root image")
     if "kind: CephCluster" not in rook:
         failures.append("rook-ceph.yaml missing CephCluster")

@@ -50,7 +50,7 @@ metadata:
 spec:
   cephVersion:
     allowUnsupported: true
-    image: quay.io/rook/ceph:v1.20.6-root
+    image: quay.io/rook/ceph:v1.20.6
   dashboard:
     enabled: true
     ssl: false

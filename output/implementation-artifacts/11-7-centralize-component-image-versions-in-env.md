@@ -1,9 +1,9 @@
 ---
 story_key: 11-7-centralize-component-image-versions-in-env
 epic: 11
-status: review
+status: done
 baseline_commit: 8790d61
-completion_commit: TBD
+completion_commit: e81506a
 blocked_by: 11-5-platform-convergence-app-of-apps # soft gate: rendered/dev.yaml regen must not churn the tree while convergence is syncing
 ---
 
@@ -218,3 +218,18 @@ ox-alpha (x-preview-f-free) — dev-story execution 2026-08-26.
 ### Change Log
 
 - 2026-08-26: Implemented 11-7 end-to-end: resolver, .env.example catalog, render injection, consumer rewiring (~22 scripts), preflight mirror gate (+404 fix), test refactor + new policy tests, status surface, README runbook. Reconciled all version drift against registry/hub truth; filled 9 missing mirror tags. Suite: 90 pass / 8 pre-existing failures (identical at HEAD).
+- 2026-08-26: User-directed latest-version sweep (exa + GH releases) applied on top of 11-7: rook 1.20.3→1.20.6 (vendored manifests), kargo 1.11.1→1.11.2 (+chart), backstage 1.42.0→1.54.0, swagger-ui v5.32.0→v5.32.14, local-path v0.0.26→v0.0.37, victoria-metrics 1.148.0→1.150.0. K8s/kubectl pinned 1.35.2 (talosctl-coupled). Committed e81506a. Gate green 41/41; suite 93 pass / 5 pre-existing.
+- 2026-08-26: Code review (3 layers, subagent harness aborted → inline) → 2 patch findings applied: (1) `install_cilium_online.py` no longer hardcodes Cilium version (uses resolver, DRY/AC#4); (2) dropped the confusing `-root` rook tag, using plain `quay.io/rook/ceph:v1.20.6` across catalog/manifests/installer/tests. Full suite 93 pass / 5 pre-existing (no regressions). Findings recorded + resolved in Review Findings section.
+
+### Review Findings (code-review 2026-08-26)
+
+- [x] [Review][Patch] `install_cilium_online.py` hardcoded `CILIUM_VERSION = "1.16.5"` [scripts/gitops/install_cilium_online.py:16] — APPLIED 2026-08-26: now imports resolver (`component_versions.get("HPDC_CILIUM_VERSION")`), honoring DRY/no-hardcoded-version rule (AC #4). Covers the previously-missed `-online` variant + `scripts/steps/03-install-cilium-online.py`.
+- [x] [Review][Patch] Redundant rook-ceph `-root` tag convention [scripts/gitops/component_versions.py + gitops/rook-ceph/**] — APPLIED 2026-08-26 per user decision: **removed the `-root` tag entirely** (catalog now single plain `quay.io/rook/ceph:v{rook_ceph_version}`), updated all committed manifests (rook-ceph.yaml, rook-dirs-bootstrap.yaml, smoke-test.yaml, regenerated rendered/dev.yaml), `install_rook_ceph_dev.py` (`_registry_has` + manifest check now expect plain tag, fixing an internal inconsistency where `ROOK_IMAGE_REF` was already plain), and tests. Mirror already served plain tag. Reason: `-root` was a confusing mirror-only alias with no upstream; plain tag is the real upstream ref.
+- [x] [Review][Defer] Repo-spelling inconsistency in catalog (`redis` vs `docker.io/library/redis`) [scripts/gitops/component_versions.py:147 vs 158] — currently safe because harbor uses bare `redis` and argocd uses `docker.io/library/redis` (distinct strings, both governed correctly). Latent: a future bare-`redis` argocd manifest would collide with harbor's first-wins tag. Pre-existing design, not introduced by 11-7.
+
+> Verification run during review (manual execution of all 3 layers — the parallel subagent harness aborted, so findings were produced inline):
+> - `pytest tests/test_component_versions.py` → 10 passed
+> - `python3 scripts/services/image-preflight.py --check` → exit 0 (41/41 mirrored)
+> - `render_overlays.py` → 29 components unchanged (idempotent)
+> - `grep -rn ":latest" gitops --include=*.yaml | grep image:` → empty (AC #1 satisfied)
+> - AC #1–#7 audited SATISFIED. All 26 consumers call `load_dotenv()` + `resolve()` in correct order (import-time `resolve()` at component_versions.py:293 is redundant but harmless).

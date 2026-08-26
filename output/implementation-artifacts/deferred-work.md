@@ -50,6 +50,9 @@
 - InfisicalSecret prod-named (`hpdc-production-secrets`/`hpdc-prod-credentials`) with `envSlug: dev`; envSlug hardcoded in base — future prod overlay would silently pull dev creds; patch per-overlay when prod overlay added.
 - Test robustness: `_api_key_headers`/`_api_key_paths` regex loose, route-attachment is substring check, YAML-validity test misses duplicate keys, no guard for `test_*` in `main()` tuples — pre-existing test design, no current false pass.
 
+## Deferred from: code review of 11-7-centralize-component-image-versions-in-env (2026-08-26)
+- Repo-spelling inconsistency in component_versions.py catalog: harbor uses bare `redis` while argocd uses `docker.io/library/redis`. Safe today (distinct strings, both governed), but a future bare-`redis` argocd manifest would collide with harbor's first-wins substitution. Pre-existing design, not introduced by 11-7.
+
 ## Deferred from: code review of q2-migrate-dev-cluster-docker-to-qemu (with-bmad 2026-08-25)
 - create-failure heuristics: distinguish real create errors from designed cni=none timeout; log captured stderr tail
 - root/user invocation ownership normalization for resources/ tree

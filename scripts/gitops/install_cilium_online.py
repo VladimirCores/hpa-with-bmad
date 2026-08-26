@@ -13,7 +13,12 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CILIUM_VERSION = "1.16.5"
+import sys
+sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
+import component_versions  # single source of truth for component versions
+component_versions.load_dotenv()
+component_versions.resolve()
+CILIUM_VERSION = component_versions.get("HPDC_CILIUM_VERSION")
 CILIUM_NAMESPACE = "kube-system"
 CLUSTER_NAME = "hpdc-talos"
 
