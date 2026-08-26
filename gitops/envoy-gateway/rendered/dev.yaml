@@ -462,7 +462,7 @@ spec:
         type: PathPrefix
         value: /telemetry
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   labels:
