@@ -11,9 +11,11 @@ import os
 import subprocess
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 GIT_HTTP_BACKEND = "/usr/libexec/git-core/git-http-backend"
-MIRROR_DIR = os.path.expanduser("~/.local/share/hpdc-git-mirror")
+ROOT = Path(__file__).resolve().parents[2]
+MIRROR_DIR = str(ROOT / "resources" / "git-mirror")
 PORT = 9418
 
 

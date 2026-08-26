@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-18T00:00:00Z
+# last_updated: 2026-08-25T23:59:00Z
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-18T00:00:00Z
+last_updated: 2026-08-24T22:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -142,7 +142,14 @@ development_status:
   11-1-dev-cluster-vm-provisioning-lifecycle: done
   11-2-idempotent-startup-with-persistent-storage: done
   11-3-live-component-initialization: done
-  11-4-live-cluster-verification: pending
+  # Execution order: 11-5 (convergence) -> resume 11-4 (verification) -> 11-6 (CRD schemas)
+  11-4-live-cluster-verification: in-progress # blocked_by: 11-5 (Tasks 2-3 need converged platform)
+  11-5-platform-convergence-app-of-apps: in-progress # split from NEXT.md §A; prerequisite to 11-4 completion
+  11-6-tighten-hpdc-crd-schemas: backlog # NEXT.md §A.3 follow-up candidate promoted
+
+  # QEMU migration (prerequisite: 11-5 → Q1 → Q2 → resume 11-4)
+  q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed
+  q2-migrate-dev-cluster-docker-to-qemu: done # code-reviewed 2026-08-25: 34 patches applied, 3 deferred, 2 dismissed
 
 action_items:
   - epic: 10

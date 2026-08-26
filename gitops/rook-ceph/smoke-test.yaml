@@ -1,0 +1,22 @@
+# RBD storage smoke test: PVC bind + data round-trip.
+# Apply, wait for pod Running, then check: kubectl logs -n rook-ceph ceph-consumer
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: ceph-smoke, namespace: rook-ceph}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: rook-ceph-rbd
+  resources: {requests: {storage: 1Gi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: ceph-consumer, namespace: rook-ceph}
+spec:
+  containers:
+    - name: w
+      image: quay.io/rook/ceph:v1.20.3-root
+      command: ["sh", "-c", "echo hpdc-ceph-$(date +%s) > /mnt/data/probe; cat /mnt/data/probe; sleep 600"]
+      volumeMounts: [{name: d, mountPath: /mnt/data}]
+  volumes:
+    - name: d
+      persistentVolumeClaim: {claimName: ceph-smoke}

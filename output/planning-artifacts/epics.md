@@ -1400,6 +1400,50 @@ So that all quantified acceptance criteria are proven working.
 
 **Implementation notes:** The P0 ATDD suite (143 passed, 7 skipped) runs with pytest. The 7 skips are RED-phase live journeys gated on B-001. Harnesses auto-switch to live backends via `HPDC_*` env vars. REG-01..10 entries are in `live-cluster-verification-register.md`. Each entry has owner (Winston/Amelia/Murat), quantified ACs, and P0 class.
 
+> **2026-08-24 refresh:** the cluster was re-provisioned offline on a docker provisioner (4/4 nodes Ready, k8s v1.35.2) and deployment moved to **App-of-Apps via ArgoCD from a local git mirror** (rendered-manifests pattern), replacing per-component imperative installs. Stories 11.5 and 11.6 below were added to cover convergence and CRD schema tightening surfaced by that shift; execution order is 11.5 → finish 11.4 → 11.6.
+
+### Story 11.5: Platform Convergence via App-of-Apps
+
+As a Platform Engineer,
+I want all App-of-Apps children converged to Synced & Healthy on the offline docker-provisioned cluster,
+So that live-cluster verification (story 11.4) runs against a fully converged platform.
+
+**Acceptance Criteria:**
+
+**Given** the offline docker-provisioned Talos cluster with the local registry mirror
+**When** `gitops/app-of-apps/root-application.yaml` is applied and ArgoCD reconciles
+**Then** all 19 child Applications reach Synced + Healthy
+**And** `kubectl get pods -A` shows zero non-Running pods (excluding Completed jobs)
+
+**Given** manifests reference images missing from the local mirror (`regional-hub-spa`, Casbin ext_authz)
+**When** the gaps are resolved (authored, built, mirrored via skopeo)
+**Then** every image ref in rendered manifests resolves via the local registry with no internet fallback
+
+**Given** convergence is complete
+**When** `startup.dev.py --status` is run
+**Then** it reports cluster Ready plus the full component table, captured as evidence
+
+**Implementation notes:** Split from NEXT.md §A (2026-08-24). Includes the regional-hub-spa decision point (author build context vs drop until B-004). OutOfSync stragglers mostly wait on Envoy Gateway routes. Rendered overlays must be regenerated via `scripts/gitops/render_overlays.py` after overlay edits.
+
+### Story 11.6: Tighten hpdc.io CRD Schemas
+
+As a Platform Engineer,
+I want the 25 placeholder `hpdc.io/v1` CRDs replaced with validated openAPIV3Schema definitions,
+So that controllers, admission validation, and tooling can safely rely on the custom resource contracts.
+
+**Acceptance Criteria:**
+
+**Given** `gitops/crds/hpdc/hpdc-crds.yaml` declares 25 kinds with preserve-unknown-fields placeholder schemas
+**When** each kind's schema is authored against its intended design
+**Then** every kind has a real openAPIV3Schema with no unjustified placeholders
+
+**Given** the tightened schemas are committed
+**When** existing manifest usages are validated (server-side dry-run or kubeconform)
+**Then** all usages validate cleanly
+**And** the crds-hpdc Application syncs without regression across the App-of-Apps tree
+
+**Implementation notes:** Promoted from NEXT.md §A.3 follow-up candidate. Sequenced AFTER 11.5 convergence and 11.4 verification — nothing in verification depends on strict schemas; tightening earlier churns a moving tree.
+
 ## Epic 10: Production Hardening
 
 Close the verified hardening gaps surfaced by the P0 ATDD acceptance audits: full per-route security-policy coverage, malformed GitOps YAML, and overlay drift — keeping validation offline/GitOps-safe.

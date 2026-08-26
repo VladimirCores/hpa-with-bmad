@@ -49,3 +49,8 @@
 - Harbor overlay lists `../../base/harbor-values.yaml` (raw helm values, no apiVersion/kind) as a kustomize resource — `kustomize build` fails for harbor; AC 4 literal holds, wiring predates story.
 - InfisicalSecret prod-named (`hpdc-production-secrets`/`hpdc-prod-credentials`) with `envSlug: dev`; envSlug hardcoded in base — future prod overlay would silently pull dev creds; patch per-overlay when prod overlay added.
 - Test robustness: `_api_key_headers`/`_api_key_paths` regex loose, route-attachment is substring check, YAML-validity test misses duplicate keys, no guard for `test_*` in `main()` tuples — pre-existing test design, no current false pass.
+
+## Deferred from: code review of q2-migrate-dev-cluster-docker-to-qemu (with-bmad 2026-08-25)
+- create-failure heuristics: distinguish real create errors from designed cni=none timeout; log captured stderr tail
+- root/user invocation ownership normalization for resources/ tree
+- subnet validation beyond default 10.6.0.0/24 topology

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import importlib.util
+import re
 import subprocess
 import sys
 import time
@@ -33,10 +34,20 @@ for entry in (SCRIPTS_DIR, GITOPS_DIR):
 @dataclass(frozen=True)
 class Step:
     path: Path
-    number: int
+    number: float
     name: str
     description: str
     module: object
+
+
+def step_label(number: float) -> str:
+    if number % 1:
+        return f"{int(number):02d}.{int((number % 1) * 10):.0f}"
+    return f"{int(number):02d}"
+
+
+def _is_step_number(s: str) -> bool:
+    return bool(re.fullmatch(r"\d{1,2}(\.\d)?", s))
 
 
 def load_step(path: Path) -> Step:
@@ -48,7 +59,7 @@ def load_step(path: Path) -> Step:
     spec.loader.exec_module(module)
     name = getattr(module, "STEP_NAME", path.name)
     description = getattr(module, "STEP_DESCRIPTION", "No description")
-    number = int(path.name.split("-", 1)[0])
+    number = float(path.name.split("-", 1)[0])
     return Step(path=path, number=number, name=name, description=description, module=module)
 
 
@@ -127,7 +138,7 @@ def print_status() -> int:
         else:
             state = "never-run"
         desc = step.description if len(step.description) <= 46 else step.description[:43] + "..."
-        step_rows.append([f"{step.number:02d}", state, desc])
+        step_rows.append([step_label(step.number), state, desc])
 
     components: dict[str, dict] = {}
     try:
@@ -164,7 +175,7 @@ def discover_steps() -> list[Step]:
         return []
     steps = []
     for path in sorted(STEPS_DIR.iterdir()):
-        if path.is_file() and path.name.split("-", 1)[0].isdigit():
+        if path.is_file() and _is_step_number(path.name.split("-", 1)[0]):
             steps.append(load_step(path))
     return sorted(steps, key=lambda step: step.number)
 
@@ -178,17 +189,28 @@ def step_mode_args(step: Step, mode_args: list[str]) -> list[str]:
         if "--check" in mode_args:
             return ["--check"]
         return []
+    if step.name == "01.5-configure-firewalld-talos.py":
+        # Host-level step: accepts mode flags only, never --offline
+        if "--check" in mode_args:
+            return ["--check"]
+        if "--apply" in mode_args:
+            return ["--apply"]
+        return ["--dry-run"]
     if step.name == "02-bootstrap-talos-dev.py":
         if "--check" in mode_args:
             return ["--check"]
         if "--dry-run" in mode_args:
             return ["--dry-run"]
-        # Pass storage option to bootstrap
+        # Pass storage and provider options to bootstrap
         args = []
         if "--storage" in mode_args:
             idx = mode_args.index("--storage")
             if idx + 1 < len(mode_args):
                 args.extend(["--storage", mode_args[idx + 1]])
+        if "--provider" in mode_args:
+            idx = mode_args.index("--provider")
+            if idx + 1 < len(mode_args):
+                args.extend(["--provider", mode_args[idx + 1]])
         return args
 
     args = []
@@ -216,6 +238,7 @@ def step_matches(step: Step, selection: str) -> bool:
         or normalized == step.path.name
         or normalized == step.path.stem
         or normalized == str(step.number)
+        or normalized == step_label(step.number)
     )
 
 
@@ -274,6 +297,8 @@ def build_mode_args(args: argparse.Namespace) -> list[str]:
         mode_args.append("--dry-run")
     if hasattr(args, 'storage') and args.storage:
         mode_args.extend(["--storage", args.storage])
+    if hasattr(args, 'provider') and args.provider:
+        mode_args.extend(["--provider", args.provider])
     return mode_args
 
 
@@ -334,6 +359,7 @@ def main() -> int:
     parser.add_argument("--status", action="store_true", help="show per-step and per-component installation status")
     parser.add_argument("--step", action="append", default=[], help="run only the named step; may be repeated")
     parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default="rook-ceph", help="storage backend for the cluster")
+    parser.add_argument("--provider", choices=["docker", "qemu"], default="qemu", help="Talos provisioner (default: qemu)")
     args = parser.parse_args()
 
     if args.status:
@@ -344,7 +370,7 @@ def main() -> int:
         prepare_log()
         write_log(["startup.dev.py --list"])
         for step in discover_steps():
-            line = f"{step.number:02d}  {step.name}  {step.description}"
+            line = f"{step_label(step.number)}  {step.name}  {step.description}"
             print(line)
             write_log([line])
         return 0
@@ -371,6 +397,15 @@ def main() -> int:
 
     # Idempotent lifecycle: tear down any existing cluster before provisioning
     is_apply = "--apply" in mode_args
+    registry_service = SCRIPTS_DIR / "services" / "image-registry.py"
+    if is_apply and registry_service.exists() and any(step.number in (2, 5) for step in selected):
+        print("[pre] ensuring offline image registry ...", flush=True)
+        rc = subprocess.run([sys.executable, str(registry_service)]).returncode
+        if rc != 0:
+            message = "image registry ensure failed; aborting."
+            print(message, file=sys.stderr)
+            write_log([message])
+            return 1
     if is_apply and any(s.number == 2 for s in selected):
         teardown_rc = teardown_existing_cluster()
         if teardown_rc != 0:
@@ -395,7 +430,7 @@ def main() -> int:
         elapsed = time.monotonic() - started
         verdict = "OK" if code == 0 else f"FAILED(exit {code})"
         print(f"[{idx}/{total}] {step.name}: {verdict} in {elapsed:.1f}s", flush=True)
-        summary_rows.append([f"{step.number:02d}", verdict, f"{elapsed:.1f}s", step.description])
+        summary_rows.append([step_label(step.number), verdict, f"{elapsed:.1f}s", step.description])
         if code != 0:
             failures.append((step.name, code))
 

@@ -5,8 +5,11 @@ Detects which cluster type is running and tears it down cleanly:
   - kind clusters: `kind delete cluster`
   - Talos/QEMU clusters: `talosctl cluster destroy` + QEMU process cleanup
 
-Persistent QEMU disk images (output/qemu/talos-v*.img) are preserved.
-Use --cleanup to explicitly delete them.
+All Talos runtime assets live inside the project under resources/ (gitignored):
+ISO cache, CNI bundle, registry data, git mirror — these SURVIVE teardown.
+VM state/disks are intentionally ephemeral: each destroy wipes them and the
+next startup re-provisions from cache (~75s). Use --cleanup to also
+remove leftover VM disk images.
 
 Run modes (mirrors the project's install-* convention):
   --check   report whether any cluster exists (no changes)
@@ -24,13 +27,29 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TALOS_STATE_DIR = ROOT / "output" / "qemu"
-TALOS_CLUSTER_NAME = "hpdc-talos"
+TALOS_HOME = ROOT / "resources" / "talos" / "home"
+TALOS_STATE_DIR = TALOS_HOME / ".talos" / "clusters"
+# Short symlink for cluster commands — QEMU unix sockets must stay <108 chars.
+TALOS_STATE_LINK = ROOT / "talos-state"
+CLUSTER_NAME = "hpdc-talos"
+TALOS_CLUSTER_NAME = CLUSTER_NAME
 KIND_CLUSTER_NAME = "hpa-preview"
+
+
+def _talos_env() -> dict[str, str]:
+    """HOME pinned to resources/talos/home so talosctl sees project-local state."""
+    import os
+    env = os.environ.copy()
+    env["HOME"] = str(TALOS_HOME)
+    return env
 
 
 def _run(args: list[str], *, check: bool = False, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, text=True, capture_output=True, check=check, env=env)
+
+
+def _has_docker() -> bool:
+    return shutil.which("docker") is not None
 
 
 def _has_kind() -> bool:
@@ -54,17 +73,18 @@ def talos_cluster_exists(name: str, state_dir: Path) -> bool:
         return False
 
     # Check for Docker containers
-    result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster.name={name}", "--format", "{{.Names}}"])
-    if result.returncode == 0 and result.stdout.strip():
-        return True
+    if _has_docker():
+        result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster.name={name}", "--format", "{{.Names}}"])
+        if result.returncode == 0 and result.stdout.strip():
+            return True
 
     # Check if state directory exists (QEMU - stale or running)
     cluster_state = state_dir / name
     if cluster_state.exists():
         return True
 
-    # Check talosctl cluster show
-    result = _run(["talosctl", "cluster", "show", "--name", name])
+    # Check talosctl cluster show (project-local HOME/state)
+    result = _run(["talosctl", "cluster", "show", "--name", name, "--state", str(TALOS_STATE_LINK)], env=_talos_env())
     if result.returncode == 0:
         # Check for actual node entries
         lines = result.stdout.splitlines()
@@ -75,19 +95,25 @@ def talos_cluster_exists(name: str, state_dir: Path) -> bool:
     return False
 
 
-def kill_qemu_processes() -> int:
-    """Kill any QEMU processes belonging to the Talos cluster."""
-    result = _run(["pgrep", "-f", "qemu-system"])
-    if result.returncode != 0:
-        return 0  # no QEMU processes
-    pids = result.stdout.strip().split()
+def kill_cluster_qemu() -> int:
+    """SIGTERM only QEMU processes referencing this cluster's state path."""
     killed = 0
-    for pid in pids:
-        if not pid.isdigit():
+    seen = set()
+    root = str(ROOT)
+    for marker in (f"qemu-system.*{root}/talos-state/{TALOS_CLUSTER_NAME}",
+                   f"qemu-system.*clusters/{TALOS_CLUSTER_NAME}"):
+        result = _run(["pgrep", "-f", marker])
+        if result.returncode != 0:
             continue
-        kill_result = _run(["kill", "-15", pid])  # SIGTERM
-        if kill_result.returncode == 0:
-            killed += 1
+        for pid in result.stdout.split():
+            if not pid.isdigit() or pid in seen:
+                continue
+            seen.add(pid)
+            if _run(["sudo", "-n", "kill", "-15", pid]).returncode == 0:
+                killed += 1
+    if len(seen) > killed:
+        print(f"Warning: {len(seen)-killed} QEMU process(es) could not be signalled "
+              "(sudo -n unavailable?)", file=__import__('sys').stderr)
     return killed
 
 
@@ -98,16 +124,20 @@ def talos_destroy(name: str, state_dir: Path) -> int:
         print("talosctl not found; skipping Talos teardown.")
         return 0
 
-    env = os.environ.copy()
+    env = _talos_env()
     env["TALOSCTL_OFFLINE_MODE"] = "1"
 
     print(f"Destroying Talos cluster {name!r}...")
-    result = _run([talosctl, "cluster", "destroy", "--name", name], env=env)
+    result = _run([talosctl, "cluster", "destroy", "--name", name, "--state", str(TALOS_STATE_LINK)], env=env)
     if result.returncode != 0:
-        stderr = result.stderr.strip() or result.stdout.strip()
-        print(f"Warning: talosctl cluster destroy returned non-zero: {stderr}")
+        # Non-zero is common on benign tail steps (e.g. bridge already gone after
+        # reboot). Success is judged by actual QEMU process death below.
+        print(f"Note: talosctl destroy rc={result.returncode}: "
+              f"{(result.stderr or result.stdout).strip().splitlines()[-1][:120]}")
 
     # Clean up Docker containers if they exist
+    if not _has_docker():
+        return 0
     result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster.name={name}", "--format", "{{.Names}}"])
     if result.returncode == 0 and result.stdout.strip():
         containers = result.stdout.strip().split("\n")
@@ -119,16 +149,20 @@ def talos_destroy(name: str, state_dir: Path) -> int:
     # Remove Docker network if it exists
     _run(["docker", "network", "rm", name])
 
-    # Kill any remaining QEMU processes
-    killed = kill_qemu_processes()
+    # Kill any remaining QEMU processes; their death is the real success signal
+    killed = kill_cluster_qemu()
     if killed:
         print(f"Killed {killed} QEMU process(es).")
+    elif _run(["pgrep", "-f", f"qemu-system.*clusters/{name}"]).returncode == 0:
+        print("ERROR: QEMU processes still alive after destroy.", file=sys.stderr)
+        return 1
 
-    # Remove cluster state directory (but preserve disk images)
+    # Remove leftover cluster state directory (disks included; registry data,
+    # ISO cache, and CNI bundle live outside the cluster lifecycle and persist)
     cluster_state = state_dir / name
     if cluster_state.exists():
         print(f"Removing cluster state: {cluster_state.relative_to(ROOT)}")
-        result = _run(["sudo", "rm", "-rf", str(cluster_state)])
+        result = _run(["sudo", "-n", "rm", "-rf", str(cluster_state)])
         if result.returncode != 0:
             print(f"Warning: could not remove cluster state: {result.stderr.strip()}")
 
@@ -158,9 +192,9 @@ def dry_run() -> int:
     if talos_found:
         print(f"Would destroy Talos cluster {TALOS_CLUSTER_NAME!r} "
               f"(`talosctl cluster destroy --name {TALOS_CLUSTER_NAME} "
-              f"--state {TALOS_STATE_DIR}`).")
+              f"--state {TALOS_STATE_LINK}`).")
         print(f"Would kill any remaining QEMU processes.")
-        print(f"Persistent disk images in {TALOS_STATE_DIR} would be preserved.")
+        print("Project resources under resources/ (registry, ISO cache, git mirror) would be preserved.")
     if not kind_found and not talos_found:
         print("No dev cluster running; nothing to delete.")
     return 0
@@ -170,11 +204,12 @@ def apply(cleanup_disks: bool) -> int:
     kind_found = kind_cluster_exists(KIND_CLUSTER_NAME)
     talos_found = talos_cluster_exists(TALOS_CLUSTER_NAME, TALOS_STATE_DIR)
 
+    errors = 0
     if not kind_found and not talos_found:
         print("No dev cluster running; nothing to delete.")
-        return 0
-
-    errors = 0
+        killed = kill_cluster_qemu()
+        if killed:
+            print(f"Swept {killed} orphaned cluster QEMU process(es).")
 
     # Tear down kind cluster
     if kind_found:
@@ -191,17 +226,31 @@ def apply(cleanup_disks: bool) -> int:
         rc = talos_destroy(TALOS_CLUSTER_NAME, TALOS_STATE_DIR)
         if rc != 0:
             errors += 1
+            print("Teardown reported failure — inspect output above.", file=sys.stderr)
         else:
             print(f"Talos cluster {TALOS_CLUSTER_NAME!r} destroyed.")
 
-    # Optionally clean up persistent disk images
+    # Persistent project resources (registry data, ISO cache, CNI bundle,
+    # git mirror) live under resources/ outside the cluster lifecycle and
+    # survive teardown. --cleanup removes any leftover VM disk images too.
     if cleanup_disks:
-        for img in TALOS_STATE_DIR.glob("talos-v*.img"):
-            print(f"Removing persistent disk: {img.relative_to(ROOT)}")
-            img.unlink()
-        print("Persistent disk images removed.")
+        for disk in TALOS_STATE_DIR.rglob("*"):
+            if disk.suffix in {".img", ".disk"} and disk.is_file():
+                print(f"Removing persistent disk: {disk.relative_to(ROOT)}")
+                _run(["sudo", "-n", "rm", "-f", str(disk)])
+        print("Leftover VM disk images removed.")
     else:
-        print(f"Persistent disk images preserved in {TALOS_STATE_DIR.relative_to(ROOT)}/")
+        print(f"Project resources preserved under resources/ (registry, ISO cache, git mirror).")
+
+    # Always sweep stray QEMU processes (covers orphaned VMs whose state dir
+    # was already removed by a prior partial teardown).
+    killed = kill_cluster_qemu()
+    if killed:
+        print(f"Swept {killed} orphaned QEMU process(es).")
+
+    # NOTE: the 'talos' firewalld zone is host infrastructure (like the docker
+    # daemon) — created by step 01.5, intentionally NOT removed on teardown so
+    # the next startup can reach freshly booted nodes immediately.
 
     if errors:
         return 1

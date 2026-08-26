@@ -1,0 +1,7 @@
+machine:
+  install:
+    # QEMU ISO preset pins the installer to
+    # factory.talos.dev/metal-installer/<schematic>:v1.13.7, which our offline
+    # mirror does not serve (skipFallback). Force the stock installer ref so
+    # the pull resolves through ghcr.io -> local registry mirror.
+    image: ghcr.io/siderolabs/installer:v1.13.7

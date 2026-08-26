@@ -1,145 +1,119 @@
 # Next Steps — HPDC Project
 
-**Last session:** 2026-08-11
-**PRD status:** Finalized (48 FRs, 5 UJs)
-**Architecture spine status:** Finalized (13 ADs, 48 FRs mapped, reviewer gate passed)
-**Delivery status:** Epics 1–10 implemented + retrospective'd (sweep committed), ATDD green phase (143 passed, 7 skipped), B-002/B-003/B-005 harnesses built
-**Outstanding work:** 23 retro action items + live-cluster verification register (10 entries) + setup/provisioning completion
+**Last session:** 2026-08-25 (QEMU migration COMPLETE — Q2 in review)
+**Cluster:** `hpdc-talos` (**qemu provisioner**) — **4/4 nodes Ready**, k8s v1.35.2, Talos v1.13.7, Cilium 1.20.1 KPR (no kube-proxy), **Rook-Ceph Ready/HEALTH_OK on /dev/vdb**, coredns healthy — fully offline via `localhost:5000` mirror
+**Sizing:** `.env` (committed template `.env.example`) → CP 6144MB / workers 4096MB
+**Trust note:** offline registry binds 0.0.0.0:5000 unauthenticated by design (nodes pull via bridge IP) — any LAN peer can poison the cache; acceptable on trusted dev LAN
+**Next:** code-review Q2 (then mark done) → resume 11-5 convergence → 11-4 verification
+**All Talos runtime assets under `resources/` (gitignored)**; runbook: `python3 scripts/startup.dev.py --offline --apply` then user-run step 03 + step 05 (see q2 story Dev Notes for the 8 gotchas)
 
 ---
 
-## Current State (2026-08-11)
+## Current State (2026-08-24 evening)
 
-- **Epics 1–10:** all story-tracked and implemented; all 10 retrospectives done (`epic-{1..10}-retrospective: done` in `output/implementation-artifacts/sprint-status.yaml`).
-- **Retro sweep committed:** `efa3372` — consolidated 23-item action table at `output/implementation-artifacts/action-items-2026-08-11.md`.
-- **Setup fix committed:** `3cb2605` — `scripts/startup.dev.py --offline --dry-run` completes; `scripts/gitops/bootstrap_talos_dev.py` tolerates unreadable root-owned `output/talos/talosconfig`.
-- **Test suite:** `pytest tests/` → **143 passed, 7 skipped**. The 7 skips are RED-PHASE ATDD journeys gated on a live cluster (P0-008 × 4, P0-023 soak, P0-025/026 UI).
-- **Live-cluster register materialized:** `output/test-artifacts/live-cluster-verification-register.md` (REG-01..REG-10 + unlock path + related RED scaffolds).
-- **B-002/B-003/B-005 harnesses built (offline contracts):** identity fixtures (`tests/atdd/support/fixtures.py` + `test_identity_fixtures.py`, 12 tests), consumer harness (`tests/atdd/support/consumer_harness.py` + `test_consumer_harness.py`, 12 tests), k6 load harness (`LoadHarness` in `hpdc_test_client.py` + `test_load_harness.py`, 7 tests).
+### Offline infrastructure (NEW — all verified)
+- **Local image cache**: `hpa-local-registry` container → durable storage at `~/.local/share/hpdc-registry/data` (migrated off /tmp tmpfs after ENOSPC). ~46 repos incl. k8s control-plane v1.35.2, cilium v1.20.1, harbor v2.15.2 (+valkey), argo stack, victoria stack, backstage, casdoor, cert-manager v1.21.1, dex, local-path, busybox, curl.
+- **Node mirrors**: every Talos node's containerd points at `http://10.6.0.1:5000` ONLY (`/etc/cri/conf.d/hosts/<upstream>/hosts.toml`, pull+resolve). Missing images hard-fail instead of leaking to internet — empirically proven (etcd:v3.6.8 incident).
+- **Git mirror (offline ArgoCD source)**: bare clone of this repo served over **smart HTTP** at `http://10.6.0.1:9418/with-bmad.git` by `scripts/services/git-smart-http.py` (stdlib CGI bridge over `/usr/libexec/git-core/git-http-backend`; plain `git daemon` unavailable, dumb HTTP rejected by go-git). Started idempotently by step 09; refresh = rerun step 09 (fetch refspec + update-server-info).
+- **Speedups in place**: parallel per-node `talosctl image pull` fan-out (4 imgs × 4 nodes ≈ 11s), helm charts cached/vendored, kubeconfig self-recovery in `sync_kubeconfigs` (no more empty-config bug).
+
+### App-of-Apps deployment (NEW — replaces per-component imperative installs)
+- `gitops/app-of-apps/root-application.yaml` + 19 children in `gitops/apps/*.yaml` (wave-ordered; crds-gateway/crds-hpdc at wave 0).
+- **Rendered-manifests pattern**: ArgoCD v3.5 hardwires kustomize `LoadRestrictionsRootOnly`; cross-cutting overlays can't build. `scripts/gitops/render_overlays.py` renders each `overlays/dev` host-side (kustomize v5.4.3 at `~/.local/bin/kustomize`, one-time tool fetch) into committed `gitops/<comp>/rendered/dev.yaml`; children consume these as directory sources.
+- **CRD bundles authored**: `gitops/crds/gateway/crds.yaml` (21 CRDs extracted from EG v1.9.0 install.yaml) and `gitops/crds/hpdc/hpdc-crds.yaml` (25 minimal `hpdc.io/v1` CRDs generated from kinds used across manifests — schemas are preserve-unknown-fields placeholders, NOT validated designs).
+- **Sync status at session end**: Synced=crds-gateway, crds-hpdc, platform-root, agent-engine, backstage*, casbin*, openapi*, regional-hub*, regional-sovereignty, victoria-metrics* (*Progressing/Degraded = image pulls). OutOfSync/pending: envoy-gateway, casdoor, infisical, kafka, alerts, tool-ui, platform, security, entity-store, observability.
+- Pods: **44/57 Running**. Non-running are concentrated on missing images (below).
+
+### Storage & core
+- local-path provisioner installed & default (docs-recommended for docker clusters; rook-ceph deferred — needs block devices). Harbor healthy (8/8) incl. valkey-photon fix. ArgoCD healthy (7 pods). Kargo installed w/ its own cert-manager chart.
 
 ---
 
 ## What's Left to Complete the Work
 
-### A. Record Reconciliation (John) — 7 items
+### QEMU Migration (NEW — blocks 11-4 completion, est. 1-2 hours)
+**Problem:** Docker provisioner can't provide real block devices for Ceph OSD. **SOLVED:** QEMU cluster live (see header).
+**Done:** Q1 zone (source-subnet binding) ✓ · Q2 code + live bootstrap + Cilium KPR ✓
+**Remaining in Q2:** Task 5 — Rook-Ceph OSD on virtio-blk (`/dev/vdb` on workers; registry has rook images? verify `rook-ceph` repo in catalog) · Task 6 — stop/start idempotent cycle proof.
+**Then:** 11-5 convergence → 11-4 verification.
+**Runbook:** `python3 scripts/startup.dev.py --offline --apply` (01.5 firewalld → 02 qemu → …). Teardown keeps zone+registry+ISO; `stop.dev.py --cleanup` also wipes VM disks.
 
-Backfill/clean the audit-trail drift so the plan, tracker, and story files agree:
+1. **Q1: firewalld zone config** (`q1-firewalld-zone-for-qemu-provisioner`, ready-for-dev)
+   - Create `scripts/steps/01.5-configure-firewalld-talos.py`
+   - Add `talos` zone with ACCEPT target, interfaces `talos+` and `veth+`
+   - Add zone teardown to `stop.dev.py`
+2. **Q2: Docker→QEMU migration** (`q2-migrate-dev-cluster-docker-to-qemu`, ready-for-dev, blocked_by: Q1)
+   - Switch `bootstrap_talos_dev.py` from Docker to QEMU provider
+   - Update `stop.dev.py` for QEMU lifecycle
+   - Add `--disks "virtio:10GiB"` for Ceph OSD
+   - Preserve persistent disk images across teardown/startup cycles
+   - Verify Cilium on QEMU networking, Rook-Ceph on real block devices
 
-1. **#6** Clarify story 9-3 in `epics.md`: mark `provide-full-llm-decision-support-engine` explicitly deferred/not-implemented.
-2. **#14** Backfill a minimal 5-2 story record or document the gap (done in sprint-status, no story file).
-3. **#16** Epic 4: reconcile 4-3..4-9 (no story files, delivered via consolidated scaffold + epic4→platform rename); clear 4-2 unchecked tasks; fix stale paths in `epic-4-offline-gitops-scaffold.md`.
-4. **#18** Epic 3: reconcile 3-13 (Grafana/Hubble UI done but untracked + self-contradictory status); decide add-to-tracker vs mark deferred.
-5. **#20** Epic 2: deepen shallow records 2-1, 2-3..2-10 (backfill baseline commits; add review-findings depth for 2-4/2-6/2-7/2-8).
-6. **#22** Epic 1: reconcile story 1-6 (Harbor) into epics.md (delivered, reused by 2-1, absent from story list).
-7. **#23** Epic 1: pin baseline commits on 1-1..1-6.
+### C0. Immediate housekeeping — ✅ DONE (commit `6ab6a88`)
+1. ~~Commit uncommitted mirror work~~ — smart-http server + mirror refactor + test adaptations committed; `.kube/` gitignored.
+2. Restart-safe: registry container has `--restart unless-stopped` ✓; git-smart-http does NOT survive reboot → rerun step 09 after reboot (idempotent).
 
-**Done when:** every `done` story in sprint-status resolves to a real story file with a baseline commit; epics.md story lists match the tracker.
+### A. Finish platform convergence (est. half-day) — now tracked as **story 11-5** (`output/implementation-artifacts/11-5-platform-convergence-app-of-apps.md`, ready-for-dev; do this BEFORE resuming 11-4)
+1. **Missing images** (sync via skopeo into `localhost:5000/<path>` matching manifest refs):
+   - `ghcr.io/hpdc/regional-hub-spa:dev` — **custom project image, NO build context in repo** (no frontend/ dir). Decision needed: author it or drop regional-hub app until B-004 anyway.
+   - `docker.io/casbin/ext-authz:v0.0.1` — upstream denied (private/nonexistent); casbin-ext-authz also denied. Needs a built image (Casbin envoy ext_authz server) — author Dockerfile under backend/ or vendor alternative.
+   - Re-check `kubectl get pods -A | grep -v Running` after each sync; ArgoCD auto-heals pulls once tags exist.
+2. **OutOfSync stragglers**: mostly waiting on EG routes (envoy-gateway app itself was mid-sync when paused — verify GatewayClass/Gateway came up, then tool-ui/observability/security routes resolve).
+3. **hpdc.io CRDs are placeholder schemas** — fine for sync, but tighten openAPIV3Schema per kind before any controller/validation relies on them (promoted to **story 11-6**, runs after 11-4).
+4. After convergence: `python3 scripts/startup.dev.py --status` should show cluster Ready + full component table; capture as evidence.
 
-### B. Live-Cluster Verification Register (Murat/Winston/Amelia) — items 3, 4, 8, 10, 12
+### B. Story 11-4 remaining tasks (the original point) — resume AFTER 11-5 convergence; story file refreshed 2026-08-24
+- [ ] Task 1: env vars — set `HPDC_EDGE_URL` to Envoy Gateway address (Cilium LB on docker net; check `kubectl get gateway`/svc) and `HPDC_EVENTS_API_KEY` from api-key-auth secret (step 18 resources / `security` overlay).
+- [ ] Task 2: run P0 ATDD suite live: `HPDC_EDGE_URL=… HPDC_EVENTS_API_KEY=… pytest tests/atdd/ -v --tb=long`; the 7 RED-phase skips must pass or fail-with-diagnostics; record in atdd-progress.md.
+- [ ] Task 3: REG closure — REG-01 (Infisical), REG-02 (JWKS via Casdoor route), REG-04..06 (Victoria SLOs), REG-07..10 (entity-store SLOs) become executable once §A converges. REG-03 stays blocked by B-004 (single cluster) — document, don't fake.
+- [ ] Task 4: mark resolved entries in `deferred-work.md`.
+- [ ] Task 5/6: sprint-status.yaml — 11-4 → review/done, Epic 11 done, linked action items done.
 
-Materialized in `output/test-artifacts/live-cluster-verification-register.md`. All 10 REG entries are gated on live infrastructure — **none can execute until a cluster exists**. Order of attack:
-
-1. ✅ **B-002 identity fixtures** — BUILT (unlock-path step 1 done).
-2. ✅ **B-003 consumer harness** — BUILT (2026-08-11, offline contract): `pulsar_consumer_harness`/`kafka_consumer_harness` + `PulsarConsumerHarness`/`KafkaConsumerHarness` in `tests/atdd/support/consumer_harness.py` (message-arrival + latency asserts, remote HTTP + local NDJSON backends), 12 tests. Unlock-path step 2 done.
-3. ✅ **B-005 k6 load harness** — BUILT (2026-08-11, offline contract): `LoadHarness` + `SoakReport` in `hpdc_test_client.py` (k6 soak script, NFR1/NFR3 thresholds, local sim fallback), 7 tests. Unlock-path step 5 done.
-4. **B-001 live test cluster** — provision Talos (`admin@hpa-dev`); this is the gating prerequisite for REG-01/02/04..10 and the P0-008 journey bodies.
-5. **B-004 multi-region topology** — 2 clusters + ClusterMesh + WireGuard → REG-03 (cross-cluster discovery/encryption).
-
-**Concrete next executable step:** provision a live Talos cluster (B-001) — the only blocker left in the harness/unlock chain. Once it exists: wire the B-003 harness remote URL, run k6 against the gateway, and execute REG-01/02/04..10 + the P0-008 journey bodies. P0-023 full soak needs k6 binary + cluster.
-
-### C. Parity Guards & Route-Topology (Winston/Amelia) — items 1, 7, 11, 19, 21, 5
-
-1. **#1/#11/#19** Route-topology / native-auth consolidation: resolve the `'/'` catch-all ambiguity on the two native-auth UI routes (`hpdc-edge-observability-ui-routes`, `hpdc-edge-tool-ui-routes`) — drop `/` from one or give every UI host a dedicated hostname route. Root family traced through 7-5 and 3-12/3-13.
-2. **#7** Record agent-engine parity guard (kustomize-to-installer equality for agent-engine shared config).
-3. **#21** Document the harbor parsed-equality drift guard (10-2) as the canonical cross-system parity-guard template, owned at Epic 2.
-4. **#5** Codify the in-memory mutation-probe technique into the checkpoint-review workflow.
-
-### D. Remaining Offline Code Work (Murat) — items 2, 9
-
-1. **#2** Extend secret-scan `_base_yamls()` to also scan overlay kustomizations (P0-022 base-only gap).
-2. **#9** Add a no-replication guard: regional-sovereignty validation asserts absence-of-config (no cross-region replication anywhere in the tree).
-
-### E. Heading Normalization (Winston) — item 17
-
-Normalize Epics 1–4 headings in `epics.md` from `###` (h3 under `## Epic List`, L185) to `##` (h2), matching Epics 5–10, so machine-driven discovery/retro sweeps find them.
-
----
-
-## Suggested Immediate Order
-
-1. **B-001 live cluster provision** — the only remaining harness/unlock-path blocker; all offline harness work (B-002/B-003/B-005) is done. Wire the B-003 remote URL + run k6 against the gateway once the cluster exists, then execute REG-01/02/04..10 and the P0-008 journey bodies.
-2. **E (heading normalization)** — small, mechanical, unblocks machine-driven discovery for everything else.
-3. **D (#2, #9)** — offline test-code hardening, immediately verifiable.
-4. **C (#1/#11/#19)** — route-topology resolution; manifest-only, offline, closes the catch-all family.
-5. **A (record reconciliation)** — doc backfill; do after headings so the reconciled records are discoverable.
-6. **C (#7, #21, #5)** — parity-guard codification (docs).
+### D. Carried from previous NEXT.md (unchanged)
+- Record reconciliation leftovers if any resurface during Task 5 (epics.md vs tracker parity).
+- B-004 multi-region topology (2nd cluster + ClusterMesh) still open — gates REG-03.
 
 ---
 
-## Key Decisions to Remember
+## Key Decisions to Remember (new this session)
 
-- **Paradigm:** Gateway-Mediated Domain Segregation — Envoy routes as hard domain boundaries
-- **Compute:** Serverless-first — KNative (scale-to-zero + Restate SAGAs), SpinKube WASM, Pulsar Functions. No always-on microservices
-- **Messaging:** Pulsar primary (MQTT/gRPC, 100K+ RPS) + Kafka secondary (alerts, Spin WASM). Protobuf CommonEnvelope with origin + idempotency_key fields
-- **Databases:** CouchDB (docs/CRM/ERP), YugabyteDB 2026.1.0.1 (transactions), ArcadeDB (graph), ClickHouse (telemetry), KeyDB (cache/pubsub/dedup), PostgreSQL (auth only). All functions R/W all DBs
-- **Auth:** Casdoor JWT/API-Key at EG, Casbin ext_authz Go gRPC. Three models (RBAC/ReBAC/ABAC), DENY-wins conflict resolution. JWT iss `https://casdoor.hpdc.local`, aud `hpdc-graphql-gateway`
-- **GitOps:** Monorepo + Kustomize overlays (base/dev/prod) + Kargo Freight promotion + Argo CD ApplicationSet sync
-- **Air-gapped:** Harbor (local registry + Trivy + Cosign) + Spegel (P2P distribution) + local Git mirrors
-- **Observability:** Structured JSON logs, OpenTelemetry auto-instrumentation, VictoriaMetrics cluster, Hubble network observability. Retention: 7d raw / 30d agg / 1y monthly
-- **Secrets:** Infisical K8s Operator CSI Driver injection, 90d auto-rotation, per-function service accounts. InfisicalSecret CRD does NOT reconcile yet (no operator — REG-01)
-- **Operations:** Talos Linux 1.13.7 (k8s v1.36.2, containerd 2.2.6), Cilium 1.19.6 (eBPF CNI, kube-proxy replacement, ClusterMesh), Rook-Ceph v1.20.3 (Ceph v20.2.2)
-- **SPA:** Backstage MVP (deployed as Backstage plugin), full SPA on CDN deferred to v2
-- **Source tree:** `backend/functions/{knative,spin,pulsar}/` for serverless code, `frontend/` for SPA
+- **Offline posture**: ALL node pulls flow through `hpa-local-registry` (10.6.0.1:5000) with skipFallback; cache-fill happens host-side via `skopeo copy --all` (preserves multi-arch digests — `docker push` mangles them, breaking chart digest pins).
+- **Registry storage lives on disk** (`~/.local/share/hpdc-registry/data`), never /tmp (tmpfs ENOSPC corrupted repos once; recovery = delete affected repo dirs + re-push).
+- **Deployment paradigm**: App-of-Apps via ArgoCD from local git mirror — NOT bespoke installer scripts. Steps remain as waiters/validators; rendered/ dirs are the sync artifacts (regenerate via render_overlays.py after overlay edits, then commit + refresh mirror + hard-refresh apps).
+- **Storage**: local-path default for the docker dev cluster; rook-ceph path kept but gated behind QEMU/block-device flows.
+- **Talos bootstrap** now always applies `platform/talos/talos-offline-mirror-patch.yaml` (mirrors + skipFallback) alongside the CNI patch.
+- **Kubeconfig**: single canonical context admin@hpdc-talos written to repo `.kube/config` + `~/.kube/config`; sync_kubeconfigs regenerates via `talosctl kubeconfig` when create times out pre-merge.
+- Prior decisions (paradigm, compute, messaging, auth, GitOps, air-gap, observability, secrets, operations, SPA, source tree) — unchanged, see git history of this file.
 
 ---
 
-## Open Items (carried from planning)
-
-### Resolved PRD questions
-- ✅ Payload format (Q1) → **Protobuf** (AD-5)
-- ✅ Pulsar/Kafka split (Q6) → **Dual: Pulsar primary, Kafka secondary** (AD-4)
-- ✅ Spin language (Q8) → **Rust primary, JS/Go secondary**
-- ✅ Talos version (Q12) → **1.13.7**
-- ✅ Delivery phasing → **Work-split: 3 waves, 13 slices** (see WORK-SPLIT.md)
-- ✅ Casbin policy schema (Q15) → **Deferred to Sprint 1 story creation** (per-story design)
-- ✅ SPA framework (Q9) → **Backstage MVP, full SPA deferred to v2**
-
-### Remaining open (deferred, revisit triggers defined in spine)
-
-| Item | Revisit trigger |
-|------|----------------|
-| Backup/DR strategy (etcd, Ceph, DBs) | Before production deployment |
-| Production region-specific configs (compliance, data locality) | Before production deployment |
-| Resource sizing per environment | After MVP baseline established |
-| Canary analysis thresholds (error rate, latency p99) | Before production deployment |
-| Casbin policy schema format (PERM model, relationship tuples) | Per-story design |
-| Observability storage backend (Ceph vs local vs S3) | When VictoriaMetrics performance tuning begins |
-| Pulsar topic partition counts | Per-deployment configuration |
-| Central hub SPA framework (React/Vue/Angular) | v2 planning starts |
-| Full AI Agent Engine (MCP/A2A) | v2 planning starts |
-
----
-
-## Artifact Paths
+## Artifact Paths (updated)
 
 ```
-output/
-├── planning-artifacts/
-│   ├── prds/prd-HPDC-2026-07-21/prd.md          # Finalized PRD (48 FRs, 5 UJs)
-│   ├── architecture/architecture-HPDC-2026-07-30/ # Spine, C4, deck, solution design, ADR log
-│   └── epics.md                                  # Epic 1–10 story lists (heading fix pending, item 17)
-│
-├── implementation-artifacts/
-│   ├── sprint-status.yaml                        # All epics done; 23 action items tracked
-│   ├── action-items-2026-08-11.md                # Consolidated retro-sweep action table
-│   ├── epic-{1..10}-retro-2026-08-11.md          # Retrospective docs
-│   └── deferred-work.md                          # Still-open ledger (10-1 items, catch-all, etc.)
-│
-└── test-artifacts/
-    ├── test-design/test-design-qa.md             # P0 register + blockers B-001..B-005
-    ├── atdd-progress.md                          # Green-phase history
-    ├── atdd-checklist-hpdc-p0-system.md          # P0 checklist (fixtures table updated)
-    └── live-cluster-verification-register.md     # REG-01..REG-10 + unlock path (NEW 2026-08-11)
+platform/
+├── talos/                     # cni patch, offline-mirror patch, registry patches, machine config
+├── charts/                    # vendored: harbor-1.19.2, kargo-1.11.1, cert-manager-v1.21.1
+├── manifests/                 # argocd-install-v3.5.1.yaml
+└── storage/local-path-storage.yaml
+
+gitops/
+├── apps/                      # 19 child Applications (wave-ordered)
+├── app-of-apps/root-application.yaml
+├── crds/{gateway,hpdc}/       # CRD bundles
+└── <component>/rendered/dev.yaml   # sync artifacts (generated)
+
+scripts/services/
+├── git-smart-http.py          # offline smart-HTTP git server (port 9418)
+└── image-preflight.py         # moved here from scripts/
+
+~/.local/share/hpdc-git-mirror/with-bmad.git   # bare mirror served to ArgoCD
+~/.local/share/hpdc-registry/data/             # docker registry storage
+output/test-artifacts/live-cluster-verification-register.md    # REG-01..10 (update next)
+output/implementation-artifacts/11-4-live-cluster-verification.md
+output/implementation-artifacts/11-5-platform-convergence-app-of-apps.md   # NEW — do first
+output/implementation-artifacts/11-6-tighten-hpdc-crd-schemas.md           # NEW — after 11-4
+output/implementation-artifacts/q1-firewalld-zone-for-qemu-provisioner.md  # NEW — QEMU migration prerequisite
+output/implementation-artifacts/q2-migrate-dev-cluster-docker-to-qemu.md   # NEW — QEMU migration main story
 ```
 
-**Test code:** `tests/atdd/support/fixtures.py` (B-002 identity fixtures), `tests/atdd/api/`, `tests/atdd/e2e/`, `hpdc_test_client.py` (repo-root harness, 39 green API tests).
+**Runbook (post-reboot, post-QEMU migration)**: start docker → registry auto-starts → `python3 scripts/startup.dev.py --offline --apply` (runs all steps including firewalld zone + QEMU bootstrap) → watch `--status`. Persistent QEMU disk images survive teardown; `stop.dev.py --apply` destroys VMs but preserves images; re-run startup restores from existing disks.

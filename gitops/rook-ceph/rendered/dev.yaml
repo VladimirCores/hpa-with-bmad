@@ -1,31 +1,14 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  labels:
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
   name: rook-ceph
 ---
 allowVolumeExpansion: true
-apiVersion: v1
-kind: StorageClass
-metadata:
-  labels:
-    app.kubernetes.io/component: storage
-    app.kubernetes.io/name: rook-ceph
-    app.kubernetes.io/part-of: hpdc-platform
-  name: rook-ceph-cephfs
-parameters:
-  clusterNamespace: rook-ceph
-  csi.storage.k8s.io/controller-expand-secret: rook-csi-cephfs-provisioner
-  csi.storage.k8s.io/node-publish-secret: rook-csi-cephfs-node
-  csi.storage.k8s.io/node-stage-secret: rook-csi-cephfs-node
-  csi.storage.k8s.io/provisioner-secret: rook-csi-cephfs-provisioner
-  fsName: rook-ceph
-  pool: rook-ceph
-provisioner: rook-ceph.rook.io/filesystem
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
----
-allowVolumeExpansion: true
-apiVersion: v1
+apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   labels:
@@ -34,59 +17,30 @@ metadata:
     app.kubernetes.io/part-of: hpdc-platform
   name: rook-ceph-rbd
 parameters:
-  clusterNamespace: rook-ceph
-  csi.storage.k8s.io/controller-expand-secret: rook-csi-rbd-provisioner
-  csi.storage.k8s.io/node-publish-secret: rook-csi-rbd-node
-  csi.storage.k8s.io/node-stage-secret: rook-csi-rbd-node
-  csi.storage.k8s.io/provisioner-secret: rook-csi-rbd-provisioner
+  clusterID: rook-ceph
+  csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
+  csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+  csi.storage.k8s.io/node-publish-secret-name: rook-csi-rbd-node
+  csi.storage.k8s.io/node-publish-secret-namespace: rook-ceph
+  csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+  csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
+  csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+  csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
   imageFeatures: layering
-  imageFormat: "2"
-  pool: rook-ceph
-provisioner: rook-ceph.rook.io/block
+  pool: replicapool
+provisioner: rook-ceph.rbd.csi.ceph.com
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 ---
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: ceph.rook.io/v1
+kind: CephBlockPool
 metadata:
-  name: rook-ceph-osd
-  namespace: rook-ceph
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: operator
-    app.kubernetes.io/name: rook-ceph
-    app.kubernetes.io/part-of: hpdc-platform
-  name: rook-ceph-operator
+  name: replicapool
   namespace: rook-ceph
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/component: operator
-      app.kubernetes.io/name: rook-ceph
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: operator
-        app.kubernetes.io/name: rook-ceph
-    spec:
-      containers:
-      - env:
-        - name: ROOK_CEPH_IMAGE
-          value: quay.io/rook/ceph:v1.20.3
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: quay.io/rook/ceph:v1.20.3
-        imagePullPolicy: IfNotPresent
-        name: rook-ceph-operator
-      serviceAccountName: rook-ceph-operator
-      tolerations:
-      - operator: Exists
+  failureDomain: host
+  replicated:
+    size: 2
 ---
 apiVersion: ceph.rook.io/v1
 kind: CephCluster
@@ -96,56 +50,25 @@ metadata:
 spec:
   cephVersion:
     allowUnsupported: true
-    image: quay.io/rook/ceph:v1.20.3
+    image: quay.io/rook/ceph:v1.20.3-root
   dashboard:
     enabled: true
     ssl: false
   dataDirHostPath: /var/lib/rook
   healthCheck:
     daemonHealth:
-      mgr:
-        disabled: false
       mon:
         disabled: false
       osd:
         disabled: false
-    livenessProbe:
-      disabled: false
-    readinessProbe:
-      disabled: false
   mgr:
     count: 1
   mon:
     allowMultiplePerNode: false
     count: 1
-    store:
-      type: bluestore
   network:
-    podIP:
-      serviceCIDR: 10.96.0.0/12
-    provider: kubernetes
+    provider: host
   storage:
-    storageClassDeviceSets:
-    - count: 1
-      dataEmptyDir: false
-      devices:
-      - name: /dev/disk/by-id/qemu_talos-v1
-      name: rook-ceph-dev-osd
-      placement:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/hostname
-                operator: Exists
-      plan:
-        replicas: 1
-      portable: true
-      preparePlacement:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/hostname
-                operator: Exists
-      size: 16G
+    deviceFilter: vdb
+    useAllDevices: false
+    useAllNodes: true

@@ -16,7 +16,7 @@ GIT_BASE = ROOT / "gitops" / "git" / "base"
 GIT_OVERLAY = ROOT / "gitops" / "git" / "overlays" / "dev"
 MIRROR_LOG = ROOT / "output" / "git-mirror.log"
 MIRROR_PORT = 9418
-MIRROR_DIR = Path.home() / ".local" / "share" / "hpdc-git-mirror"
+MIRROR_DIR = ROOT / "resources" / "git-mirror"
 BARE_REPO = MIRROR_DIR / f"{ROOT.name}.git"
 # Nodes reach the host over the Talos docker bridge gateway.
 NODE_REPO_URL = f"http://10.6.0.1:{MIRROR_PORT}/{BARE_REPO.name}"

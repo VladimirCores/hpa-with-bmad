@@ -24,17 +24,15 @@ def validate_manifests() -> None:
     storage = read("gitops/rook-ceph/base/storageclasses.yaml")
     overlay = read("gitops/rook-ceph/overlays/dev/kustomization.yaml")
 
-    assert f"quay.io/rook/ceph:v{ROOK_VERSION}" in rook
+    assert f"quay.io/rook/ceph:v{ROOK_VERSION}-root" in rook
     assert "kind: CephCluster" in rook
     assert "count: 1" in rook
-    assert "dataEmptyDir: false" in rook
     assert "dataDirHostPath: /var/lib/rook" in rook
-    assert "/dev/disk/by-id/qemu_talos-v1" in rook
-    assert "storageClassDeviceSets:" in rook
+    assert "/dev/vdb" in rook or "deviceFilter: vdb" in rook
+    assert "useAllDevices: false" in rook
     assert "rook-ceph-rbd" in storage
-    assert "rook-ceph-cephfs" in storage
-    assert "provisioner: rook-ceph.rook.io/block" in storage
-    assert "provisioner: rook-ceph.rook.io/filesystem" in storage
+    assert "provisioner: rook-ceph.rbd.csi.ceph.com" in storage
+    assert "kind: CephBlockPool" in storage
     assert "volumeBindingMode: Immediate" in storage
     assert "allowVolumeExpansion: true" in storage
     assert "../../base/rook-ceph.yaml" in overlay
@@ -53,27 +51,28 @@ def test_dry_run_mode() -> None:
     assert result.returncode == 0
     log = (ROOT / "output" / "startup.dev.log").read_text(encoding="utf-8")
     assert f"Rook-Ceph version: {ROOK_VERSION}" in log
-    assert "Persistent QEMU disk: output/qemu/talos-v1.img" in log
+    assert "Persistent QEMU disk: /dev/vdb" in log
     assert "GitOps overlay: gitops/rook-ceph/overlays/dev" in log
 
 
 def test_missing_image_cache_fails() -> None:
-    marker = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v{ROOK_VERSION}"
-    if marker.exists():
-        marker.unlink()
+    """Registry probe failure must raise, not silently pass."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "install_rook_ceph_dev", ROOT / "scripts" / "gitops" / "install_rook_ceph_dev.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    original = mod.REGISTRY
+    mod.REGISTRY = "http://127.0.0.1:1"  # unreachable
     try:
-        result = subprocess.run(
-            [sys.executable, "scripts/startup.dev.py", "--offline", "--dry-run", "--step", "05-install-rook-ceph-dev.py"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode != 0
-        assert "Rook-Ceph offline image cache not found" in result.stderr or result.returncode != 0
+        try:
+            mod.ensure_offline_image_cache()
+            raised = False
+        except RuntimeError:
+            raised = True
+        assert raised, "expected RuntimeError when registry probe fails"
     finally:
-        marker.write_text("Rook-Ceph 1.20.3 offline image cache marker.\n")
-
+        mod.REGISTRY = original
 
 def main() -> int:
     validate_manifests()

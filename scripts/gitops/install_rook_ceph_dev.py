@@ -8,29 +8,50 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ROOK_VERSION = "1.20.3"
-ROOK_IMAGE = ROOT / "output" / "rook-ceph" / "images" / f"rook-ceph-v{ROOK_VERSION}"
+ROOK_IMAGE_REF = f"quay.io/rook/ceph:v{ROOK_VERSION}"
+REGISTRY = "http://localhost:5000"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
-CILIUM_IMAGE = ROOT / "output" / "cilium" / "images" / f"cilium-agent-v1.19.6"
-QEMU_DISK = ROOT / "output" / "qemu" / "talos-v1.img"
+QEMU_DISK = ROOT / "resources" / "talos" / "home" / ".talos" / "clusters"
 ROOK_BASE = ROOT / "gitops" / "rook-ceph" / "base"
 ROOK_OVERLAY = ROOT / "gitops" / "rook-ceph" / "overlays" / "dev"
+ROOK_DIRS_FIXER = ROOT / "gitops" / "rook-ceph" / "base" / "rook-dirs-bootstrap.yaml"
+ROOK_RENDERED = ROOT / "gitops" / "rook-ceph" / "rendered" / "dev.yaml"
+ROOK_CRDS = ROOT / "platform" / "manifests" / "rook-ceph-crds-v1.20.3.yaml"
+ROOK_COMMON = ROOT / "platform" / "manifests" / "rook-ceph-common-v1.20.3.yaml"
+ROOK_OPERATOR = ROOT / "platform" / "manifests" / "rook-ceph-operator-v1.20.3.yaml"
+ROOK_CSI_OPERATOR = ROOT / "platform" / "manifests" / "rook-ceph-csi-operator-v1.20.3.yaml"
+VENDORED_MANIFESTS = [ROOK_CRDS, ROOK_COMMON, ROOK_CSI_OPERATOR, ROOK_OPERATOR]
 
 
 def ensure_dirs() -> None:
-    for directory in (ROOK_BASE, ROOK_OVERLAY, ROOK_IMAGE.parent):
+    for directory in (ROOK_BASE, ROOK_OVERLAY):
         directory.mkdir(parents=True, exist_ok=True)
 
 
+_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _registry_has(repo: str, tag: str) -> bool:
+    try:
+        with _DIRECT_OPENER.open(f"{REGISTRY}/v2/{repo}/manifests/{tag}", timeout=5) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
 def ensure_offline_image_cache() -> None:
-    if ROOK_IMAGE.exists():
+    # Rook operator + daemon image served through the local mirror
+    # (quay.io -> localhost:5000 path-preserving).
+    if _registry_has("rook/ceph", f"v{ROOK_VERSION}-root") and _registry_has("rook/ceph", f"v{ROOK_VERSION}"):
         return
     raise RuntimeError(
-        "Rook-Ceph offline image cache not found. Pre-cache Rook-Ceph 1.20.3 images before offline bootstrap: "
-        f"{ROOK_IMAGE}"
+        f"rook/ceph requires BOTH tags v{ROOK_VERSION} and v{ROOK_VERSION}-root "
+        f"in the local registry mirror (operator pulls upstream ref; daemons use root variant)"
     )
 
 
@@ -41,15 +62,32 @@ def ensure_talosconfig() -> None:
 
 
 def ensure_cilium() -> None:
-    if CILIUM_IMAGE.exists():
-        return
-    raise RuntimeError(f"Cilium offline image cache not found: {CILIUM_IMAGE}")
+    try:
+        result = subprocess.run(
+            ["kubectl", "-n", "kube-system", "get", "ds", "cilium",
+             "--no-headers", "--request-timeout=10s"],
+            capture_output=True, text=True, check=True, timeout=30,
+        )
+        fields = result.stdout.split()
+        if len(fields) < 4:
+            raise RuntimeError(f"unexpected ds output: {result.stdout.strip()}")
+        desired, ready = int(fields[1]), int(fields[3])  # NAME DESIRED CURRENT READY
+        if desired > 0 and desired == ready:
+            return
+        raise RuntimeError(f"Cilium DS not ready ({ready}/{desired}) — run step 03 first")
+    except RuntimeError:
+        raise
+    except Exception as error:
+        raise RuntimeError(f"Cilium not detected on cluster: {error} — run step 03 first")
 
 
 def ensure_qemu_disk() -> None:
-    if QEMU_DISK.exists():
+    # Worker data disks live inside the QEMU cluster state dir; presence of the
+    # cluster state is the practical proxy for 'disks attached'.
+    cluster_state = QEMU_DISK / "hpdc-talos"
+    if cluster_state.exists():
         return
-    raise RuntimeError(f"Persistent QEMU disk not found: {QEMU_DISK}")
+    raise RuntimeError(f"QEMU cluster state not found: {cluster_state}")
 
 
 def validate_manifests() -> list[str]:
@@ -70,20 +108,16 @@ def validate_manifests() -> list[str]:
         failures.append("rook-ceph.yaml missing CephCluster")
     if "count: 1" not in rook:
         failures.append("rook-ceph.yaml missing single mon/osd topology")
-    if "dataEmptyDir: false" not in rook:
-        failures.append("rook-ceph.yaml must not use dataEmptyDir for Ceph OSD data")
     if "dataDirHostPath: /var/lib/rook" not in rook:
         failures.append("rook-ceph.yaml missing Rook dataDirHostPath")
-    if "devices:" not in rook or "/dev/disk/by-id/qemu_talos-v1" not in rook:
-        failures.append("rook-ceph.yaml missing persistent QEMU disk OSD device")
-    if "storageClassDeviceSets:" not in rook:
-        failures.append("rook-ceph.yaml missing storageClassDeviceSets")
-    if "pool: rook-ceph" not in storage:
-        failures.append("storageclasses.yaml missing rook-ceph pool")
-    if "provisioner: rook-ceph.rook.io/block" not in storage:
-        failures.append("storageclasses.yaml missing RBD StorageClass")
-    if "provisioner: rook-ceph.rook.io/filesystem" not in storage:
-        failures.append("storageclasses.yaml missing CephFS StorageClass")
+    if "deviceFilter: vdb" not in rook:
+        failures.append("rook-ceph.yaml missing worker data-disk deviceFilter (vdb)")
+    if "clusterID: rook-ceph" not in storage:
+        failures.append("storageclasses.yaml missing CSI clusterID")
+    if "provisioner: rook-ceph.rbd.csi.ceph.com" not in storage:
+        failures.append("storageclasses.yaml missing RBD CSI StorageClass")
+    if "kind: CephBlockPool" not in storage:
+        failures.append("storageclasses.yaml missing CephBlockPool")
     if "volumeBindingMode: Immediate" not in storage:
         failures.append("storageclasses.yaml missing immediate volume binding")
     if "allowVolumeExpansion: true" not in storage:
@@ -100,10 +134,8 @@ def run(command: list[str], *, check: bool = True) -> subprocess.CompletedProces
 
 
 def detect_existing_cluster(kubectl: str) -> None:
-    env = os.environ.copy()
-    env["TALOSCTL_OFFLINE_MODE"] = "1"
-    run([kubectl, "-n", "rook-ceph", "get", "cephcluster", "rook-ceph"], env=env, check=False)
-    run([kubectl, "-n", "rook-ceph", "get", "osd"], env=env, check=False)
+    run([kubectl, "-n", "rook-ceph", "get", "cephcluster", "rook-ceph"], check=False)
+    run([kubectl, "-n", "rook-ceph", "get", "osd"], check=False)
 
 
 def apply_manifests(args: argparse.Namespace) -> None:
@@ -114,12 +146,52 @@ def apply_manifests(args: argparse.Namespace) -> None:
     kubectl = args.kubectl
     if shutil.which(kubectl) is None:
         raise RuntimeError(f"kubectl executable not found: {kubectl}")
-    env = os.environ.copy()
-    env["TALOSCTL_OFFLINE_MODE"] = "1"
+    for required in VENDORED_MANIFESTS:
+        if not required.exists():
+            raise RuntimeError(f"required vendored manifest missing: {required}")
     detect_existing_cluster(kubectl)
-    run([kubectl, "apply", "-k", str(ROOK_OVERLAY)], env=env)
-    run([kubectl, "rollout", "status", "deployment/rook-ceph-operator", "-n", "rook-ceph"], env=env)
-    run([kubectl, "get", "storageclass", "rook-ceph-rbd", "rook-ceph-cephfs"], env=env)
+    # kustomize LoadRestrictionsRootOnly blocks cross-tree -k overlays;
+    # consume the pre-rendered bundle instead (regenerate via render_overlays.py).
+    run([kubectl, "apply", "-f", str(ROOK_CRDS)])
+    if ROOK_COMMON.exists():
+        run([kubectl, "apply", "-f", str(ROOK_COMMON)])  # SA/RBAC/configmaps
+    # Regenerate rendered bundle from base so validated config == applied config
+    render = ROOT / "scripts" / "gitops" / "render_overlays.py"
+    if render.exists():
+        run([sys.executable, str(render)])
+
+    if ROOK_COMMON.exists():
+        run([kubectl, "apply", "-f", str(ROOK_COMMON)])  # SA/RBAC/configmaps
+    # Rendered carries the Namespace PSA=privileged labels — must exist before
+    # any privileged pod (fixer/operator children) is admitted.
+    run([kubectl, "apply", "-f", str(ROOK_RENDERED)])
+    if ROOK_CSI_OPERATOR.exists():
+        # ceph-csi-operator CRDs (CephConnection etc.) required by rook 1.20+
+        run([kubectl, "apply", "-f", str(ROOK_CSI_OPERATOR)])
+    if ROOK_DIRS_FIXER.exists():
+        # Pre-create + chown /var/lib/rook (ceph uid 167) before daemons start;
+        # Rook's non-root init chown lacks CAP_CHOWN on root-owned hostPaths.
+        result = subprocess.run(
+            [kubectl, "apply", "-f", str(ROOK_DIRS_FIXER)],
+            capture_output=True, text=True, check=False,
+        )
+        print(result.stdout.strip() or result.stderr.strip())
+    if ROOK_OPERATOR.exists():
+        # Upstream operator (reads cephVersion.image from CephCluster spec).
+        # Tolerate trailing-doc failures: operator.yaml tail includes
+        # csi.ceph.io OperatorConfig objects whose CRDs ship separately.
+        result = subprocess.run(
+            [kubectl, "apply", "-f", str(ROOK_OPERATOR)],
+            capture_output=True, text=True, check=False,
+        )
+        if "deployment.apps/rook-ceph-operator" not in result.stdout:
+            raise RuntimeError(f"rook operator apply failed: {result.stderr.strip() or result.stdout.strip()}")
+    # Await the privileged fixer so dataDirHostPath ownership is correct
+    # before the operator spawns OSD prepare pods.
+    if ROOK_DIRS_FIXER.exists():
+        run([kubectl, "rollout", "status", "ds/rook-dirs-bootstrap", "-n", "rook-ceph", "--timeout=180s"])
+    run([kubectl, "rollout", "status", "deployment/rook-ceph-operator", "-n", "rook-ceph", "--timeout=600s"])
+    run([kubectl, "get", "storageclass", "rook-ceph-rbd"])
     if args.cleanup:
         print("Cleanup flag accepted; this offline installer does not wipe QEMU disk images.")
 
@@ -185,10 +257,9 @@ def main() -> int:
     if args.dry_run:
         print("Rook-Ceph dev cluster dry-run passed.")
         print(f"Rook-Ceph version: {ROOK_VERSION}")
-        print(f"Rook-Ceph offline image cache: {ROOK_IMAGE.relative_to(ROOT)}")
+        print(f"Rook-Ceph image refs: {ROOK_IMAGE_REF} + root variant (registry-probed)")
         print(f"Talos config: {TALOSCONFIG.relative_to(ROOT)}")
-        print(f"Cilium cache: {CILIUM_IMAGE.relative_to(ROOT)}")
-        print(f"Persistent QEMU disk: {QEMU_DISK.relative_to(ROOT)}")
+        print(f"Persistent QEMU disk: /dev/vdb (worker data disk, cluster state under {QEMU_DISK.relative_to(ROOT)})")
         print(f"GitOps overlay: {ROOK_OVERLAY.relative_to(ROOT)}")
         return 0
 

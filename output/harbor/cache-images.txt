@@ -1,7 +1,6 @@
-harbor/harbor-core:v2.11.3
-harbor/harbor-registry:v2.11.3
-harbor/harbor-jobservice:v2.11.3
-harbor/harbor-trivy-adapter:v2.11.3
-harbor/harbor-chartmuseum:v2.11.3
-redis:7.2-alpine
-postgres:15-alpine
+goharbor/harbor-core:v2.15.2
+goharbor/registry-photon:v2.15.2
+goharbor/harbor-jobservice:v2.15.2
+goharbor/trivy-adapter-photon:v2.15.2
+redis:7.4-alpine
+postgres:15.19-alpine

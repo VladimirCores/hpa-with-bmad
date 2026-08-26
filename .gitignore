@@ -40,3 +40,11 @@ __pycache__/
 .venv/
 venv/
 .kube/
+
+# Consultation notes (not committed)
+CONSULTATION-*.md
+
+# Project-local runtime resources (talos state, ISO cache, registry data, git mirror)
+resources/
+talos-state
+

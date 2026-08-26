@@ -1,0 +1,41 @@
+# One-shot privileged DaemonSet that pre-creates and chowns /var/lib/rook
+# on every node so Rook's non-root init chown succeeds (ceph uid 167).
+# It idles 1h then exits; delete after Ceph is healthy.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: rook-dirs-bootstrap
+  namespace: rook-ceph
+  labels:
+    app: rook-dirs-bootstrap
+spec:
+  selector:
+    matchLabels:
+      app: rook-dirs-bootstrap
+  template:
+    metadata:
+      labels:
+        app: rook-dirs-bootstrap
+    spec:
+      tolerations:
+        - operator: Exists
+      terminationGracePeriodSeconds: 0
+      restartPolicy: OnFailure
+      containers:
+        - name: fix
+          image: quay.io/rook/ceph:v1.20.3-root
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - mkdir -p /var/lib/rook/exporter /var/lib/rook/rook-ceph/log /var/lib/rook/rook-ceph/crash && chown -R 167:167 /var/lib/rook; echo fixed; sleep 3600
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: rook-dir
+              mountPath: /var/lib/rook
+      volumes:
+        - name: rook-dir
+          hostPath:
+            path: /var/lib/rook
+            type: DirectoryOrCreate

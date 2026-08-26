@@ -2,6 +2,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: local-path-storage
+  labels:
+    # provisioner + helper pods use hostPath — exempt from cluster baseline PSA
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
 
 ---
 apiVersion: v1
