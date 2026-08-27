@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: entity-store
+  name: casdoor
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:
     repoURL: http://10.6.0.1:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/entity-store/rendered
+    path: gitops/casdoor/rendered
   destination:
     server: https://kubernetes.default.svc
-    namespace: entity-store
+    namespace: casdoor
   syncPolicy:
     automated:
       selfHeal: true

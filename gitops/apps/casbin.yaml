@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: tool-ui
+  name: casbin
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/sync-wave: "3"
 spec:
   project: default
   source:
     repoURL: http://10.6.0.1:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/tool-ui/rendered
+    path: gitops/casbin/rendered
   destination:
     server: https://kubernetes.default.svc
-    namespace: hpdc-edge
+    namespace: casbin
   syncPolicy:
     automated:
       selfHeal: true

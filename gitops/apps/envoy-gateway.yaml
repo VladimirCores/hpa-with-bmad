@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kafka
+  name: envoy-gateway
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
     repoURL: http://10.6.0.1:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/kafka/rendered
+    path: gitops/envoy-gateway/rendered
   destination:
     server: https://kubernetes.default.svc
-    namespace: kafka
+    namespace: envoy-gateway-system
   syncPolicy:
     automated:
       selfHeal: true
