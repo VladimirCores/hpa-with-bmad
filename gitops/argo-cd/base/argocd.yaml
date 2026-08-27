@@ -29,8 +29,8 @@ data:
         server: https://kubernetes.default.svc
         namespace: default
       source:
-        repoURL: git://git-mirror/git-mirror
-        targetRevision: main
+        repoURL: http://10.6.0.1:9418/with-bmad.git
+        targetRevision: HEAD
         path: gitops/platform
     ---
     apiVersion: argoproj.io/v1alpha1
@@ -41,8 +41,8 @@ data:
     spec:
       generators:
         - git:
-            repoURL: git://git-mirror/git-mirror
-            revision: main
+            repoURL: http://10.6.0.1:9418/with-bmad.git
+            revision: HEAD
             directories:
               - path: gitops/*/overlays/dev/*
 
@@ -119,7 +119,7 @@ metadata:
 data:
   application.instanceLabelKey: app.kubernetes.io/instance
   repositories: |
-    - url: git://git-mirror/git-mirror
+    - url: http://10.6.0.1:9418/with-bmad.git
       type: git
       name: hpdc-git-mirror
   exec.enabled: "false"

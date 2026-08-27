@@ -41,7 +41,7 @@ def validate_manifests() -> list[str]:
         failures.append("argocd.yaml missing ApplicationSet")
     if "argocd.argoproj.io/sync-wave" not in argocd:
         failures.append("argocd.yaml missing sync-wave annotation")
-    if "git://git-mirror/git-mirror" not in argocd:
+    if "http://10.6.0.1:9418/with-bmad.git" not in argocd:
         failures.append("argocd.yaml missing local Git mirror repoURL")
     if f"quay.io/argoproj/argocd:v{ARGOCD_VERSION}" not in argocd:
         failures.append(f"argocd.yaml missing Argo CD v{ARGOCD_VERSION} image")
@@ -105,7 +105,7 @@ def apply_manifests() -> None:
     repo_patch = json.dumps({
         "data": {
             "repositories": (
-                "- url: git://git-mirror/git-mirror\n"
+                "- url: http://10.6.0.1:9418/with-bmad.git\n"
                 "  type: git\n"
                 "  name: hpdc-git-mirror\n"
             )
