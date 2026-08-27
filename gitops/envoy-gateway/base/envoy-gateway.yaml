@@ -180,6 +180,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - server
+            - --config-path=/config/envoy-gateway.yaml
           ports:
             - name: http
               containerPort: 18000
@@ -190,6 +191,11 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+            - name: wasm-cache
+              mountPath: /var/lib/eg/wasm
           readinessProbe:
             httpGet:
               path: /ready
@@ -206,6 +212,11 @@ spec:
         - name: config
           configMap:
             name: envoy-gateway-config
+        - name: certs
+          secret:
+            secretName: envoy-gateway
+        - name: wasm-cache
+          emptyDir: {}
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1

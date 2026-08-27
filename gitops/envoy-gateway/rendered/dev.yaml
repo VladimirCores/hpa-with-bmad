@@ -234,6 +234,7 @@ spec:
           value: "true"
         args:
         - server
+        - --config-path=/config/envoy-gateway.yaml
         image: docker.io/envoyproxy/gateway:v1.9.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -256,11 +257,21 @@ spec:
         - mountPath: /config
           name: config
           readOnly: true
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /var/lib/eg/wasm
+          name: wasm-cache
       serviceAccountName: envoy-gateway
       volumes:
       - configMap:
           name: envoy-gateway-config
         name: config
+      - name: certs
+        secret:
+          secretName: envoy-gateway
+      - name: wasm-cache
+        emptyDir: {}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
