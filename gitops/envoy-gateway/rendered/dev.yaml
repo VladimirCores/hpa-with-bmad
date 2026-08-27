@@ -358,7 +358,6 @@ spec:
   - allowedRoutes:
       namespaces:
         from: Same
-    hostname: '*.hpdc.local'
     name: mqtt
     port: 1884
     protocol: TCP
