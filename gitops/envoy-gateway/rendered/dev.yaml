@@ -284,32 +284,6 @@ metadata:
 spec: {}
 ---
 apiVersion: gateway.networking.k8s.io/v1
-kind: GRPCRoute
-metadata:
-  labels:
-    app.kubernetes.io/component: telemetry-ingestion
-    app.kubernetes.io/name: hpdc-telemetry-grpc-ingestion
-    app.kubernetes.io/part-of: hpdc-platform
-  name: hpdc-telemetry-grpc-ingestion
-  namespace: telemetry-ingestion
-spec:
-  hostnames:
-  - '*.hpdc.local'
-  parentRefs:
-  - name: hpdc-edge
-    namespace: envoy-gateway-system
-    sectionName: https
-  rules:
-  - backendRefs:
-    - name: pulsar-telemetry-ingestion
-      port: 6669
-      weight: 1
-    matches:
-    - path:
-        type: PathPrefix
-        value: /hpdc.telemetry.v1.TelemetryService
----
-apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   labels:
@@ -332,16 +306,6 @@ spec:
       - kind: Secret
         name: hpdc-edge-tls
       mode: Terminate
-  - allowedRoutes:
-      namespaces:
-        from: All
-    hostname: '*.hpdc.local'
-    name: http-redirect
-    port: 80
-    protocol: HTTP
-    redirect:
-      scheme: HTTPS
-      port: 443
   - allowedRoutes:
       namespaces:
         from: Same
@@ -436,23 +400,3 @@ spec:
     - path:
         type: PathPrefix
         value: /telemetry
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
-metadata:
-  labels:
-    app.kubernetes.io/component: telemetry-ingestion
-    app.kubernetes.io/name: hpdc-telemetry-mqtt-ingestion
-    app.kubernetes.io/part-of: hpdc-platform
-  name: hpdc-telemetry-mqtt-ingestion
-  namespace: telemetry-ingestion
-spec:
-  parentRefs:
-  - name: hpdc-edge
-    namespace: envoy-gateway-system
-    sectionName: mqtt
-  rules:
-  - backendRefs:
-    - name: pulsar-telemetry-ingestion
-      port: 1884
-      weight: 1
