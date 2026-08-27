@@ -272,37 +272,7 @@ metadata:
     app.kubernetes.io/part-of: hpdc-platform
   name: hpdc-envoy-proxy
   namespace: envoy-gateway-system
-spec:
-  proxySupplementalConfig:
-    type: YAML
-    value: |
-      admin:
-        access_log:
-          - path: /dev/null
-      static_resources:
-        listeners:
-          - name: hpdc-edge-https
-            address:
-              socket_address:
-                address: 0.0.0.0
-                port_value: 443
-            filter_chains:
-              - filters:
-                  - name: envoy.filters.network.http_connection_manager
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                      stat_prefix: hpdc-edge-https
-                      route_config:
-                        name: hpdc-edge-routes
-                        virtual_hosts:
-                          - name: hpdc-edge
-                            domains:
-                              - "*.hpdc.local"
-                            routes:
-                              - match:
-                                  prefix: /
-                                route:
-                                  cluster: placeholder
+spec: {}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -353,6 +323,16 @@ spec:
       - kind: Secret
         name: hpdc-edge-tls
       mode: Terminate
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: '*.hpdc.local'
+    name: http-redirect
+    port: 80
+    protocol: HTTP
+    redirect:
+      scheme: HTTPS
+      port: 443
   - allowedRoutes:
       namespaces:
         from: Same
