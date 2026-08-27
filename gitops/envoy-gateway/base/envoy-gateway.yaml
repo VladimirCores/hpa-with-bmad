@@ -134,6 +134,7 @@ data:
     kind: EnvoyGateway
     gatewayControllerNamespace: envoy-gateway-system
     gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
       name: hpdc-envoy-gateway
       provider:
         type: Kubernetes
