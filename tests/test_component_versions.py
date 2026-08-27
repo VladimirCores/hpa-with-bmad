@@ -215,17 +215,37 @@ def test_core_always_enabled() -> None:
 
 
 def test_storage_backend_mutex() -> None:
-    """Both storage backends enabled raises ValueError."""
+    """Both storage backends enabled raises ValueError from validation."""
     os.environ["HPDC_ROOK_CEPH_ENABLED"] = "true"
     os.environ["HPDC_LOCAL_PATH_ENABLED"] = "true"
     os.environ["HPDC_STORAGE_BACKEND"] = "rook-ceph"
     try:
         with pytest.raises(ValueError, match="mutually exclusive"):
-            cv.is_enabled("ROOK_CEPH")
+            cv.validate_storage_backend()
     finally:
         del os.environ["HPDC_ROOK_CEPH_ENABLED"]
         del os.environ["HPDC_LOCAL_PATH_ENABLED"]
         del os.environ["HPDC_STORAGE_BACKEND"]
+
+
+def test_storage_backend_invalid_does_not_traceback() -> None:
+    """Invalid HPDC_STORAGE_BACKEND surfaces a clean error via validate."""
+    os.environ["HPDC_STORAGE_BACKEND"] = "nfs"
+    try:
+        with pytest.raises(ValueError, match="invalid"):
+            cv.validate_storage_backend()
+    finally:
+        del os.environ["HPDC_STORAGE_BACKEND"]
+
+
+def test_is_enabled_truthiness() -> None:
+    """is_enabled accepts yes/1/on as truthy, not just true."""
+    for val in ("true", "yes", "y", "1", "on", "TRUE", "Yes"):
+        os.environ["HPDC_KARGO_ENABLED"] = val
+        assert cv.is_enabled("KARGO") is True, f"expected truthy for {val!r}"
+    os.environ["HPDC_KARGO_ENABLED"] = "no"
+    assert cv.is_enabled("KARGO") is False
+    del os.environ["HPDC_KARGO_ENABLED"]
 
 
 def test_storage_backend_rook_ceph() -> None:

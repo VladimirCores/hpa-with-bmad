@@ -2,7 +2,7 @@
 
 baseline_commit: e5a2e23c8511e9e54c9a729583188342ee6eacc2
 
-Status: review
+Status: done
 
 ## Story
 
@@ -254,3 +254,36 @@ Plain pytest functions, no conftest/fixtures; each test file has standalone `mai
 ### Change Log
 
 - 2026-08-26: Initial implementation of Story 11.8 — Component Feature Toggles via .env
+
+### Review Findings
+
+**Code review 2026-08-26 (3 parallel layers: Blind Hunter, Edge Case Hunter, Acceptance Auditor)**
+
+#### Decision Needed
+
+- [x] [Review][Decision] AC#4 safe-default interpretation — RESOLVED: UNKNOWN components default False (opt-in); KNOWN components use their documented `ENABLED_DEFAULTS` value. This matches the implemented `is_enabled()` fallback and the user's earlier "default False" decision. [scripts/gitops/component_versions.py:158]
+
+#### Patch (must fix) — all applied 2026-08-26
+
+- [x] [Review][Patch] `startup.dev.py` now calls `load_dotenv()` + `resolve()` + `validate_storage_backend()` in `main()` before any toggle filtering. [scripts/startup.dev.py:452-464]
+- [x] [Review][Patch] `STEP_TOGGLE_MAP` extended to steps 23–44 (Infisical, OpenAPI, Backstage, VictoriaMetrics, OTEL, Grafana, etc.), now maps step -> list of toggles. [scripts/startup.dev.py:37-73]
+- [x] [Review][Patch] SPIRE toggle mapped to steps 04/24 (same step as MTLS). [scripts/startup.dev.py:41]
+- [x] [Review][Patch] CASBIN_RBAC mapped to step 20 (same step as CASBIN). [scripts/startup.dev.py:58]
+- [x] [Review][Patch] `--storage` CLI flag now wired to `HPDC_STORAGE_BACKEND` in `main()`. [scripts/startup.dev.py:457-458]
+- [x] [Review][Patch] `render_app_of_apps.py` now EXCLUDES unmapped apps by default (opt-in) with a warning. [scripts/gitops/render_app_of_apps.py:55-63]
+- [x] [Review][Patch] `render_app_of_apps.py` now cleans stale `.yaml` files in `apps/` not sourced from `apps.all/`. [scripts/gitops/render_app_of_apps.py:117-121]
+- [x] [Review][Patch] `is_enabled()` now truthy-parses yes/y/1/on (case-insensitive). [scripts/gitops/component_versions.py:108-116]
+- [x] [Review][Patch] Invalid `HPDC_STORAGE_BACKEND` surfaces clean error (no traceback) via `validate_storage_backend()`. [scripts/gitops/component_versions.py:166-171]
+- [x] [Review][Patch] Both storage backends true surfaces clean error via `validate_storage_backend()` at entry. [scripts/gitops/component_versions.py:166-171]
+- [x] [Review][Patch] `test_check_all_steps` strengthened to verify toggle wiring + no traceback (cluster-independent). [tests/test_startup_dev.py:25-35]
+- [x] [Review][Patch] `render_app_of_apps.py` wired into `startup.dev.py` pipeline (AC#6). [scripts/startup.dev.py:479-488]
+- [x] [Review][Patch] Core-override now emits a stderr warning when explicitly set false. [scripts/gitops/component_versions.py:147-153]
+
+#### Defer
+
+- [x] [Review][Defer] AC#4 "safe default" spec inconsistency — known components use ENABLED_DEFAULTS; only unknown default False. Documented user decision (opt-in for unknown). — deferred, spec clarification
+- [x] [Review][Defer] `gitops/apps/` not gitignored — generated output committable. — deferred, pre-existing pattern issue
+- [x] [Review][Defer] Core-toggle guard fragile — tuple vs CORE_TOGGLES duplication. — deferred, low risk
+- [x] [Review][Defer] Duplicate mTLS step 24 not gated — same as step 04. — deferred, intentional
+- [x] [Review][Defer] Unknown component name silently returns False (typo mask). — deferred, low risk
+- [x] [Review][Defer] Test pollution: storage vars leak between tests. — deferred, tests pass but fragile

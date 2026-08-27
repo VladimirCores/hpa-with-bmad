@@ -32,30 +32,42 @@ for entry in (SCRIPTS_DIR, GITOPS_DIR):
         sys.path.insert(0, str(entry))
 
 # ── Step-to-toggle mapping ───────────────────────────────────────────────────
-# Maps step filename prefix -> toggle variable name (without HPDC_ prefix).
-# Steps not listed here are always enabled (bootstrap, validation, etc.).
-STEP_TOGGLE_MAP: dict[str, str] = {
-    "03-install-cilium-dev": "CILIUM_ENABLED",
-    "03-install-cilium-online": "CILIUM_ENABLED",
-    "04-install-cilium-mtls-dev": "MTLS_ENABLED",
-    "05-install-rook-ceph-dev": "ROOK_CEPH_ENABLED",
-    "05-install-storage-dev": "STORAGE_BACKEND",  # special: resolves to rook-ceph or local-path
-    "06-install-harbor-dev": "HARBOR_ENABLED",
-    "07-preload-harbor-cache": "HARBOR_ENABLED",
-    "08-refresh-harbor-cache": "HARBOR_ENABLED",
-    "09-provision-local-git-mirror": "GIT_MIRROR_ENABLED",
-    "10-install-spegel-dev": "SPEGEL_ENABLED",
-    "11-install-kargo-dev": "KARGO_ENABLED",
-    "12-install-argocd-dev": "ARGOCD_ENABLED",
-    "13-install-argorollouts-dev": "ARGO_ROLLOUTS_ENABLED",
-    "14-install-argoevents-dev": "ARGO_EVENTS_ENABLED",
-    "16-install-envoy-gateway-dev": "ENVOY_GATEWAY_ENABLED",
-    "17-install-cert-manager-dev": "CERT_MANAGER_ENABLED",
-    "18-install-api-key-auth-dev": "API_KEY_AUTH_ENABLED",
-    "19-install-casdoor-dev": "CASDOOR_ENABLED",
-    "20-install-casbin-dev": "CASBIN_ENABLED",
-    "21-install-casbin-rebac-dev": "CASBIN_REBAC_ENABLED",
-    "22-install-casbin-abac-dev": "CASBIN_ABAC_ENABLED",
+# Maps step filename prefix -> toggle variable name(s) (without HPDC_ prefix).
+# A step runs if ANY of its listed toggles is enabled (parent OR sub-system).
+# Steps not listed here are always enabled (bootstrap, validation, platform).
+STEP_TOGGLE_MAP: dict[str, list[str]] = {
+    "03-install-cilium-dev": ["CILIUM_ENABLED"],
+    "03-install-cilium-online": ["CILIUM_ENABLED"],
+    "04-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],  # mTLS + SPIRE (same step)
+    "05-install-rook-ceph-dev": ["ROOK_CEPH_ENABLED"],
+    "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
+    "06-install-harbor-dev": ["HARBOR_ENABLED"],
+    "07-preload-harbor-cache": ["HARBOR_ENABLED"],
+    "08-refresh-harbor-cache": ["HARBOR_ENABLED"],
+    "09-provision-local-git-mirror": ["GIT_MIRROR_ENABLED"],
+    "10-install-spegel-dev": ["SPEGEL_ENABLED"],
+    "11-install-kargo-dev": ["KARGO_ENABLED"],
+    "12-install-argocd-dev": ["ARGOCD_ENABLED"],
+    "13-install-argorollouts-dev": ["ARGO_ROLLOUTS_ENABLED"],
+    "14-install-argoevents-dev": ["ARGO_EVENTS_ENABLED"],
+    "16-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],
+    "17-install-cert-manager-dev": ["CERT_MANAGER_ENABLED"],
+    "18-install-api-key-auth-dev": ["API_KEY_AUTH_ENABLED"],
+    "19-install-casdoor-dev": ["CASDOOR_ENABLED"],
+    "20-install-casbin-dev": ["CASBIN_ENABLED", "CASBIN_RBAC_ENABLED", "CASBIN_REBAC_ENABLED", "CASBIN_ABAC_ENABLED"],
+    "21-install-casbin-rebac-dev": ["CASBIN_REBAC_ENABLED"],
+    "22-install-casbin-abac-dev": ["CASBIN_ABAC_ENABLED"],
+    # Steps 23+ (toggleable components)
+    "23-install-infisical-dev": ["INFISICAL_ENABLED"],
+    "24-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],
+    "25-install-openapi-dev": ["SWAGGER_UI_ENABLED"],
+    "26-install-backstage-dev": ["BACKSTAGE_ENABLED"],
+    "28-install-observability-ui-routes-dev": ["GRAFANA_ENABLED"],
+    "35-install-victoria-metrics-dev": ["VICTORIA_METRICS_ENABLED"],
+    "36-install-vmlogs-dev": ["VICTORIA_METRICS_ENABLED"],
+    "37-install-otel-collector-dev": ["OTEL_ENABLED"],
+    "38-install-grafana-alertmanager-dev": ["GRAFANA_ENABLED", "ALERTMANAGER_ENABLED"],
+    "39-install-grafana-hubble-routes-dev": ["GRAFANA_ENABLED"],
 }
 
 
@@ -214,22 +226,24 @@ def print_status(show_all: bool = False) -> int:
 
 
 def _is_step_enabled(step: Step) -> bool:
-    """Check if a step should run based on its component toggle."""
+    """Check if a step should run based on its component toggle(s).
+
+    A step runs if ANY of its mapped toggles is enabled (parent OR sub-system).
+    Steps with no mapping always run.
+    """
+    import component_versions as cv
     stem = step.path.stem
-    toggle_var = STEP_TOGGLE_MAP.get(stem)
-    if toggle_var is None:
+    toggle_vars = STEP_TOGGLE_MAP.get(stem)
+    if not toggle_vars:
         return True  # no toggle mapped — always enabled
-    if toggle_var == "STORAGE_BACKEND":
-        # Storage steps: enabled if the chosen backend matches
-        import component_versions as cv
+    if "STORAGE_BACKEND" in toggle_vars:
         backend = os.environ.get("HPDC_STORAGE_BACKEND", "rook-ceph").strip().lower()
         if stem == "05-install-rook-ceph-dev":
             return backend == "rook-ceph"
         if stem == "05-install-storage-dev":
             return True  # storage-dev handles both backends
         return True
-    import component_versions as cv
-    return cv.is_enabled(toggle_var)
+    return any(cv.is_enabled(t) for t in toggle_vars)
 
 
 def _step_toggle_reason(step: Step) -> str | None:
@@ -237,8 +251,9 @@ def _step_toggle_reason(step: Step) -> str | None:
     if _is_step_enabled(step):
         return None
     stem = step.path.stem
-    toggle_var = STEP_TOGGLE_MAP.get(stem, "UNKNOWN")
-    return f"[SKIP] {stem}: component disabled via HPDC_{toggle_var}=false"
+    toggle_vars = STEP_TOGGLE_MAP.get(stem, ["UNKNOWN"])
+    names = " / ".join(f"HPDC_{t}=false" for t in toggle_vars)
+    return f"[SKIP] {stem}: component disabled via {names}"
 
 
 def discover_steps() -> list[Step]:
@@ -434,6 +449,20 @@ def main() -> int:
     parser.add_argument("--provider", choices=["docker", "qemu"], default="qemu", help="Talos provisioner (default: qemu)")
     args = parser.parse_args()
 
+    # Load .env (toggles + versions) before any toggle filtering or status.
+    import component_versions
+    component_versions.load_dotenv()
+    component_versions.resolve()
+    # Wire --storage CLI flag to the storage backend toggle.
+    if getattr(args, "storage", None):
+        os.environ["HPDC_STORAGE_BACKEND"] = args.storage
+    # Surface storage misconfig as a clean error before doing any work.
+    try:
+        component_versions.validate_storage_backend()
+    except ValueError as exc:
+        print(f"[error] {exc}", file=sys.stderr)
+        return 2
+
     if args.status:
         print_status(show_all=args.all)
         return 0
@@ -454,6 +483,15 @@ def main() -> int:
         print(message, file=sys.stderr)
         write_log([message])
         return 2
+
+    # Sync the ArgoCD app-of-apps set to the current toggle state (AC#6).
+    render_script = GITOPS_DIR / "render_app_of_apps.py"
+    if render_script.exists():
+        print("[pre] rendering app-of-apps from toggles ...", flush=True)
+        rc = subprocess.run([sys.executable, str(render_script)]).returncode
+        if rc != 0:
+            print("[warn] app-of-apps render returned non-zero; check toggles.",
+                  file=sys.stderr)
 
     try:
         mode_args = build_mode_args(args)

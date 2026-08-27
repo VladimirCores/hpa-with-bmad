@@ -52,14 +52,19 @@ ALWAYS_INCLUDED: frozenset[str] = frozenset({
 })
 
 
-def is_app_enabled(app_stem: str) -> bool:
-    """Check if an ArgoCD app should be included based on its toggle."""
+def is_app_enabled(app_stem: str) -> tuple[bool, str | None]:
+    """Check if an ArgoCD app should be included based on its toggle.
+
+    Returns (enabled, reason). Unknown (unmapped) apps are EXCLUDED by
+    default (opt-in) and a reason string is returned for warning output.
+    """
     if app_stem in ALWAYS_INCLUDED:
-        return True
+        return True, None
     toggle_var = APP_TOGGLE_MAP.get(app_stem)
     if toggle_var is None:
-        return True  # unknown app — include by default
-    return cv.is_enabled(toggle_var)
+        return False, "no toggle mapping (opt-in: excluded)"
+    enabled = cv.is_enabled(toggle_var)
+    return enabled, (None if enabled else f"disabled via HPDC_{toggle_var}=false")
 
 
 def bootstrap_apps_all() -> None:
@@ -101,7 +106,8 @@ def main() -> int:
 
     for app_file in app_files:
         stem = app_file.stem
-        if is_app_enabled(stem):
+        enabled, reason = is_app_enabled(stem)
+        if enabled:
             included.append(stem)
             if not args.dry_run:
                 target = args.output_dir / app_file.name
@@ -109,10 +115,19 @@ def main() -> int:
                 shutil.copy2(app_file, target)
         else:
             excluded.append(stem)
+            if reason:
+                print(f"  [skip] {stem}: {reason}", file=sys.stderr)
             if not args.dry_run:
                 target = args.output_dir / app_file.name
                 if target.exists():
                     target.unlink()
+
+    # Clean stale files: remove any .yaml in output_dir not sourced from apps.all.
+    if not args.dry_run and args.output_dir.is_dir():
+        valid_names = {f.name for f in app_files}
+        for stale in args.output_dir.glob("*.yaml"):
+            if stale.name not in valid_names:
+                stale.unlink()
 
     # Print summary
     mode = "DRY-RUN " if args.dry_run else ""

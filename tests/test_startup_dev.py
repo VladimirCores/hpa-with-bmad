@@ -27,11 +27,12 @@ def test_check_all_steps() -> None:
         [sys.executable, "scripts/startup.dev.py", "--offline", "--check"],
         cwd=ROOT, capture_output=True, text=True,
     )
-    # With toggle filtering, some steps are skipped — that's expected.
-    # The command should complete without Python errors (exit 0 or steps fail).
-    assert "HPDC dev setup completed." in result.stdout or "step run failed" in result.stdout.lower()
-    # Should not have Python tracebacks
-    assert "Traceback" not in result.stderr
+    # Offline --check without a live cluster cannot fully complete, but the
+    # toggle machinery must run cleanly: app-of-apps wired (AC#6), toggle
+    # filtering active, and no uncaught Python tracebacks.
+    assert "rendering app-of-apps from toggles" in result.stdout, result.stdout
+    assert "skipped" in result.stdout, result.stdout
+    assert "Traceback" not in result.stderr, result.stderr
 
 
 def test_selected_dry_run() -> None:

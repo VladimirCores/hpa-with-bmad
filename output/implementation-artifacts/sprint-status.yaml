@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-26T09:30:00Z
+# last_updated: 2026-08-26T18:00:00Z
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-26T09:30:00Z
+last_updated: 2026-08-26T18:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -149,7 +149,7 @@ development_status:
   # Component versions -> .env single source (consultation 2026-08-26); soft-gated on 11-5 to avoid rendered-artifact churn mid-convergence
   11-7-centralize-component-image-versions-in-env: done # code review 2026-08-26: 2 patches applied; 93 pass / 5 pre-existing
   # Feature toggles: per-component/sub-system enable/disable via .env (consultation 2026-08-26)
-  11-8-component-feature-toggles: review
+  11-8-component-feature-toggles: done # code review 2026-08-26: 13 patches applied, 1 decision resolved, 6 deferred
 
   # QEMU migration (prerequisite: 11-5 → Q1 → Q2 → resume 11-4)
   q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -133,28 +134,54 @@ def _resolve_storage_backend() -> None:
         os.environ["HPDC_LOCAL_PATH_ENABLED"] = "true"
 
 
+def _truthy(value: str | None) -> bool:
+    """Parse a toggle string. True for: true/yes/y/1/on (case-insensitive)."""
+    if value is None:
+        return False
+    return value.strip().lower() in ("true", "yes", "y", "1", "on")
+
+
 def is_enabled(component: str) -> bool:
     """Return whether a component is enabled via toggle.
 
+    Accepts the component name in any of these forms: ``CILIUM``,
+    ``HPDC_CILIUM_ENABLED`` or ``CILIUM_ENABLED`` — all normalize to the
+    ``HPDC_{name}_ENABLED`` env var.
+
     Resolution priority:
-    1. Core components: always True (override ignored)
-    2. os.environ[f"HPDC_{component}_ENABLED"] (set by shell export or .env)
+    1. Core components: always True (override ignored, warning if set)
+    2. os.environ[f"HPDC_{name}_ENABLED"] (set by shell export or .env)
     3. ENABLED_DEFAULTS[component] (hardcoded per-component default)
     4. False (safe default: opt-in, not opt-out)
     """
-    var = f"HPDC_{component}_ENABLED"
+    name = component
+    if name.startswith("HPDC_"):
+        name = name[len("HPDC_"):]
+    if name.endswith("_ENABLED"):
+        name = name[: -len("_ENABLED")]
+    var = f"HPDC_{name}_ENABLED"
     # Core components are always on
     if var in CORE_TOGGLES and component in (
         "CILIUM", "HUBBLE", "HARBOR", "SPEGEL",
     ):
+        env_val = os.environ.get(var)
+        if env_val is not None and not _truthy(env_val):
+            print(
+                f"[warn] {var}=false ignored: core component is always enabled.",
+                file=sys.stderr,
+            )
         return True
     # ROOK_CEPH and LOCAL_PATH are governed by storage backend
     if var in ("HPDC_ROOK_CEPH_ENABLED", "HPDC_LOCAL_PATH_ENABLED"):
-        _resolve_storage_backend()
-        return os.environ.get(var, "").lower() == "true"
+        try:
+            _resolve_storage_backend()
+        except ValueError as exc:
+            print(f"[error] {exc}", file=sys.stderr)
+            return False
+        return _truthy(os.environ.get(var, "false"))
     env_val = os.environ.get(var)
     if env_val is not None:
-        return env_val.strip().lower() == "true"
+        return _truthy(env_val)
     return ENABLED_DEFAULTS.get(var, False)
 
 
@@ -162,6 +189,15 @@ def list_toggles() -> dict[str, bool]:
     """Return all component toggles and their resolved values."""
     return {var: is_enabled(var.removeprefix("HPDC_").removesuffix("_ENABLED"))
             for var in ENABLED_DEFAULTS}
+
+
+def validate_storage_backend() -> None:
+    """Raise a clean ValueError if the storage backend configuration is invalid.
+
+    Call this at process entry points (e.g. before provisioning) so misconfig
+    surfaces as a readable message instead of an uncaught traceback.
+    """
+    _resolve_storage_backend()
 
 
 # ── Version variables ───────────────────────────────────────────────────────

@@ -1,3 +1,12 @@
+## Deferred from: code review of story-11.8 (2026-08-26)
+
+- AC#4 spec inconsistency — known components use `ENABLED_DEFAULTS`; only unknown defaults False. Documented user decision (opt-in for unknown). (deferred, spec clarification)
+- `gitops/apps/` not gitignored — generated output committable. (deferred, pre-existing pattern issue)
+- Core-toggle guard fragile — tuple vs `CORE_TOGGLES` duplication. (deferred, low risk)
+- Duplicate mTLS step 24 not gated separately — same as step 04. (deferred, intentional)
+- Unknown component name silently returns False (typo mask). (deferred, low risk)
+- Test pollution: storage vars leak between tests. (deferred, tests pass but fragile)
+
 ## Deferred from: code review of 4-1-build-iot-device-simulator-and-telemetry-acceptance-harness (2026-08-05)
 
 - Resolved: committed local API key placeholder — `output/telemetry-simulator/config.yaml` no longer commits a secret-like value; live HTTP telemetry resolves `api_key` from `${HPDC_TELEMETRY_API_KEY}` with `api_key_env: HPDC_TELEMETRY_API_KEY`.
