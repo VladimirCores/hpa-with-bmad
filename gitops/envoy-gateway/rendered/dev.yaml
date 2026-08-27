@@ -357,17 +357,6 @@ spec:
       mode: Terminate
   - allowedRoutes:
       namespaces:
-        from: All
-    hostname: '*.hpdc.local'
-    name: http-redirect
-    port: 80
-    protocol: HTTP
-    redirects:
-      fromPort: 80
-      scheme: HTTPS
-      toPort: 443
-  - allowedRoutes:
-      namespaces:
         from: Same
     hostname: '*.hpdc.local'
     name: mqtt
