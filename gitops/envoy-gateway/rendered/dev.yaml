@@ -232,6 +232,8 @@ spec:
       - env:
         - name: GATEWAY_API_RESTRICTED_GATEWAY
           value: "true"
+        args:
+        - server
         image: docker.io/envoyproxy/gateway:v1.9.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
