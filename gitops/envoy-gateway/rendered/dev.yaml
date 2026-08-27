@@ -229,11 +229,7 @@ spec:
         app.kubernetes.io/part-of: hpdc-platform
     spec:
       containers:
-      - args:
-        - manager
-        - --configPath
-        - /config/envoy-gateway.yaml
-        env:
+      - env:
         - name: GATEWAY_API_RESTRICTED_GATEWAY
           value: "true"
         image: docker.io/envoyproxy/gateway:v1.9.0
