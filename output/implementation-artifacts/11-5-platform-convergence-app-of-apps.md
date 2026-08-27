@@ -3,7 +3,7 @@ story_key: 11-5-platform-convergence-app-of-apps
 epic: 11
 status: completed
 baseline_commit: 6ab6a889ad8e508512c06a2d6bd99de66a606cc5
-completion_commit: TBD
+completion_commit: 85aa65e63dd44d6303d617688fd348983920ff27
 blocked_story: 11-4-live-cluster-verification
 blocked_by: "RESOLVED 2026-08-27: cluster-bootstrap blocker (stale orphan libvirt cluster, 192.168.2.0/24, mismatched CA) fixed via teardown + fresh bootstrap; Cilium installed from cached chart -> 5/5 nodes Ready. ArgoCD installed (step 12) + app-of-apps root applied: 7/8 child apps converge Synced from the offline mirror (git 10.6.0.1:9418 + chart 10.6.0.1:8080). KNOWN GAP (accepted 2026-08-27): the `platform` app stays OutOfSync because it creates `PulsarTopic` (pulsar.streamnative.io/v1alpha1) requiring the StreamNative Pulsar Operator + broker. Pulsar install was attempted but the dev nodes have 8GB ephemeral disks under DiskPressure, so the 3.3GB pulsar-all image cannot be extracted. Out of scope without larger node disks."
 ---
