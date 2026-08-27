@@ -5,7 +5,7 @@ status: in-progress
 baseline_commit: 6ab6a889ad8e508512c06a2d6bd99de66a606cc5
 completion_commit: TBD
 blocked_story: 11-4-live-cluster-verification
-blocked_by: "cluster-bootstrap (step 02) fails: nodes never reach Ready; see Dev Agent Record"
+blocked_by: "RESOLVED 2026-08-27: cluster-bootstrap (step 02) blocker was a stale orphan libvirt cluster (network 192.168.2.0/24, mismatched CA) conflicting with fresh provisioning. After clean teardown + fresh bootstrap, step 02 succeeds (126s); cluster up (5 nodes NotReady pending Cilium step 03). Convergence (Task 2) still pending Cilium + app-of-apps sync."
 ---
 
 # Story 11.5: Platform Convergence via App-of-Apps
@@ -94,6 +94,14 @@ Claude (hy3-free) — dev-story execution.
 - **Blocked:** Cluster bring-up (precondition for all convergence tasks) fails reproducibly at step 02 node-readiness gate. Cannot proceed to ext_authz image authoring, OutOfSync convergence, or `--status` evidence without a live cluster.
 - **Not started:** Task 1 casbin ext_authz authoring, Task 2 convergence, Task 3 evidence, Task 4 tracker update.
 
+### Debug Log References (2026-08-27 — bootstrap blocker diagnosis)
+
+- **Root cause of the 2026-08-24 step-02 failure:** a STALE ORPHAN cluster. A libvirt network `cluster-talos-net` at `192.168.2.0/24` (bridge `talos-bridge` 192.168.2.1) plus 4 running QEMU VMs (control-plane-1 @ 192.168.2.10, workers @ .20/.21/.22) persisted from a prior provisioning with a DIFFERENT CIDR + CA than the repo's credentials. The repo kubeconfig/talosconfig pointed at `10.6.0.2` / stale `127.0.0.1:PORT` endpoints, so `kubectl get nodes` raised "cluster API unreachable" → step 02 exited non-zero.
+- **Verification:** `kubectl --server=https://192.168.2.10:6443` → connection refused (API not serving); `talosctl --endpoints 192.168.2.10:50000` → x509 "unknown authority" (CA mismatch). Confirmed orphan.
+- **Fix:** `virsh destroy` all 4 VMs + `virsh net-destroy/undefine cluster-talos-net`, then fresh `python3 scripts/steps/02-bootstrap-talos-dev.py --apply`.
+- **Result:** step 02 OK in 126.1s; `HPDC dev setup completed.` Network CIDR `10.6.0.0/24`, endpoints 10.6.0.1 (VIP) / nodes 10.6.0.2–.6. `kubectl get nodes` returns 5 nodes, all `NotReady` (expected: `cni=none` until step 03 Cilium); coredns `Pending` (same). Bootstrap blocker RESOLVED.
+- **Note:** `provision_cluster()` hardcodes `controlplane_ip = <subnet>.2` (bootstrap_talos_dev.py:687). Correct for a fresh run whose CIDR matches HPDC_SUBNET, but fragile if a stale network at a different subnet is reused. The orphan conflict is the practical failure mode; a clean teardown removes it.
+
 ### File List
 
 - `gitops/apps/regional-hub.yaml` — REMOVED (git rm, staged) per drop-until-B-004 decision
@@ -103,3 +111,4 @@ Claude (hy3-free) — dev-story execution.
 ### Change Log
 
 - 2026-08-24: Started 11-5. Recorded regional-hub drop decision and removed child pointer. Hit reproducible cluster-bootstrap failure (step 02); story left in-progress/blocked.
+- 2026-08-27: Diagnosed bootstrap blocker — stale orphan libvirt cluster (192.168.2.0/24, mismatched CA) conflicting with fresh provisioning. Clean teardown + fresh bootstrap: step 02 OK in 126s; cluster up (5 nodes NotReady pending Cilium). Blocker resolved.
