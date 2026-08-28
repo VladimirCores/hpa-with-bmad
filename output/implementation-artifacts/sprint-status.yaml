@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-27T19:30:00Z
+last_updated: 2026-08-28T00:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -154,6 +154,10 @@ development_status:
   # QEMU migration (prerequisite: 11-5 → Q1 → Q2 → resume 11-4)
   q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed
   q2-migrate-dev-cluster-docker-to-qemu: done # code-reviewed 2026-08-25: 34 patches applied, 3 deferred, 2 dismissed
+
+  # Epic 12: Docker (kind) dev provisioning — both providers coexist, .env selects
+  epic-12: in-progress
+  12-1-docker-kind-default-dev-provisioning-with-local-path: ready-for-dev # HPDC_PROVIDER in {kind,docker,qemu}; kind=kind+local-path(fast default), docker=Talos-on-Docker+local-path, qemu=Talos/QEMU+rook-ceph(prod-eval); all tear down running cluster before recreate; add HPDC_DISK_CAPACITY_WORKER/HPDC_DISK_CAPACITY_CONTROL_PLANE to .env
 
 action_items:
   - epic: 10
