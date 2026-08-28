@@ -7,6 +7,196 @@ metadata:
   name: git-mirror
 ---
 apiVersion: v1
+data:
+  git-http-server.pl: |-
+    #!/usr/bin/perl
+    # Minimal git smart-HTTP server (git-http-backend equivalent) using core perl only.
+    # Serves bare repositories under DATA_DIR over the git smart protocol so
+    # go-git clients (e.g. ArgoCD's repo-server) can sync offline.
+    #
+    # NOTE: the accept()-parent MUST keep $SIG{CHLD}='IGNORE' so forked per-request
+    # workers are auto-reaped (no zombies).  Each worker resets CHLD/PIPE to
+    # 'DEFAULT' before spawning git: git-upload-pack breaks (truncates the pack and
+    # reports "possible repository corruption") when it inherits SIGCHLD=IGNORE,
+    # because its own waitpid() on pack-objects then returns ECHILD.
+    use strict;
+    use warnings;
+    use IO::Socket::INET;
+    use IPC::Open3;
+    $SIG{CHLD} = 'IGNORE';
+
+    my $DATA_DIR = $ENV{DAEMON_DATA_DIR} || "/data";
+    my $PORT     = $ENV{DAEMON_PORT}     || 9418;
+
+    my $server = IO::Socket::INET->new(
+        LocalAddr => "0.0.0.0",
+        LocalPort => $PORT,
+        Proto     => "tcp",
+        ReuseAddr => 1,
+        Listen    => 64,
+    ) or die "cannot bind 0.0.0.0:$PORT: $!\n";
+    print STDERR "git smart-http listening on :$PORT root=$DATA_DIR\n";
+    $server->autoflush(1);
+
+    while (my $client = $server->accept()) {
+        my $pid = fork();
+        if (defined $pid && $pid == 0) {
+            close($server);
+            eval { handle($client) };
+            close($client);
+            exit(0);
+        }
+        close($client);
+    }
+
+    sub read_line {
+        my ($fh) = @_;
+        my $line = "";
+        while (1) {
+            my $c;
+            my $n = sysread($fh, $c, 1);
+            return undef if !defined($n) || $n == 0;
+            $line .= $c;
+            return $line if $c eq "\n";
+        }
+    }
+
+    sub read_headers {
+        my ($fh) = @_;
+        my %headers;
+        while (my $line = read_line($fh)) {
+            last if $line eq "\r\n" || $line eq "\n";
+            if ($line =~ /^([^:]+):[ \t]*(.*)\r?\n$/) {
+                $headers{lc $1} = $2;
+            }
+        }
+        return %headers;
+    }
+
+    sub dechunk {
+        my ($body) = @_;
+        my $out = "";
+        my $i = 0;
+        while ($i < length $body) {
+            my $idx = index($body, "\r\n", $i);
+            last if $idx < 0;
+            my $hex = substr($body, $i, $idx - $i);
+            $hex =~ s/;.*$//;
+            my $size = hex($hex);
+            last if $size == 0;
+            $out .= substr($body, $idx + 2, $size);
+            $i = $idx + 2 + $size + 2;
+        }
+        return $out;
+    }
+
+    sub run_git {
+        my (@args) = @_;
+        my ($wtr, $rdr);
+        my $pid = open3($wtr, $rdr, "/dev/null", @args);
+        return (1, "") if !$pid;
+        close($wtr);
+        local $/;
+        my $data = <$rdr>;
+        close($rdr);
+        waitpid($pid, 0);
+        return (0, $data // "");
+    }
+
+    sub respond {
+        my ($fh, $status, $ctype, $body) = @_;
+        print $fh "HTTP/1.1 $status\r\n";
+        print $fh "Content-Type: $ctype\r\n";
+        print $fh "Content-Length: " . length($body) . "\r\n";
+        print $fh "Cache-Control: no-cache\r\n";
+        print $fh "Pragma: no-cache\r\n";
+        print $fh "\r\n";
+        print $fh $body;
+    }
+
+    sub handle {
+        my ($fh) = @_;
+        local $SIG{CHLD} = "DEFAULT";
+        local $SIG{PIPE} = "DEFAULT";
+        my $line = read_line($fh);
+        return if !defined $line;
+        my ($method, $target) = ($line =~ /^(\S+)\s+(\S+)/);
+        return if !defined $target;
+        my %headers = read_headers($fh);
+
+        my $body = "";
+        if ($method eq "POST") {
+            my $cl = $headers{'content-length'} || 0;
+            sysread($fh, $body, $cl) if $cl;
+            $body = dechunk($body) if ($headers{'transfer-encoding'} || "") =~ /chunked/i;
+        }
+
+        my ($path, $qs) = split /\?/, $target, 2;
+        my %query;
+        if (defined $qs) {
+            for my $kv (split /&/, $qs) {
+                my ($k, $v) = split /=/, $kv, 2;
+                $query{$k} = $v // "";
+            }
+        }
+
+        my $root = $DATA_DIR;
+
+        my $is_search = $path =~ m{^/([^/]+\.git)/info/refs};
+        my $is_rpc    = $path =~ m{^/([^/]+\.git)/git-(upload-pack|receive-pack)};
+
+        if ($is_search) {
+            my $repo = "$root/$1";
+            if ($query{service} ne "git-upload-pack" && $query{service} ne "git-receive-pack") {
+                respond($fh, "404 Not Found", "text/plain", "unrecognized service");
+                return;
+            }
+            my $svc = $query{service};
+            my $cmd = $svc eq "git-upload-pack" ? "git-upload-pack" : "git-receive-pack";
+            my ($rc, $data) = run_git($cmd, "--advertise-refs", "--stateless-rpc", $repo);
+            my $ctype = $svc eq "git-upload-pack" ? "application/x-git-upload-pack-advertisement"
+                                                  : "application/x-git-receive-pack-advertisement";
+            # Smart-http preamble: pkt-line "# service=$svc\n" + flush, then the
+            # raw advertisement (git-http-backend emits exactly this structure).
+            my $prefix = sprintf("%04x", length("# service=$svc\n") + 4) . "# service=$svc\n" . "0000";
+            respond($fh, length($data) > 0 ? "200 OK" : "404 Not Found", $ctype, $prefix . $data);
+            return;
+        }
+
+        if ($is_rpc) {
+            my ($repo, $svc) = ($1, $2);
+            $svc = "git-$svc";
+            $repo = "$root/$repo";
+            my $cmd = $svc eq "git-upload-pack" ? "git-upload-pack" : "git-receive-pack";
+            my ($wtr, $rdr);
+            my $pid = open3($wtr, $rdr, "/dev/null", $cmd, $repo, "--stateless-rpc");
+            if (!$pid) {
+                respond($fh, "500 Internal Server Error", "text/plain", "spawn failed");
+                return;
+            }
+            print $wtr $body;
+            close($wtr);
+            local $/;
+            my $data = <$rdr>;
+            close($rdr);
+            waitpid($pid, 0);
+            my $ctype = $svc eq "git-upload-pack" ? "application/x-git-upload-pack-result"
+                                                  : "application/x-git-receive-pack-result";
+            respond($fh, length($data) > 0 ? "200 OK" : "502 Bad Gateway", $ctype, $data // "");
+            return;
+        }
+
+        respond($fh, "404 Not Found", "text/plain", "not found\n");
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: git-mirror
+    app.kubernetes.io/part-of: hpdc-platform
+  name: git-http-server
+  namespace: git-mirror
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -37,7 +227,7 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  storageClassName: rook-ceph-rbd
+  storageClassName: standard
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,6 +242,8 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: git-mirror
+  strategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -59,17 +251,57 @@ spec:
     spec:
       containers:
       - command:
-        - sh
-        - -c
-        - |
-          mkdir -p /data
-          echo "Offline Git mirror placeholder" > /data/README.md
+        - perl
+        - /srv/git-http-server.pl
+        env:
+        - name: DAEMON_DATA_DIR
+          value: /data
+        - name: DAEMON_PORT
+          value: "9418"
+        - name: GIT_CONFIG_COUNT
+          value: "1"
+        - name: GIT_CONFIG_KEY_0
+          value: safe.directory
+        - name: GIT_CONFIG_VALUE_0
+          value: '*'
         image: alpine/git:2.54.0
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          tcpSocket:
+            port: git
         name: git
         ports:
         - containerPort: 9418
           name: git
+        readinessProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          tcpSocket:
+            port: git
         volumeMounts:
         - mountPath: /data
           name: data
+        - mountPath: /srv/git-http-server.pl
+          name: script
+          subPath: git-http-server.pl
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - mkdir -p /data && chmod 755 /data
+        image: busybox:1.36
+        imagePullPolicy: IfNotPresent
+        name: fix-permissions
+        volumeMounts:
+        - mountPath: /data
+          name: data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: git-mirror-data
+      - configMap:
+          defaultMode: 493
+          name: git-http-server
+        name: script
