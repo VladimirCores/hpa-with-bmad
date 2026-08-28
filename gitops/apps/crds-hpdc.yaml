@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: http://10.6.0.1:9418/with-bmad.git
+    repoURL: http://git-mirror.git-mirror.svc.cluster.local:9418/with-bmad.git
     targetRevision: HEAD
     path: gitops/crds/hpdc
   destination:
