@@ -157,7 +157,7 @@ development_status:
 
   # Epic 12: Docker (kind) dev provisioning — both providers coexist, .env selects
   epic-12: in-progress
-  12-1-docker-kind-default-dev-provisioning-with-local-path: ready-for-dev # HPDC_PROVIDER in {kind,docker,qemu}; kind=kind+local-path(fast default), docker=Talos-on-Docker+local-path, qemu=Talos/QEMU+rook-ceph(prod-eval); all tear down running cluster before recreate; add HPDC_DISK_CAPACITY_WORKER/HPDC_DISK_CAPACITY_CONTROL_PLANE to .env
+  12-1-docker-kind-default-dev-provisioning-with-local-path: done # HPDC_PROVIDER in {kind,docker,qemu}; kind=kind+local-path(fast default), docker=Talos-on-Docker+local-path, qemu=Talos/QEMU+rook-ceph(prod-eval); all tear down running cluster before recreate; add HPDC_DISK_CAPACITY_WORKER/HPDC_DISK_CAPACITY_CONTROL_PLANE to .env
 
 action_items:
   - epic: 10

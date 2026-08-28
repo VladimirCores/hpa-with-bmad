@@ -66,3 +66,13 @@
 - create-failure heuristics: distinguish real create errors from designed cni=none timeout; log captured stderr tail
 - root/user invocation ownership normalization for resources/ tree
 - subnet validation beyond default 10.6.0.0/24 topology
+
+## Deferred from: code review of story 12-1-docker-kind-default-dev-provisioning-with-local-path (2026-08-28)
+- configure_talosconfig() (bootstrap_talos_dev.py:184) is dead code — defined but never called; its guarantee (placeholder output/talos/talosconfig) never runs. Pre-existing; entangled with step-05 kind crash but not caused by this diff.
+- bootstrap_talos_dev --provider default "qemu" disagrees with stack default "kind" (bootstrap_talos_dev.py:742 falls back to qemu, step 02/startup default to kind); reconciled only because step 02 guards provider membership first. Direct/imported talos_main calls with no env silently default to qemu. Pre-existing latent inconsistency.
+- build_mode_args adds dead weight — bootstrap_kind_dev.py:114 puts `--provider` into mode_args list, but step 02 never reads it (routes purely on env). Cosmetic only, no functional impact. Pre-existing.
+- sys.argv side-effect coupling in step 02 — run_step mutates sys.argv before calling step_main, so step 02's argparse defaults run against modified sys.argv. Works but fragile. Pre-existing.
+- stop.dev.py not dispatched by HPDC_PROVIDER — tears down ALL cluster types unconditionally (deviates from spec Task 3). Pre-existing; stop.dev.py not modified in this diff.
+- Task 4 "Size kind node backing store" not implemented — kind ignores HPDC_WORKERS, HPDC_CPUS_*, HPDC_MEMORY_*. Pre-existing kind sizing.
+- DEFAULT_STORAGE="rook-ceph" disagrees with docker expectation — documented; kind/docker path gates on storage flag, not default.
+- HPDC_DISKS in .env.example shadows capacity knobs for qemu — documented precedence: HPDC_DISKS wins over capacity knobs.

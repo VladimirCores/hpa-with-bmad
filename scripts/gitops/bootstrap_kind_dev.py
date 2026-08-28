@@ -142,7 +142,7 @@ def provision_cluster(args: argparse.Namespace) -> None:
         "--namespace", "kube-system",
         "--version", CILIUM_VERSION,
         "--set", "kubeProxyReplacement=true",
-        "--set", "k8sServiceHost=f{CLUSTER_NAME}-control-plane",
+        "--set", f"k8sServiceHost={CLUSTER_NAME}-control-plane",
         "--set", "k8sServicePort=6443",
         "--set", "ipam.mode=cluster-pool",
         "--set", "ipam.operator.clusterPoolIPv4PodCIDRList=10.244.0.0/16",
@@ -167,12 +167,9 @@ def provision_cluster(args: argparse.Namespace) -> None:
     run([
         "kubectl", "delete", "ds", "kube-proxy", "-n", "kube-system",
     ])
-    
-    # Install local-path-provisioner
-    run([
-        "kubectl", "apply", "-f",
-        "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml",
-    ])
+
+    # Storage is installed by step 05 (install_storage_dev.py) — not inline here.
+    # This avoids duplicating the local-path-provisioner install code path.
     
     # Configure Cilium L2 LoadBalancer
     # IP is reserved for Envoy Gateway (first in pool)

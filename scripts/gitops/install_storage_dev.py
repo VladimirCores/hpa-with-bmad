@@ -24,6 +24,7 @@ TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
 LOCAL_PATH_VERSION = component_versions.get("HPDC_LOCAL_PATH_PROVISIONER_VERSION")
 LOCAL_PATH_MANIFEST = ROOT / "platform" / "storage" / "local-path-storage.yaml"
 LOCAL_PATH_MANIFEST_URL = f"https://raw.githubusercontent.com/rancher/local-path-provisioner/{LOCAL_PATH_VERSION}/deploy/local-path-storage.yaml"
+DISK_CAPACITY_WORKER = os.getenv("HPDC_DISK_CAPACITY_WORKER", "10Gi")
 
 
 def run(command: list[str], *, check: bool = True, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -101,6 +102,36 @@ def install_local_path_provisioner(kubectl: str) -> None:
         # Wait for the provisioner pod to be ready
         print("Waiting for local-path-provisioner to be ready...")
         run([kubectl, "rollout", "status", "deployment/local-path-provisioner", "-n", "local-path-storage", "--timeout=60s"])
+
+        # Patch local-path-config ConfigMap with defaultVolumeSize from .env
+        import json
+        configmap_patch = json.dumps({
+            "data": {
+                "config.json": json.dumps({
+                    "nodePathMap": [{
+                        "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
+                        "paths": ["/opt/local-path-provisioner"]
+                    }],
+                    "defaultVolumeSize": DISK_CAPACITY_WORKER,
+                }, indent=2)
+            }
+        })
+        run([kubectl, "patch", "configmap", "local-path-config",
+             "-n", "local-path-storage",
+             "--type", "merge", "-p", configmap_patch])
+
+        # Verify defaultVolumeSize was applied
+        verify = subprocess.run(
+            [kubectl, "get", "configmap", "local-path-config",
+             "-n", "local-path-storage",
+             "-o", "jsonpath={.data.config\\.json}"],
+            text=True, capture_output=True)
+        if verify.returncode == 0 and DISK_CAPACITY_WORKER not in (verify.stdout or ""):
+            print(f"WARNING: defaultVolumeSize may not have been set "
+                  f"(expected {DISK_CAPACITY_WORKER} in config.json)")
+        elif verify.returncode != 0:
+            print(f"WARNING: could not read local-path-config for verification: "
+                  f"{verify.stderr.strip()}")
 
         # Set as default storage class
         print("Setting local-path as default StorageClass...")
@@ -259,7 +290,11 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="validate prerequisites without applying")
     args = parser.parse_args()
 
-    ensure_talosconfig()
+    # Talos config is only required for the Talos-based rook-ceph path;
+    # local-path (kind/docker) installs use kubectl only and kind never
+    # produces a talosconfig.
+    if args.storage == "rook-ceph":
+        ensure_talosconfig()
     kubectl = ensure_kubectl()
 
     if args.check:

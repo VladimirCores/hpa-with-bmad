@@ -36,6 +36,8 @@ DEFAULT_STORAGE = "rook-ceph"
 # Pin to the k8s minor whose control-plane images are pre-cached in the local
 # registry mirror (skipFallback makes any uncached tag a hard failure).
 DEFAULT_KUBERNETES_VERSION = _VERSION_DEFAULTS["HPDC_KUBERNETES_VERSION"]
+DISK_CAPACITY_WORKER = os.getenv("HPDC_DISK_CAPACITY_WORKER", "10Gi")
+DISK_CAPACITY_CONTROL_PLANE = os.getenv("HPDC_DISK_CAPACITY_CONTROL_PLANE", "10Gi")
 CLUSTER_NAME = "hpdc-talos"
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
 CNI_PATCH = ROOT / "platform" / "talos" / "talos-cni-patch.yaml"
@@ -762,8 +764,9 @@ def main() -> int:
                         default=os.getenv("HPDC_SUBNET", "10.6.0.0/24"),
                         help="cluster subnet (default from HPDC_SUBNET)")
     parser.add_argument("--disks", nargs="*",
-                        default=os.getenv("HPDC_DISKS", "virtio:10GiB,virtio:10GiB").split(),
-                        help="disk specs; first = OS disk (all nodes), later ones = worker-only data disks (default from HPDC_DISKS)")
+                        default=None,
+                        help="disk specs; first = OS disk (all nodes), later ones = worker-only data disks "
+                             "(default: derived from HPDC_DISK_CAPACITY_* if not set)")
     parser.add_argument("--kubernetes-version",
                         default=os.getenv("HPDC_KUBERNETES_VERSION", DEFAULT_KUBERNETES_VERSION),
                         help=f"Kubernetes version (default from HPDC_KUBERNETES_VERSION, else {DEFAULT_KUBERNETES_VERSION})")
@@ -780,6 +783,17 @@ def main() -> int:
         print("rook-ceph requires >= 2 workers (replicapool size 2)", file=sys.stderr)
         return 2
 
+    # Derive disks from capacity knobs when --disks not explicitly set.
+    # explicit HPDC_DISKS wins for qemu if provided; else synthesize virtio entries.
+    if args.disks is None:
+        import shlex
+        raw_disks = os.getenv("HPDC_DISKS", "").strip()
+        if raw_disks:
+            args.disks = shlex.split(raw_disks)
+        else:
+            # Synthesize: OS disk (all nodes) from control-plane capacity; worker data disk
+            args.disks = [f"virtio:{DISK_CAPACITY_CONTROL_PLANE}", f"virtio:{DISK_CAPACITY_WORKER}"]
+
     if args.check:
         print(f"Talos {args.provider} bootstrap scaffold validation passed.")
         return 0
@@ -792,8 +806,9 @@ def main() -> int:
         print(f"Workers: {args.workers} (CPU: {args.cpus_workers}, RAM: {args.memory_workers}MB)")
         print(f"Storage: {args.storage}")
         print(f"Subnet: {args.subnet}")
-        if args.provider == "qemu":
-            print(f"Disks: {args.disks}")
+        print(f"Disks: {args.disks}")
+        print(f"Disk capacity (worker): {DISK_CAPACITY_WORKER}")
+        print(f"Disk capacity (control-plane): {DISK_CAPACITY_CONTROL_PLANE}")
         print(f"Talos version: {TALOS_VERSION}")
         return 0
 

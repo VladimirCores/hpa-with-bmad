@@ -48,3 +48,9 @@ CONSULTATION-*.md
 resources/
 talos-state
 
+# Runtime download/service logs and artifacts (regenerated on every run)
+output/*.pid
+output/*.log
+output/registry-certs/
+output/tmp-chart/
+

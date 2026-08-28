@@ -287,16 +287,12 @@ def step_mode_args(step: Step, mode_args: list[str]) -> list[str]:
             return ["--check"]
         if "--dry-run" in mode_args:
             return ["--dry-run"]
-        # Pass storage and provider options to bootstrap
+        # Pass storage option; provider routing is handled by the step file itself
         args = []
         if "--storage" in mode_args:
             idx = mode_args.index("--storage")
             if idx + 1 < len(mode_args):
                 args.extend(["--storage", mode_args[idx + 1]])
-        if "--provider" in mode_args:
-            idx = mode_args.index("--provider")
-            if idx + 1 < len(mode_args):
-                args.extend(["--provider", mode_args[idx + 1]])
         return args
 
     args = []
@@ -445,14 +441,23 @@ def main() -> int:
     parser.add_argument("--status", action="store_true", help="show per-step and per-component installation status")
     parser.add_argument("--all", action="store_true", help="show all steps including skipped (with --status)")
     parser.add_argument("--step", action="append", default=[], help="run only the named step; may be repeated")
-    parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default="rook-ceph", help="storage backend for the cluster")
-    parser.add_argument("--provider", choices=["docker", "qemu"], default="qemu", help="Talos provisioner (default: qemu)")
+    parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default=None, help="storage backend for the cluster (default: provider-derived)")
+    parser.add_argument("--provider", choices=["kind", "docker", "qemu"], default=None, help="provisioner backend (default from HPDC_PROVIDER or .env, else kind)")
     args = parser.parse_args()
 
     # Load .env (toggles + versions) before any toggle filtering or status.
     import component_versions
     component_versions.load_dotenv()
     component_versions.resolve()
+    # Resolve provider AFTER .env is loaded: CLI wins, then env/.env, else kind.
+    if args.provider is None:
+        args.provider = os.getenv("HPDC_PROVIDER", "kind")
+    # Export the resolved provider so step 02 (which routes on HPDC_PROVIDER)
+    # follows the CLI/.env choice consistently.
+    os.environ["HPDC_PROVIDER"] = args.provider
+    # Derive storage default from provider when not explicitly set.
+    if args.storage is None:
+        args.storage = "local-path" if args.provider in ("kind", "docker") else "rook-ceph"
     # Wire --storage CLI flag to the storage backend toggle.
     if getattr(args, "storage", None):
         os.environ["HPDC_STORAGE_BACKEND"] = args.storage

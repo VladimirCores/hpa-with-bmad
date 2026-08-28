@@ -33,7 +33,7 @@ TALOS_STATE_DIR = TALOS_HOME / ".talos" / "clusters"
 TALOS_STATE_LINK = ROOT / "talos-state"
 CLUSTER_NAME = "hpdc-talos"
 TALOS_CLUSTER_NAME = CLUSTER_NAME
-KIND_CLUSTER_NAME = "hpa-preview"
+KIND_CLUSTER_NAME = CLUSTER_NAME
 
 
 def _talos_env() -> dict[str, str]:
