@@ -30,26 +30,6 @@ stringData:
   telemetry-key: hpdc-telemetry-dev-key
 type: Opaque
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  labels:
-    app.kubernetes.io/name: hpdc-security-api-key-refs
-    app.kubernetes.io/part-of: hpdc-platform
-  name: hpdc-security-api-key-refs
-  namespace: security
-spec:
-  from:
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: envoy-gateway-system
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: telemetry-ingestion
-  to:
-  - group: ""
-    kind: Secret
----
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -61,10 +41,17 @@ metadata:
 spec:
   jwt:
     providers:
-    - issuer: https://casdoor.hpdc.local
+    - audiences:
+      - hpdc-graphql-gateway
+      claimToHeaders:
+      - claim: sub
+        header: X-Casdoor-Subject
+      - claim: name
+        header: X-Casdoor-Username
+      issuer: https://casdoor.hpdc.local
       name: casdoor-hpdc
       remoteJWKS:
-        uri: https://casdoor.hpdc.local/.well-known/jwks.json
+        uri: http://casdoor.casdoor.svc.cluster.local:80/.well-known/jwks
   targetRefs:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
@@ -138,3 +125,23 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-telemetry-http-ingestion
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-security-api-key-refs
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-security-api-key-refs
+  namespace: security
+spec:
+  from:
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: envoy-gateway-system
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: telemetry-ingestion
+  to:
+  - group: ""
+    kind: Secret

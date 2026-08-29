@@ -17,6 +17,14 @@ metadata:
     app.kubernetes.io/part-of: hpdc-platform
 data:
   casdoor-config.toml: |
+    appname = "casdoor"
+    httpport = 8000
+    runmode = "dev"
+    copyrequestbody = true
+    driverName = "postgres"
+    dataSourceName = "user=casdoor password=casdoor host=casdoor-postgres port=5432 sslmode=disable dbname=casdoor"
+    dbName = "casdoor"
+    showSql = false
     providerName = "hpdc"
     providerDisplayName = "HPDC Casdoor"
     applicationName = "HPDC"
@@ -25,6 +33,7 @@ data:
     appName = "HPDC"
     appTitle = "HPDC"
     logo = "/assets/hpdc-logo.png"
+    origin = "https://casdoor.hpdc.local"
     serverURL = "https://*.hpdc.local"
     oidc = true
     saml = true
@@ -59,7 +68,7 @@ spec:
           image: docker.io/casbin/casdoor:3.159.0
           imagePullPolicy: IfNotPresent
           args:
-            - --configPath
+            - -config
             - /config/casdoor-config.toml
           ports:
             - name: http
@@ -130,7 +139,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /.well-known/jwks.json
+            value: /.well-known/jwks
       backendRefs:
         - name: casdoor
           port: 80

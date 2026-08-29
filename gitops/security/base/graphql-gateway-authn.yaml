@@ -15,5 +15,12 @@ spec:
     providers:
       - name: casdoor-hpdc
         issuer: https://casdoor.hpdc.local
+        audiences:
+          - hpdc-graphql-gateway
+        claimToHeaders:
+          - claim: sub
+            header: X-Casdoor-Subject
+          - claim: name
+            header: X-Casdoor-Username
         remoteJWKS:
-          uri: https://casdoor.hpdc.local/.well-known/jwks.json
+          uri: http://casdoor.casdoor.svc.cluster.local:80/.well-known/jwks

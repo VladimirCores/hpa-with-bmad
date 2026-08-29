@@ -9,6 +9,14 @@ metadata:
 apiVersion: v1
 data:
   casdoor-config.toml: |
+    appname = "casdoor"
+    httpport = 8000
+    runmode = "dev"
+    copyrequestbody = true
+    driverName = "postgres"
+    dataSourceName = "user=casdoor password=casdoor host=casdoor-postgres port=5432 sslmode=disable dbname=casdoor"
+    dbName = "casdoor"
+    showSql = false
     providerName = "hpdc"
     providerDisplayName = "HPDC Casdoor"
     applicationName = "HPDC"
@@ -17,6 +25,7 @@ data:
     appName = "HPDC"
     appTitle = "HPDC"
     logo = "/assets/hpdc-logo.png"
+    origin = "https://casdoor.hpdc.local"
     serverURL = "https://*.hpdc.local"
     oidc = true
     saml = true
@@ -48,6 +57,22 @@ spec:
     app.kubernetes.io/component: authn
     app.kubernetes.io/name: casdoor
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: casdoor-postgres
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casdoor-postgres
+  namespace: casdoor
+spec:
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+  selector:
+    app.kubernetes.io/name: casdoor-postgres
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,7 +97,7 @@ spec:
     spec:
       containers:
       - args:
-        - --configPath
+        - -config
         - /config/casdoor-config.toml
         env:
         - name: CASDOOR_LOG_LEVEL
@@ -106,6 +131,47 @@ spec:
           name: casdoor-config
         name: config
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/name: casdoor-postgres
+    app.kubernetes.io/part-of: hpdc-platform
+  name: casdoor-postgres
+  namespace: casdoor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: casdoor-postgres
+  serviceName: casdoor-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: casdoor-postgres
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_USER
+          value: casdoor
+        - name: POSTGRES_PASSWORD
+          value: casdoor
+        - name: POSTGRES_DB
+          value: casdoor
+        image: docker.io/library/postgres:15.19-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: data
+      volumes:
+      - emptyDir: {}
+        name: data
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -131,4 +197,4 @@ spec:
     matches:
     - path:
         type: PathPrefix
-        value: /.well-known/jwks.json
+        value: /.well-known/jwks

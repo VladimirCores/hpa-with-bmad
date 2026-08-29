@@ -36,7 +36,7 @@ sweep (action items 3, 4, 8, 10, 12) are materialized here.
 | # | Epic | Requirement / Verification | Quantified ACs | Owner | Blocker(s) | P0 Class | Status |
 |---|------|---------------------------|----------------|-------|------------|----------|--------|
 | REG-01 | 10 | Deploy Infisical operator + `credentialsRef` so `hpdc-production-secrets` reconciles (R-008) | `InfisicalSecret hpdc-production-secrets` reaches `synced` with managed secret references materialized; no high-entropy secrets in git | Winston | B-001 | P0-022 | blocked |
-| REG-02 | 10 | JWT `audiences`/`forwardJWT` + live JWKS fetch (R-001, FR-38) | Gateway forwardJWT audience `hpdc-graphql-gateway`; live fetch of `casdoor.hpdc.local/.well-known/jwks.json` returns valid JWKS and JWT validation succeeds | Amelia | B-001 | P0-008 | blocked |
+| REG-02 | 10 | JWT `audiences`/`claimToHeaders` + live JWKS fetch (R-001, FR-38) | Gateway JWT audience `hpdc-graphql-gateway`; live fetch of `casdoor.hpdc.local/.well-known/jwks` returns valid JWKS and JWT validation succeeds (401 missing/invalid, 200 valid + claim forwarding) | Amelia | B-001 | P0-008 | ✅ verified 2026-08-29 |
 | REG-03 | 8 | ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption (FR-33..35, NFR20) | Two regions discover each other over encrypted WireGuard; regional store shows NO default cross-region replication; hub reads region-scoped aggregate without storing regional data | Winston | B-001, B-004 | P0-008 | blocked |
 | REG-04 | 7 | Log-search SLO (FR-18/21 class) | Log search ≤5s | Murat | B-001 | P0-008/P0-023 | blocked |
 | REG-05 | 7 | Stale-metric SLO (FR-18/21 class) | Stale-metric detection ≤5min | Murat | B-001 | P0-008/P0-023 | blocked |
@@ -108,11 +108,18 @@ convergence. Gateway reachable via NodePort `443:30235` on `172.18.0.2`
 - **REG-01 ⛔ blocked** — no Infisical operator/CRD pods in cluster; gitops
   `infisical` base not applied. `hpdc-production-secrets` InfisicalSecret cannot
   reconcile. `DEV_ONLY_CREDENTIALS` allowlist is the interim posture (R-008).
-- **REG-02 ⛔ blocked** — `casdoor-7bf7c5974f-jcpfm` ImagePullBackOff (image not
-  in offline mirror), `casbin-abac-ext-authz` ImagePullBackOff. JWKS endpoint
-  `casdoor.hpdc.local/.well-known/jwks.json` → 503 (no ready pod). JWT
-  SecurityPolicy `hpdc-graphql-gateway-jwt-authn` is manifest-verified but
-  cannot validate live.
+- **REG-02 ✅ verified 2026-08-29** — casdoor 3.159.0 running on Postgres
+  (`casdoor-postgres` StatefulSet), casbin `ext-authz` running (:50053).
+  Live JWKS via gateway `https://casdoor.hpdc.local:30235/.well-known/jwks`
+  → **200**, RSA `kid=cert-built-in`. Real JWT minted from casdoor password
+  grant (client app `hpdc-graphql-gateway`, `iss=https://casdoor.hpdc.local`,
+  `aud=hpdc-graphql-gateway`). SecurityPolicy `hpdc-graphql-gateway-jwt-authn`
+  uses `claimToHeaders` (EG v1.9 has **no** `forwardJWT` field), remoteJWKS =
+  in-cluster `http://casdoor.casdoor.svc.cluster.local:80/.well-known/jwks`
+  (Envoy cannot resolve external `casdoor.hpdc.local`), audiences
+  `[hpdc-graphql-gateway]`. `/gql`: no token → **401**, invalid → **401**,
+  valid → **200** with `X-Casdoor-Subject`/`X-Casdoor-Username` forwarded to
+  the backend (verified in stub logs).
 - **REG-03 ⛔ blocked** — B-004 unresolved: single kind cluster, no ClusterMesh /
   WireGuard / second region exists to verify FR-33..35.
 - **REG-04 ⛔ blocked** — `vmlogs` defined in gitops
@@ -128,8 +135,9 @@ convergence. Gateway reachable via NodePort `443:30235` on `172.18.0.2`
 - **REG-10 ⛔ blocked** — no Hasura deployment in cluster; cross-store join SLO
   unmeasurable until Hasura + ArcadeDB/YugabyteDB join.
 
-Summary: **2 verified (REG-06, REG-07), 8 blocked** — all 8 blocked entries carry
-a concrete missing-component evidence tuple; none are silently "passing".
+Summary: **3 verified (REG-02, REG-06, REG-07), 7 blocked** — all 8 blocked
+entries carry a concrete missing-component evidence tuple; none are silently
+"passing".
 
 ## Update Log
 
@@ -159,3 +167,8 @@ a concrete missing-component evidence tuple; none are silently "passing".
   ImagePullBackOff; no vmlogs pod; telemetry ingestion selector-less/not
   deployed; no Restate/Knative; no Hasura). REG-03 remains blocked on B-004
   (no second region). Live-cluster evidence section added above.
+- 2026-08-29: **REG-02 verified.** casdoor running on Postgres +
+  casbin `ext-authz` running; live JWKS 200 via gateway; JWT validation passes
+  with `claimToHeaders` (EG v1.9 replaces `forwardJWT`). JWT SecurityPolicy +
+  casdoor route + postgres + graphql-gateway stub persisted to gitops and
+  re-rendered; ArgoCD self-heal now drives them.
