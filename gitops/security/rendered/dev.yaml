@@ -51,6 +51,7 @@ spec:
       issuer: https://casdoor.hpdc.local
       name: casdoor-hpdc
       remoteJWKS:
+        cacheDuration: 300s
         uri: http://casdoor.casdoor.svc.cluster.local:80/.well-known/jwks
   targetRefs:
   - group: gateway.networking.k8s.io

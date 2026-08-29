@@ -185,12 +185,15 @@ spec:
   hostnames:
   - casdoor.hpdc.local
   parentRefs:
-  - name: hpdc-edge
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: hpdc-edge
     namespace: envoy-gateway-system
     sectionName: https
   rules:
   - backendRefs:
-    - kind: Service
+    - group: ""
+      kind: Service
       name: casdoor
       port: 80
       weight: 1

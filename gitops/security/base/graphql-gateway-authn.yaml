@@ -24,3 +24,4 @@ spec:
             header: X-Casdoor-Username
         remoteJWKS:
           uri: http://casdoor.casdoor.svc.cluster.local:80/.well-known/jwks
+          cacheDuration: 300s

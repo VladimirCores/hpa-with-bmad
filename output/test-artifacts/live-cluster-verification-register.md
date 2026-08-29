@@ -120,6 +120,14 @@ convergence. Gateway reachable via NodePort `443:30235` on `172.18.0.2`
   `[hpdc-graphql-gateway]`. `/gql`: no token → **401**, invalid → **401**,
   valid → **200** with `X-Casdoor-Subject`/`X-Casdoor-Username` forwarded to
   the backend (verified in stub logs).
+  Final state converged end-to-end via ArgoCD GitOps: committed
+  (`830e757` + `4333bba`), pushed through in-cluster git mirror
+  (`resources/git-mirror/with-bmad.git` → `git-mirror` sess:9418, bundle-fetch
+  flow), apps `casdoor`+`security` auto-synced → KV ids/URIs live. Full suite
+  re-ran green **after** ArgoCD reconcile: jwks 200, no-token 401, bad-token
+  401, valid-token 200 + claim forwarding. Stub deadlock fixed
+  (`head` buffered stdin then blocked on keep-alive socket → Envoy `rq_timeout`;
+  now read line-by-line, break on empty header line).
 - **REG-03 ⛔ blocked** — B-004 unresolved: single kind cluster, no ClusterMesh /
   WireGuard / second region exists to verify FR-33..35.
 - **REG-04 ⛔ blocked** — `vmlogs` defined in gitops
