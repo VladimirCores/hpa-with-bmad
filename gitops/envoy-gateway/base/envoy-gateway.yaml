@@ -170,6 +170,7 @@ spec:
   template:
     metadata:
       labels:
+        control-plane: envoy-gateway
         app.kubernetes.io/name: envoy-gateway
         app.kubernetes.io/component: control-plane
         app.kubernetes.io/part-of: hpdc-platform
@@ -230,6 +231,35 @@ spec:
             secretName: envoy-gateway
         - name: wasm-cache
           emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+  labels:
+    control-plane: envoy-gateway
+    app.kubernetes.io/name: envoy-gateway
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  type: ClusterIP
+  selector:
+    control-plane: envoy-gateway
+    app.kubernetes.io/component: control-plane
+  ports:
+    - name: grpc
+      port: 18000
+      targetPort: 18000
+    - name: ratelimit
+      port: 18001
+      targetPort: 18001
+    - name: wasm
+      port: 18002
+      targetPort: 18002
+    - name: metrics
+      port: 19001
+      targetPort: 19001
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
