@@ -7,10 +7,10 @@ metadata:
     app.kubernetes.io/name: hpdc-telemetry-http-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: hpdc-telemetry-http-ingestion
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: hpdc-telemetry-http-ingestion
   apiKeyAuth:
     credentialRefs:
       - group: ""

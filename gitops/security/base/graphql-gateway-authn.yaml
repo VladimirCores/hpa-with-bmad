@@ -7,10 +7,10 @@ metadata:
     app.kubernetes.io/name: hpdc-graphql-gateway-jwt-authn
     app.kubernetes.io/part-of: hpdc-platform
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: hpdc-graphql-gateway
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: hpdc-graphql-gateway
   jwt:
     providers:
       - name: casdoor-hpdc

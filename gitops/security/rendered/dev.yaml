@@ -30,6 +30,26 @@ stringData:
   telemetry-key: hpdc-telemetry-dev-key
 type: Opaque
 ---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-security-api-key-refs
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-security-api-key-refs
+  namespace: security
+spec:
+  from:
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: envoy-gateway-system
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: telemetry-ingestion
+  to:
+  - group: ""
+    kind: Secret
+---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -45,8 +65,8 @@ spec:
       name: casdoor-hpdc
       remoteJWKS:
         uri: https://casdoor.hpdc.local/.well-known/jwks.json
-  targetRef:
-    group: gateway.networking.k8s.io
+  targetRefs:
+  - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-graphql-gateway
 ---
@@ -66,10 +86,10 @@ spec:
       name: events-api-key
       namespace: security
     extractFrom:
-      - headers:
-        - X-API-Key
-  targetRef:
-    group: gateway.networking.k8s.io
+    - headers:
+      - X-API-Key
+  targetRefs:
+  - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-edge-domain-routes
 ---
@@ -89,10 +109,10 @@ spec:
       name: telemetry-api-key
       namespace: security
     extractFrom:
-      - headers:
-        - X-API-Key
-  targetRef:
-    group: gateway.networking.k8s.io
+    - headers:
+      - X-API-Key
+  targetRefs:
+  - group: gateway.networking.k8s.io
     kind: GRPCRoute
     name: hpdc-telemetry-grpc-ingestion
 ---
@@ -112,9 +132,9 @@ spec:
       name: telemetry-api-key
       namespace: security
     extractFrom:
-      - headers:
-        - X-API-Key
-  targetRef:
-    group: gateway.networking.k8s.io
+    - headers:
+      - X-API-Key
+  targetRefs:
+  - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-telemetry-http-ingestion

@@ -33,6 +33,27 @@ stringData:
   telemetry-key: hpdc-telemetry-dev-key
 
 ---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: hpdc-security-api-key-refs
+  namespace: security
+  labels:
+    app.kubernetes.io/name: hpdc-security-api-key-refs
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: envoy-gateway-system
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: telemetry-ingestion
+  to:
+    - group: ""
+      kind: Secret
+
+---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -42,10 +63,10 @@ metadata:
     app.kubernetes.io/name: hpdc-messaging-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: hpdc-edge-domain-routes
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: hpdc-edge-domain-routes
   apiKeyAuth:
     credentialRefs:
       - group: ""
@@ -66,10 +87,10 @@ metadata:
     app.kubernetes.io/name: hpdc-telemetry-grpc-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: GRPCRoute
-    name: hpdc-telemetry-grpc-ingestion
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+      name: hpdc-telemetry-grpc-ingestion
   apiKeyAuth:
     credentialRefs:
       - group: ""
