@@ -183,8 +183,12 @@ spec:
             - server
             - --config-path=/config/envoy-gateway.yaml
           ports:
-            - name: http
+            - name: grpc
               containerPort: 18000
+            - name: ratelimit
+              containerPort: 18001
+            - name: wasm
+              containerPort: 18002
           env:
             - name: GATEWAY_API_RESTRICTED_GATEWAY
               value: "true"
@@ -197,16 +201,24 @@ spec:
               readOnly: true
             - name: wasm-cache
               mountPath: /var/lib/eg/wasm
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            failureThreshold: 30
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 1
           readinessProbe:
             httpGet:
-              path: /ready
-              port: http
+              path: /readyz
+              port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /healthz
-              port: http
+              port: 8081
             initialDelaySeconds: 20
             periodSeconds: 20
       volumes:

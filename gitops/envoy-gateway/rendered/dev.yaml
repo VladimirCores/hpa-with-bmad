@@ -437,17 +437,29 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: http
+            port: 8081
           initialDelaySeconds: 20
           periodSeconds: 20
         name: envoy-gateway
         ports:
         - containerPort: 18000
-          name: http
+          name: grpc
+        - containerPort: 18001
+          name: ratelimit
+        - containerPort: 18002
+          name: wasm
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          failureThreshold: 30
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: /ready
-            port: http
+            path: /readyz
+            port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
         volumeMounts:
