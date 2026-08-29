@@ -120,13 +120,13 @@ data:
   partition_keys: |
     device_type,region_id
   ordering_key: device_id
-  retention:
+  retention: |
     dev: 24h
     staging: 7d
     prod: configurable
-  dead_letter_policy:
+  dead_letter_policy: |
     max_redeliver_count: 3
-  persistence:
+  persistence: |
     storage_class: hpdc-ceph
 ---
 apiVersion: resource.streamnative.io/v1alpha1
@@ -239,7 +239,7 @@ spec:
 apiVersion: hpdc.io/v1
 kind: ClickHouseTable
 metadata:
-  name: device_metrics
+  name: device-metrics
   namespace: hpdc-platform
   labels:
     app.kubernetes.io/name: device_metrics

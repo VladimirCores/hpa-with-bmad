@@ -79,15 +79,15 @@ metadata:
 ---
 apiVersion: v1
 data:
-  dead_letter_policy:
+  dead_letter_policy: |
     max_redeliver_count: 3
   default_partitions: "12"
   ordering_key: device_id
-  partition_keys: |
+  partition_keys: |-
     device_type,region_id
-  persistence:
+  persistence: |
     storage_class: hpdc-ceph
-  retention:
+  retention: |
     dev: 24h
     prod: configurable
     staging: 7d
@@ -469,7 +469,7 @@ metadata:
     app.kubernetes.io/name: device_metrics
     app.kubernetes.io/part: platform
     environment: dev
-  name: device_metrics
+  name: device-metrics
   namespace: hpdc-platform
 spec:
   database: telemetry
