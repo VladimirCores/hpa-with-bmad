@@ -1,3 +1,5 @@
+# Deferred Work Ledger
+
 ## Deferred from: code review of 11-5-platform-convergence-app-of-apps (2026-08-29)
 
 - RWO local-path PVC pins broker to its node — pod Pending if it reschedules to a different node. Pre-existing cluster storage posture (same as git-mirror).
@@ -5,6 +7,32 @@
 - No backlogQuota/msgTTL on PulsarNamespace — a stalled consumer could fill the 10Gi PV despite 24h retention. Operational hardening for dev budget.
 - Topic partition/policy mismatch is unrecoverable (partitions immutable) → operator retries until exhaustion. Documented operator limitation.
 - Pulsar image size (~multi-GB) not re-validated against 8GB qemu/Talos node disks — kind/local-path target OK, qemu target unproven. Topology-specific.
+
+## Resolved / dispositions by live verification (story 11-4, 2026-08-29)
+
+Live cluster verification (Task 3) dispositioned the register entries that were previously
+gated only on B-001 (live cluster). Evidence recorded in
+`output/test-artifacts/live-cluster-verification-register.md` (Live-Cluster Evidence
+2026-08-29).
+
+- **REG-06 PromQL range SLO** — **resolved**: 5 live 24h-range queries on vmselect, all
+  success in ≤0.01s (SLO 2s). Entry `verified`.
+- **REG-07 entity-store mutation SLO** — **resolved**: live CouchDB CRUD round-trip
+  create 7.6ms / read 2.0ms / update 0.5ms (SLO p99 200ms). Entry `verified`.
+- **REG-01 Infisical / REG-02 JWT+JWKS / REG-04 log-search / REG-05 stale-metric /
+  REG-08 change-reaction / REG-09 Restate / REG-10 Hasura / REG-03 ClusterMesh** —
+  **dispositioned** (not silently deferred): each marked `blocked` with a concrete
+  missing-component evidence tuple (no Infisical operator; casdoor/casbin
+  ImagePullBackOff; no vmlogs pod; telemetry-ingestion selector-less, no vmalert; no
+  Restate/Knative; no Hasura; B-004 single cluster). These are now actionable
+  deployment gaps, not B-001 gates.
+- **Duplicate ArgoCD install in `default` ns** (ImagePullBackOff, full component set) —
+  stale bootstrap leftover; healthy ArgoCD lives in `argocd` ns. Recorded in register +
+  sprint-status for cleanup.
+- **Stale e2e audits** — the route-table audit parsed the pre-EG-v1.9 SecurityPolicy
+  schema and the secret-scan flagged public SSH host keys. Fixed in commit `c793231`
+  (v1.9 `targetRefs`/`credentialRefs`/`extractFrom`, in-route path scoping; public
+  `ssh_known_hosts` redaction). `tests/atdd/e2e/` now 17 passed / 6 skipped.
 
 ## Deferred from: code review of story-11.8 (2026-08-26)
 

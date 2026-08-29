@@ -35,16 +35,16 @@ sweep (action items 3, 4, 8, 10, 12) are materialized here.
 
 | # | Epic | Requirement / Verification | Quantified ACs | Owner | Blocker(s) | P0 Class | Status |
 |---|------|---------------------------|----------------|-------|------------|----------|--------|
-| REG-01 | 10 | Deploy Infisical operator + `credentialsRef` so `hpdc-production-secrets` reconciles (R-008) | `InfisicalSecret hpdc-production-secrets` reaches `synced` with managed secret references materialized; no high-entropy secrets in git | Winston | B-001 | P0-022 | open |
-| REG-02 | 10 | JWT `audiences`/`forwardJWT` + live JWKS fetch (R-001, FR-38) | Gateway forwardJWT audience `hpdc-graphql-gateway`; live fetch of `casdoor.hpdc.local/.well-known/jwks.json` returns valid JWKS and JWT validation succeeds | Amelia | B-001 | P0-008 | open |
-| REG-03 | 8 | ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption (FR-33..35, NFR20) | Two regions discover each other over encrypted WireGuard; regional store shows NO default cross-region replication; hub reads region-scoped aggregate without storing regional data | Winston | B-001, B-004 | P0-008 | open |
-| REG-04 | 7 | Log-search SLO (FR-18/21 class) | Log search ≤5s | Murat | B-001 | P0-008/P0-023 | open |
-| REG-05 | 7 | Stale-metric SLO (FR-18/21 class) | Stale-metric detection ≤5min | Murat | B-001 | P0-008/P0-023 | open |
-| REG-06 | 7 | PromQL range SLO | PromQL 24h-range query ≤2s | Murat | B-001 | P0-008/P0-023 | open |
-| REG-07 | 6 | Entity-store mutation SLO (FR-14) | Entity CRUD round-trip p99 ≤200ms | Murat | B-001 | P0-008/P0-023 | open |
-| REG-08 | 6 | Change-reaction SLO (FR-15/16) | Knative/Restate change feed reaction ≤500ms | Murat | B-001 | P0-008/P0-023 | open |
-| REG-09 | 6 | Exactly-once Restate (FR-15/16, R-018) | Duplicate delivery → single processing, exactly-once via Restate, DLQ routing | Murat | B-001 | P0-008/P0-023 | open |
-| REG-10 | 6 | Hasura cross-store join SLO (FR-37) | Cross-store join (CouchDB+ArcadeDB+YugabyteDB) ≤2s | Murat | B-001 | P0-008/P0-023 | open |
+| REG-01 | 10 | Deploy Infisical operator + `credentialsRef` so `hpdc-production-secrets` reconciles (R-008) | `InfisicalSecret hpdc-production-secrets` reaches `synced` with managed secret references materialized; no high-entropy secrets in git | Winston | B-001 | P0-022 | blocked |
+| REG-02 | 10 | JWT `audiences`/`forwardJWT` + live JWKS fetch (R-001, FR-38) | Gateway forwardJWT audience `hpdc-graphql-gateway`; live fetch of `casdoor.hpdc.local/.well-known/jwks.json` returns valid JWKS and JWT validation succeeds | Amelia | B-001 | P0-008 | blocked |
+| REG-03 | 8 | ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption (FR-33..35, NFR20) | Two regions discover each other over encrypted WireGuard; regional store shows NO default cross-region replication; hub reads region-scoped aggregate without storing regional data | Winston | B-001, B-004 | P0-008 | blocked |
+| REG-04 | 7 | Log-search SLO (FR-18/21 class) | Log search ≤5s | Murat | B-001 | P0-008/P0-023 | blocked |
+| REG-05 | 7 | Stale-metric SLO (FR-18/21 class) | Stale-metric detection ≤5min | Murat | B-001 | P0-008/P0-023 | blocked |
+| REG-06 | 7 | PromQL range SLO | PromQL 24h-range query ≤2s | Murat | B-001 | P0-008/P0-023 | ✅ verified 2026-08-29 |
+| REG-07 | 6 | Entity-store mutation SLO (FR-14) | Entity CRUD round-trip p99 ≤200ms | Murat | B-001 | P0-008/P0-023 | ✅ verified 2026-08-29 |
+| REG-08 | 6 | Change-reaction SLO (FR-15/16) | Knative/Restate change feed reaction ≤500ms | Murat | B-001 | P0-008/P0-023 | blocked |
+| REG-09 | 6 | Exactly-once Restate (FR-15/16, R-018) | Duplicate delivery → single processing, exactly-once via Restate, DLQ routing | Murat | B-001 | P0-008/P0-023 | blocked |
+| REG-10 | 6 | Hasura cross-store join SLO (FR-37) | Cross-store join (CouchDB+ArcadeDB+YugabyteDB) ≤2s | Murat | B-001 | P0-008/P0-023 | blocked |
 
 ## Related RED Scaffolds (already deferred in the ATDD suite)
 
@@ -92,6 +92,45 @@ blockers resolve. They are the executable form of the register entries above.
 - **Amelia:** REG-02 (JWT audiences/forwardJWT + JWKS)
 - **Murat:** REG-04..REG-10 (SLOs: observability + entity-store)
 
+## Live-Cluster Evidence 2026-08-29 (story 11-4 Task 3)
+
+Run against the kind cluster (hpdc-talos-*, kindnet CNI) after Pulsar milestone
+convergence. Gateway reachable via NodePort `443:30235` on `172.18.0.2`
+(`edge.hpdc.local`; SAN `.hpdc.local`). No MetalLB → LB services stay `<pending>`.
+
+- **REG-06 ✅** — PromQL 24h-range `up` query on `vmselect` (svc `vmselect`, port
+  forward 8481): 5 runs all success in **≤0.01s** (SLO 2s); 14 series returned;
+  cadence 15s. Infra: vmagent/vminsert/vmselect/vmstorage all `Running` 1/1.
+- **REG-07 ✅** — live CouchDB CRUD round-trip against
+  `couchdb-entity-store.entity-store.svc` (`/entities/reg07-probe`):
+  create **7.6ms**, read **2.0ms**, update **0.5ms** (SLO p99 200ms). CouchDB
+  is the only entity-store member deployed; ArcadeDB/YugabyteDB not deployed.
+- **REG-01 ⛔ blocked** — no Infisical operator/CRD pods in cluster; gitops
+  `infisical` base not applied. `hpdc-production-secrets` InfisicalSecret cannot
+  reconcile. `DEV_ONLY_CREDENTIALS` allowlist is the interim posture (R-008).
+- **REG-02 ⛔ blocked** — `casdoor-7bf7c5974f-jcpfm` ImagePullBackOff (image not
+  in offline mirror), `casbin-abac-ext-authz` ImagePullBackOff. JWKS endpoint
+  `casdoor.hpdc.local/.well-known/jwks.json` → 503 (no ready pod). JWT
+  SecurityPolicy `hpdc-graphql-gateway-jwt-authn` is manifest-verified but
+  cannot validate live.
+- **REG-03 ⛔ blocked** — B-004 unresolved: single kind cluster, no ClusterMesh /
+  WireGuard / second region exists to verify FR-33..35.
+- **REG-04 ⛔ blocked** — `vmlogs` defined in gitops
+  (`gitops/victoria-metrics/base/vmlogs.yaml`) but no vmlogs pod/deployment in
+  cluster; no log-search backend to time.
+- **REG-05 ⛔ blocked** — stale-metric SLO requires the telemetry ingest path +
+  alerting; vmagent scrapes live (VM 4 pods + argocd + couchdb targets, E2E
+  cadence observed) but the `/telemetry`→`pulsar-telemetry-ingestion` route has
+  **no endpoints** (Service selector-less) and no vmalert exists to prove
+  ≤5min staleness detection end-to-end.
+- **REG-08 / REG-09 ⛔ blocked** — no Knative / Restate / change-feed workloads
+  in cluster (PG inbox or reaction consumer absent); cannot measure FR-15/16.
+- **REG-10 ⛔ blocked** — no Hasura deployment in cluster; cross-store join SLO
+  unmeasurable until Hasura + ArcadeDB/YugabyteDB join.
+
+Summary: **2 verified (REG-06, REG-07), 8 blocked** — all 8 blocked entries carry
+a concrete missing-component evidence tuple; none are silently "passing".
+
 ## Update Log
 
 - 2026-08-11: Register created from retro-sweep action items 3, 4, 8, 10, 12
@@ -113,3 +152,10 @@ blockers resolve. They are the executable form of the register entries above.
   (`tests/atdd/support/test_load_harness.py`). Unlock-path step 5 done;
   P0-023 soak itself still gated on k6 + live cluster. Suite now 143 passed /
   7 skipped.
+- 2026-08-29: **Task 3 verification pass (story 11-4).** REG-06 + REG-07 verified
+  with live measurements (≤0.01s PromQL range; 0.5–7.6ms CouchDB CRUD). REG-01,
+  REG-02, REG-04, REG-05, REG-08, REG-09, REG-10 marked **blocked** with
+  missing-component evidence (no Infisical operator; casdoor/casbin
+  ImagePullBackOff; no vmlogs pod; telemetry ingestion selector-less/not
+  deployed; no Restate/Knative; no Hasura). REG-03 remains blocked on B-004
+  (no second region). Live-cluster evidence section added above.

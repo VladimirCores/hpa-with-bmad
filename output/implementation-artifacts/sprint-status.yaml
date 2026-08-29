@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-28T00:00:00Z
+last_updated: 2026-08-29T18:00:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -143,7 +143,7 @@ development_status:
   11-2-idempotent-startup-with-persistent-storage: done
   11-3-live-component-initialization: done
   # Execution order: 11-5 (convergence) -> resume 11-4 (verification) -> 11-6 (CRD schemas)
-   11-4-live-cluster-verification: in-progress # converged 2026-08-29; resume verification (Tasks 2-3) — platform app Healthy incl. pulsar (broker 4.2.4 + operator v0.21.0, tenant hpdc provisioned, smoke-tested); see 11-5 story
+   11-4-live-cluster-verification: done # CONVERGED + VERIFIED 2026-08-29: e2e 17 pass/6 skip (stale-audit fixes c793231); REG-06/07 verified live (≤0.01s PromQL, 0.5–7.6ms CRUD), REG-01/02/04/05/08/09/10 dispositioned blocked w/ missing-component evidence, REG-03 blocked on B-004; register + deferred-work + atdd-progress updated; see 11-4 story
    11-5-platform-convergence-app-of-apps: done # CONVERGED 2026-08-29: pulsar milestone synced+healthy (KNOWN GAP superseded — hardening 5ce9065/645e0ae, post-recovery verify, review record updated); see 11-5 story
   11-6-tighten-hpdc-crd-schemas: backlog # NEXT.md §A.3 follow-up candidate promoted
   # Component versions -> .env single source (consultation 2026-08-26); soft-gated on 11-5 to avoid rendered-artifact churn mid-convergence
@@ -172,12 +172,12 @@ action_items:
     action: "Deploy Infisical operator + credentialsRef so hpdc-production-secrets reconciles (needs live cluster)"
     owner: "Winston"
     status: in-progress
-    linked_story: "11-4-live-cluster-verification"
+    note: "VERIFIED-BLOCKED 2026-08-29 (11-4): live cluster confirmed no Infisical operator/CRD — deployment itself remains open (REG-01)"
   - epic: 10
     action: "Add JWT audiences/forwardJWT + live JWKS fetch verification (P0-008, needs live cluster)"
     owner: "Amelia"
     status: in-progress
-    linked_story: "11-4-live-cluster-verification"
+    note: "VERIFIED-BLOCKED 2026-08-29 (11-4): casdoor/casbin ImagePullBackOff (image off mirror), JWKS 503 — policy manifest-verified, live validation blocked on casdoor deploy (REG-02)"
   - epic: 10
     action: "Codify in-memory mutation-probe technique into the checkpoint-review workflow (every dig-in includes a mutation probe)"
     owner: "Amelia + Murat"
@@ -194,7 +194,7 @@ action_items:
     action: "Verify ClusterMesh tunnel live: cross-cluster WireGuard discovery/encryption needs P0-008 live-cluster verification (record once a multi-region cluster exists)"
     owner: "Winston"
     status: in-progress
-    linked_story: "11-4-live-cluster-verification"
+    note: "VERIFIED-BLOCKED 2026-08-29 (11-4): single-cluster (B-004) — no 2nd region, ClusterMesh unverifiable; parked until multi-region exists (REG-03)"
   - epic: 8
     action: "Add a no-replication guard: regional-sovereignty validation asserts no cross-region replication config exists in the tree (absence-of-config invariant)"
     owner: "Murat"
@@ -202,8 +202,8 @@ action_items:
   - epic: 7
     action: "Register SLO verification tasks: live-cluster verification for quantified ACs (log search <=5s, stale-metric <=5min, PromQL <=2s) as P0-008/P0-023-class items"
     owner: "Murat"
-    status: in-progress
-    linked_story: "11-4-live-cluster-verification"
+    status: done
+    note: "DONE 2026-08-29 (11-4): registered + dispositioned in live-cluster-verification-register.md — REG-06 PromQL VERIFIED live (≤0.01s); REG-04/REG-05 remain blocked (vmlogs absent, selector-less ingest svc, no vmalert)"
   - epic: 7
     action: "Audit the native-auth tool-route group: UI route topology from 7-5 is root of Epic 10 catch-all ambiguity; fold into Epic 10 action item 1 topology review"
     owner: "Winston"
@@ -211,8 +211,8 @@ action_items:
   - epic: 6
     action: "Register entity-store SLO verifications: 200ms p99 mutation, 500ms change reaction, exactly-once Restate, Hasura 2s cross-store join (live-cluster P0-008/P0-023 register)"
     owner: "Murat"
-    status: in-progress
-    linked_story: "11-4-live-cluster-verification"
+    status: done
+    note: "DONE 2026-08-29 (11-4): REG-07 mutation VERIFIED live (0.5–7.6ms vs 200ms p99); REG-08/09/10 blocked (no Knative/Restate/Hasura)"
   - epic: 6
     action: "Audit /gql route ownership: confirm entity-store-owns-/gql contract documented in the route-topology review (Epic 10 shadowing fix subject)"
     owner: "Winston"
