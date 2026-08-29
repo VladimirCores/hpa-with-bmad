@@ -107,6 +107,13 @@ def _all_yamls() -> list[Path]:
     return sorted(GITOPS.rglob("*.yaml"))
 
 
+# Public SSH host trust anchors (ArgoCD ssh_known_hosts: GitHub, GitLab, Bitbucket
+# server public keys). These are public key material by design, not credentials -
+# the entropy scan must not flag them (R-008's scope is committed secrets).
+def _redact_public_known_hosts(text: str) -> str:
+    return re.sub(r"ssh_known_hosts:\s*'.*?'", "ssh_known_hosts: <redacted public known-hosts>", text, flags=re.S)
+
+
 def _secret_resource_names() -> set[str]:
     names: set[str] = set()
     for path in _base_yamls():
@@ -127,6 +134,7 @@ def _secret_resource_names() -> set[str]:
 def test_no_high_entropy_secret_material_in_gitops() -> None:
     for path in _scanned_yamls():
         text = path.read_text(encoding="utf-8")
+        text = _redact_public_known_hosts(text)
         for pattern in HIGH_ENTROPY_PATTERNS:
             for match in pattern.findall(text):
                 assert match in DEV_ONLY_CREDENTIALS, (

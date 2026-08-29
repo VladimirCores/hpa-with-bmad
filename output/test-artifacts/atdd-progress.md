@@ -405,3 +405,22 @@ config they assert:
 - `bmad-dev-story` to implement stories using the checklist roadmap (start with P0-001, no blockers).
 - `bmad-testarch-automate` after green phase to wire CI tiers (PR/Nightly/Weekly).
 - Resolve blockers B-001..B-005 before blocker-dependent scaffolds.
+
+## Live-Cluster Run 2026-08-29 (story 11-4)
+
+- **Post-convergence live e2e (HPDC_EDGE_URL=https://edge.hpdc.local:30235, live keys):**
+  17 passed, 6 skipped (4 journey B-001/B-003-keyed + 2 UI B-002-keyed — unchanged RED-phase gates).
+  Full `tests/atdd/api/*` still targets local dev servers (`.local` resolver) as its offline
+  baseline; live backends for /events (kafka), /data (couchdb), /api (knative) and /telemetry
+  (pulsar-telemetry-ingestion, selector-less Service) are not yet reachable through the gateway,
+  so live api probes fail with clear diagnostics (500/503) until those backends deploy.
+- **Stale-audit fixes (P0-016/P0-022).** The route-table audit still parsed the pre-EG-v1.9
+  SecurityPolicy schema (`targetRef`, `apiKeyAuth.methods`+`secretRef`, path scoping in-policy).
+  After the v1.9 migration (`targetRefs`, `credentialRefs`+`extractFrom`, path scoping in-route)
+  those assertions failed 4×. Parser now resolves paths from target routes; secret-scan gained a
+  public `ssh_known_hosts` redaction (ArgoCD SSH host trust anchors are public keys, not
+  credentials). Result: `tests/atdd/e2e/` → 17 passed / 6 skipped (was 5 failed + 1 failed).
+
+## Sprint Status (updated 2026-08-29)
+
+- `sprint-status.yaml` → 11-5 `done` (CONVERGED), 11-4 `in-progress` resumed for live verification.

@@ -145,55 +145,92 @@ def _route_records() -> list[dict]:
 
 
 def _policy_records() -> list[dict]:
-    """Structure-aware SecurityPolicy collection: targetRef resolved from parsed YAML."""
+    """Structure-aware SecurityPolicy collection: targetRefs parsed from YAML.
+
+    EG v1.9 moved from a single `targetRef` to a `targetRefs` list. A targetRef
+    without an explicit namespace resolves to the policy's own namespace
+    (same-namespace binding); the first targetRef drives the legacy kind/name/
+    namespace lookup used by the coverage audits.
+    """
     policies: list[dict] = []
     for path in _gitops_yaml_files():
         for doc in _load_docs(path):
             if doc.get("kind") != SECURITY_POLICY_KIND:
                 continue
             meta = doc.get("metadata") or {}
-            target = (doc.get("spec") or {}).get("targetRef") or {}
+            spec = doc.get("spec") or {}
+            policy_namespace = meta.get("namespace", "")
+            targets = []
+            for target in spec.get("targetRefs") or []:
+                targets.append(
+                    {
+                        "group": target.get("group"),
+                        "kind": target.get("kind"),
+                        "name": target.get("name"),
+                        "namespace": target.get("namespace") or policy_namespace,
+                    }
+                )
+            first = targets[0] if targets else {}
             policies.append(
                 {
                     "policy_name": meta.get("name", ""),
-                    "policy_namespace": meta.get("namespace", ""),
-                    "group": target.get("group"),
-                    "kind": target.get("kind"),
-                    "name": target.get("name"),
-                    "namespace": target.get("namespace"),
-                    "spec": doc.get("spec") or {},
+                    "policy_namespace": policy_namespace,
+                    "group": first.get("group"),
+                    "kind": first.get("kind"),
+                    "name": first.get("name"),
+                    "namespace": first.get("namespace"),
+                    "targets": targets,
+                    "spec": spec,
                     "file": str(path),
                 }
             )
     return policies
 
 
-def _api_key_paths(spec: dict) -> list[str]:
+def _policy_target_routes(policy: dict) -> list[dict]:
+    """Resolve a SecurityPolicy's targetRefs to the route records they bind."""
+    routes = _route_records()
+    resolved = []
+    targets = policy.get("targets") or []
+    for target in targets:
+        for route in routes:
+            if (
+                route["kind"] == target.get("kind")
+                and route["name"] == target.get("name")
+                and target.get("namespace") in (route["namespace"], None)
+            ):
+                resolved.append(route)
+    return resolved
+
+
+def _api_key_paths(policy: dict) -> list[str]:
+    """Path prefixes scoped by an apiKeyAuth policy, resolved from its target
+    route(s). EG v1.9 moved path scoping out of the SecurityPolicy and into the
+    route matches themselves, so the covered paths follow the targetRefs."""
     paths: list[str] = []
-    for auth in spec.get("apiKeyAuth") or []:
-        for method in auth.get("methods") or []:
-            p = method.get("path") or {}
-            if p.get("type") == "PathPrefix":
-                paths.append(p.get("value", ""))
-    return paths
+    for route in _policy_target_routes(policy):
+        for _type, value in route["matches"]:
+            if _type == "PathPrefix" and value:
+                paths.append(value)
+    return sorted(set(paths))
 
 
 def _api_key_headers(spec: dict) -> list[str]:
     headers: set[str] = set()
-    for auth in spec.get("apiKeyAuth") or []:
-        for method in auth.get("methods") or []:
-            parameter = method.get("parameter") or {}
-            if parameter.get("type") == "Header" and parameter.get("name"):
-                headers.add(parameter["name"])
+    auth = spec.get("apiKeyAuth") or {}
+    for extract in auth.get("extractFrom") or []:
+        for header in extract.get("headers") or []:
+            if header:
+                headers.add(header)
     return sorted(headers)
 
 
 def _api_key_secret_refs(spec: dict) -> list[str]:
     refs: list[str] = []
-    for auth in spec.get("apiKeyAuth") or []:
-        secret_ref = auth.get("secretRef") or {}
-        if secret_ref.get("name"):
-            refs.append(secret_ref["name"])
+    auth = spec.get("apiKeyAuth") or {}
+    for ref in auth.get("credentialRefs") or []:
+        if ref.get("name"):
+            refs.append(ref["name"])
     return refs
 
 
@@ -250,12 +287,12 @@ def test_messaging_routes_covered_by_api_key_policy() -> None:
     assert messaging["kind"] == "HTTPRoute"
     assert messaging["name"] == "hpdc-edge-domain-routes"
     assert messaging["namespace"] == "envoy-gateway-system"
-    assert set(_api_key_paths(messaging["spec"])) >= {"/data", "/api", "/events"}
+    assert set(_api_key_paths(messaging)) >= {"/data", "/api", "/events"}
     assert set(_api_key_headers(messaging["spec"])) >= {"X-API-Key"}
 
     telemetry_http = next((p for p in policies if p["policy_name"] == "hpdc-telemetry-http-api-key-authn"), None)
     assert telemetry_http is not None, "hpdc-telemetry-http-api-key-authn SecurityPolicy missing"
-    assert set(_api_key_paths(telemetry_http["spec"])) >= {"/telemetry"}
+    assert set(_api_key_paths(telemetry_http)) >= {"/telemetry"}
     assert set(_api_key_headers(telemetry_http["spec"])) >= {"X-API-Key"}
 
     grpc = next((p for p in policies if p["policy_name"] == "hpdc-telemetry-grpc-api-key-authn"), None)
@@ -310,10 +347,10 @@ def test_api_key_stores_are_key_isolated() -> None:
     }
     store_paths: dict[str, set[str]] = {}
     for policy in (domain, grpc, telemetry_http):
-        for auth in policy["spec"].get("apiKeyAuth") or []:
-            store = (auth.get("secretRef") or {}).get("name")
-            assert store in expected_paths, f"unknown api-key store {store!r} (R-009)"
-            store_paths.setdefault(store, set()).update(_api_key_paths({"apiKeyAuth": [auth]}))
+        store = _api_key_secret_refs(policy["spec"])
+        assert len(store) == 1, f"policy {policy['policy_name']} must reference exactly one api-key store (R-009)"
+        assert store[0] in expected_paths, f"unknown api-key store {store[0]!r} (R-009)"
+        store_paths.setdefault(store[0], set()).update(_api_key_paths(policy))
     for store, paths in store_paths.items():
         assert paths == expected_paths[store], (
             f"store {store} must own exactly {sorted(expected_paths[store])}, "
