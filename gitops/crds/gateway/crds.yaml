@@ -1,3 +1,4 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -1954,6 +1955,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -2619,6 +2621,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -6681,6 +6684,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -9601,6 +9605,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -21407,6 +21412,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -22382,6 +22388,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -22844,6 +22851,7 @@ spec:
     served: true
     storage: true
     subresources: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -25071,6 +25079,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -28610,6 +28619,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -30833,6 +30843,7 @@ spec:
     storage: false
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -31730,6 +31741,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -32633,6 +32645,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -32922,6 +32935,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -33640,6 +33654,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -38506,6 +38521,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -41378,6 +41394,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -44984,6 +45001,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -45736,6 +45754,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -72953,6 +72972,7 @@ spec:
     storage: true
     subresources:
       status: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -73572,6 +73592,7 @@ spec:
     served: true
     storage: true
     subresources: {}
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition

@@ -2,7 +2,7 @@ apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
   name: hpdc-graphql-gateway-jwt-authn
-  namespace: security
+  namespace: entity-store
   labels:
     app.kubernetes.io/name: hpdc-graphql-gateway-jwt-authn
     app.kubernetes.io/part-of: hpdc-platform
@@ -11,7 +11,6 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-graphql-gateway
-    namespace: entity-store
   jwt:
     providers:
       - name: casdoor-hpdc

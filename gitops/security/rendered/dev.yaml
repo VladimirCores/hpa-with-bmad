@@ -37,7 +37,7 @@ metadata:
     app.kubernetes.io/name: hpdc-graphql-gateway-jwt-authn
     app.kubernetes.io/part-of: hpdc-platform
   name: hpdc-graphql-gateway-jwt-authn
-  namespace: security
+  namespace: entity-store
 spec:
   jwt:
     providers:
@@ -49,7 +49,6 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-graphql-gateway
-    namespace: entity-store
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -58,38 +57,21 @@ metadata:
     app.kubernetes.io/name: hpdc-messaging-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
   name: hpdc-messaging-api-key-authn
-  namespace: security
+  namespace: envoy-gateway-system
 spec:
   apiKeyAuth:
-  - methods:
-    - parameter:
-        name: X-API-Key
-        type: Header
-      path:
-        type: PathPrefix
-        value: /data
-    - parameter:
-        name: X-API-Key
-        type: Header
-      path:
-        type: PathPrefix
-        value: /api
-    - parameter:
-        name: X-API-Key
-        type: Header
-      path:
-        type: PathPrefix
-        value: /events
-    name: events-api-key
-    secretRef:
+    credentialRefs:
+    - group: ""
+      kind: Secret
       name: events-api-key
-  jwt: []
-  localJWTProviders: []
+      namespace: security
+    extractFrom:
+      - headers:
+        - X-API-Key
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-edge-domain-routes
-    namespace: envoy-gateway-system
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -98,26 +80,21 @@ metadata:
     app.kubernetes.io/name: hpdc-telemetry-grpc-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
   name: hpdc-telemetry-grpc-api-key-authn
-  namespace: security
+  namespace: telemetry-ingestion
 spec:
   apiKeyAuth:
-  - methods:
-    - parameter:
-        name: X-API-Key
-        type: Header
-      path:
-        type: PathPrefix
-        value: /hpdc.telemetry.v1.TelemetryService
-    name: telemetry-api-key
-    secretRef:
+    credentialRefs:
+    - group: ""
+      kind: Secret
       name: telemetry-api-key
-  jwt: []
-  localJWTProviders: []
+      namespace: security
+    extractFrom:
+      - headers:
+        - X-API-Key
   targetRef:
     group: gateway.networking.k8s.io
     kind: GRPCRoute
     name: hpdc-telemetry-grpc-ingestion
-    namespace: telemetry-ingestion
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -126,23 +103,18 @@ metadata:
     app.kubernetes.io/name: hpdc-telemetry-http-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
   name: hpdc-telemetry-http-api-key-authn
-  namespace: security
+  namespace: telemetry-ingestion
 spec:
   apiKeyAuth:
-  - methods:
-    - parameter:
-        name: X-API-Key
-        type: Header
-      path:
-        type: PathPrefix
-        value: /telemetry
-    name: telemetry-api-key
-    secretRef:
+    credentialRefs:
+    - group: ""
+      kind: Secret
       name: telemetry-api-key
-  jwt: []
-  localJWTProviders: []
+      namespace: security
+    extractFrom:
+      - headers:
+        - X-API-Key
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: hpdc-telemetry-http-ingestion
-    namespace: telemetry-ingestion
