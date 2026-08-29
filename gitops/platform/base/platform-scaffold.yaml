@@ -138,6 +138,8 @@ metadata:
     app.kubernetes.io/name: pulsar-hpdc
     app.kubernetes.io/part: platform
 spec:
+  adminServiceURL: http://pulsar-standalone.pulsar.svc.cluster.local:8080
+  brokerServiceURL: pulsar://pulsar-standalone.pulsar.svc.cluster.local:6650
   clusterName: hpdc
 ---
 apiVersion: resource.streamnative.io/v1alpha1
@@ -149,7 +151,7 @@ metadata:
     app.kubernetes.io/name: telemetry-normalized
     app.kubernetes.io/part: platform
 spec:
-  name: telemetry-normalized
+  name: persistent://hpdc/telemetry/telemetry-normalized
   connectionRef:
     name: hpdc
   partitions: 12
@@ -168,7 +170,7 @@ metadata:
     app.kubernetes.io/name: telemetry-normalized-dev
     app.kubernetes.io/part: platform
 spec:
-  name: telemetry-normalized-dev
+  name: persistent://hpdc/telemetry/telemetry-normalized-dev
   connectionRef:
     name: hpdc
   partitions: 4

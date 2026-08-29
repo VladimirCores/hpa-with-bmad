@@ -1,0 +1,661 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pulsar-resources-operator
+  namespace: pulsar
+  labels:
+    app.kubernetes.io/name: pulsar-resources-operator
+    app.kubernetes.io/part: pulsar
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pulsar-resources-operator-manager-role
+  labels:
+    app.kubernetes.io/name: pulsar-resources-operator
+    app.kubernetes.io/part: pulsar
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - computeflinkdeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - computeflinkdeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - computeflinkdeployments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - computeworkspaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - computeworkspaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - computeworkspaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarconnections
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarconnections/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarconnections/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarfunctions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarfunctions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarfunctions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsargeoreplications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsargeoreplications/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsargeoreplications/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarnamespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarnamespaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarnamespaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarnsisolationpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarnsisolationpolicies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarnsisolationpolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarpackages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarpackages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarpermissions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarpermissions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarpermissions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarsinks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarsinks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarsinks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarsources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarsources/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsarsources/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsartenants
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsartenants/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsartenants/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsartopics
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsartopics/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - pulsartopics/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - secrets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - secrets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - streamnativecloudconnections
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - streamnativecloudconnections/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - streamnativecloudconnections/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - apikeys
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - apikeys/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - apikeys/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - serviceaccounts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - serviceaccounts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - serviceaccountbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - serviceaccountbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - serviceaccountbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - rolebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resource.streamnative.io
+  resources:
+  - rolebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pulsar-resources-operator-manager-rolebinding
+  labels:
+    app.kubernetes.io/name: pulsar-resources-operator
+    app.kubernetes.io/part: pulsar
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pulsar-resources-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: pulsar-resources-operator
+  namespace: pulsar
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pulsar-resources-operator-leader-election-role
+  namespace: pulsar
+  labels:
+    app.kubernetes.io/name: pulsar-resources-operator
+    app.kubernetes.io/part: pulsar
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pulsar-resources-operator-leader-election-rolebinding
+  namespace: pulsar
+  labels:
+    app.kubernetes.io/name: pulsar-resources-operator
+    app.kubernetes.io/part: pulsar
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pulsar-resources-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: pulsar-resources-operator
+  namespace: pulsar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulsar-resources-operator
+  namespace: pulsar
+  labels:
+    app.kubernetes.io/name: pulsar-resources-operator
+    app.kubernetes.io/part: pulsar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pulsar-resources-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pulsar-resources-operator
+    spec:
+      serviceAccountName: pulsar-resources-operator
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: manager
+          image: docker.io/streamnative/pulsar-resources-operator:v0.21.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=0.0.0.0:8443
+            - --leader-elect
+            - --resync-period=10
+            - --retry-count=5
+          command:
+            - /manager
+          ports:
+            - containerPort: 8443
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

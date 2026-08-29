@@ -83,14 +83,14 @@ data:
     max_redeliver_count: 3
   default_partitions: "12"
   ordering_key: device_id
-  partition_keys: |-
+  partition_keys: |
     device_type,region_id
   persistence: |
     storage_class: hpdc-ceph
   retention: |
     dev: 24h
-    prod: configurable
     staging: 7d
+    prod: configurable
   topic_namespace: hpdc.telemetry
 kind: ConfigMap
 metadata:
@@ -858,9 +858,12 @@ metadata:
   labels:
     app.kubernetes.io/name: pulsar-hpdc
     app.kubernetes.io/part: platform
+    environment: dev
   name: hpdc
   namespace: hpdc-platform
 spec:
+  adminServiceURL: http://pulsar-standalone.pulsar.svc.cluster.local:8080
+  brokerServiceURL: pulsar://pulsar-standalone.pulsar.svc.cluster.local:6650
   clusterName: hpdc
 ---
 apiVersion: resource.streamnative.io/v1alpha1
@@ -873,15 +876,15 @@ metadata:
   name: telemetry-normalized
   namespace: hpdc-platform
 spec:
-  name: telemetry-normalized
   connectionRef:
     name: hpdc
+  name: persistent://hpdc/telemetry/telemetry-normalized
   partitions: 12
   properties:
     device_type: enabled
     origin: enabled
     region_id: enabled
-  retentionTime: "24h"
+  retentionTime: 24h
 ---
 apiVersion: resource.streamnative.io/v1alpha1
 kind: PulsarTopic
@@ -893,12 +896,12 @@ metadata:
   name: telemetry-normalized-dev
   namespace: hpdc-platform
 spec:
-  name: telemetry-normalized-dev
   connectionRef:
     name: hpdc
+  name: persistent://hpdc/telemetry/telemetry-normalized-dev
   partitions: 4
   properties:
     device_type: enabled
     origin: enabled
     region_id: enabled
-  retentionTime: "24h"
+  retentionTime: 24h
