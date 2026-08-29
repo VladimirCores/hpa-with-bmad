@@ -89,9 +89,14 @@ spec:
               mkdir -p /srv
               cat > /srv/echo.sh <<'SH'
               #!/bin/sh
-              LINE=$(head -1)
-              echo "$LINE" >&2
-              while IFS= read -r H; do [ -z "$H" ] && break; echo "HDR: $H" >&2; done
+              CR=$(printf '\r')
+              n=0
+              while IFS= read -r L; do
+                L=${L%$CR}
+                [ $n -eq 0 ] && echo "REQ: $L" >&2 || echo "HDR: $L" >&2
+                n=$((n+1))
+                [ -z "$L" ] && break
+              done
               printf 'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK'
               SH
               chmod +x /srv/echo.sh
