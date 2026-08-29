@@ -852,7 +852,18 @@ spec:
   tls:
     termination: envoy_gateway
 ---
-apiVersion: pulsar.streamnative.io/v1alpha1
+apiVersion: resource.streamnative.io/v1alpha1
+kind: PulsarConnection
+metadata:
+  labels:
+    app.kubernetes.io/name: pulsar-hpdc
+    app.kubernetes.io/part: platform
+  name: hpdc
+  namespace: hpdc-platform
+spec:
+  clusterName: hpdc
+---
+apiVersion: resource.streamnative.io/v1alpha1
 kind: PulsarTopic
 metadata:
   labels:
@@ -862,18 +873,17 @@ metadata:
   name: telemetry-normalized
   namespace: hpdc-platform
 spec:
+  name: telemetry-normalized
+  connectionRef:
+    name: hpdc
   partitions: 12
   properties:
     device_type: enabled
     origin: enabled
     region_id: enabled
-  retention:
-    dev: 24h
-    prod: configurable
-    staging: 7d
-  topicType: partitioned
+  retentionTime: "24h"
 ---
-apiVersion: pulsar.streamnative.io/v1alpha1
+apiVersion: resource.streamnative.io/v1alpha1
 kind: PulsarTopic
 metadata:
   labels:
@@ -883,11 +893,12 @@ metadata:
   name: telemetry-normalized-dev
   namespace: hpdc-platform
 spec:
+  name: telemetry-normalized-dev
+  connectionRef:
+    name: hpdc
   partitions: 4
   properties:
     device_type: enabled
     origin: enabled
     region_id: enabled
-  retention:
-    dev: 24h
-  topicType: partitioned
+  retentionTime: "24h"

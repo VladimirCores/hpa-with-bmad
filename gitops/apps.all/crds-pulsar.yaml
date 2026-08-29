@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crds-pulsar
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: http://git-mirror.git-mirror.svc.cluster.local:9418/with-bmad.git
+    targetRevision: HEAD
+    path: gitops/crds/pulsar
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hpdc-platform
+  syncPolicy:
+    automated:
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

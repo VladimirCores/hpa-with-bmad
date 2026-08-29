@@ -129,7 +129,18 @@ data:
   persistence:
     storage_class: hpdc-ceph
 ---
-apiVersion: pulsar.streamnative.io/v1alpha1
+apiVersion: resource.streamnative.io/v1alpha1
+kind: PulsarConnection
+metadata:
+  name: hpdc
+  namespace: hpdc-platform
+  labels:
+    app.kubernetes.io/name: pulsar-hpdc
+    app.kubernetes.io/part: platform
+spec:
+  clusterName: hpdc
+---
+apiVersion: resource.streamnative.io/v1alpha1
 kind: PulsarTopic
 metadata:
   name: telemetry-normalized
@@ -138,18 +149,17 @@ metadata:
     app.kubernetes.io/name: telemetry-normalized
     app.kubernetes.io/part: platform
 spec:
-  topicType: partitioned
+  name: telemetry-normalized
+  connectionRef:
+    name: hpdc
   partitions: 12
   properties:
     device_type: enabled
     region_id: enabled
     origin: enabled
-  retention:
-    dev: 24h
-    staging: 7d
-    prod: configurable
+  retentionTime: "24h"
 ---
-apiVersion: pulsar.streamnative.io/v1alpha1
+apiVersion: resource.streamnative.io/v1alpha1
 kind: PulsarTopic
 metadata:
   name: telemetry-normalized-dev
@@ -158,14 +168,15 @@ metadata:
     app.kubernetes.io/name: telemetry-normalized-dev
     app.kubernetes.io/part: platform
 spec:
-  topicType: partitioned
+  name: telemetry-normalized-dev
+  connectionRef:
+    name: hpdc
   partitions: 4
   properties:
     device_type: enabled
     region_id: enabled
     origin: enabled
-  retention:
-    dev: 24h
+  retentionTime: "24h"
 ---
 apiVersion: hpdc.io/v1
 kind: TelemetryBackpressurePolicy
