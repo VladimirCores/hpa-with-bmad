@@ -143,8 +143,8 @@ development_status:
   11-2-idempotent-startup-with-persistent-storage: done
   11-3-live-component-initialization: done
   # Execution order: 11-5 (convergence) -> resume 11-4 (verification) -> 11-6 (CRD schemas)
-   11-4-live-cluster-verification: in-progress # 11-5 converged; resume verification (Tasks 2-3) — platform app is accepted known gap
-   11-5-platform-convergence-app-of-apps: done # convergence proven; platform app accepted as known gap (Pulsar needs >8GB node disks) — see 11-5 story
+   11-4-live-cluster-verification: in-progress # converged 2026-08-29; resume verification (Tasks 2-3) — platform app Healthy incl. pulsar (broker 4.2.4 + operator v0.21.0, tenant hpdc provisioned, smoke-tested); see 11-5 story
+   11-5-platform-convergence-app-of-apps: done # CONVERGED 2026-08-29: pulsar milestone synced+healthy (KNOWN GAP superseded — hardening 5ce9065/645e0ae, post-recovery verify, review record updated); see 11-5 story
   11-6-tighten-hpdc-crd-schemas: backlog # NEXT.md §A.3 follow-up candidate promoted
   # Component versions -> .env single source (consultation 2026-08-26); soft-gated on 11-5 to avoid rendered-artifact churn mid-convergence
   11-7-centralize-component-image-versions-in-env: done # code review 2026-08-26: 2 patches applied; 93 pass / 5 pre-existing
