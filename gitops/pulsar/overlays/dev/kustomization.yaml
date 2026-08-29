@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base/standalone.yaml
   - ../../base/operator.yaml
+  - ../../base/network-policy.yaml
 namespace: pulsar
 commonLabels:
   environment: dev

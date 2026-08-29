@@ -86,6 +86,7 @@ ENABLED_DEFAULTS: dict[str, bool] = {
     "HPDC_CERT_MANAGER_ENABLED": False,
     "HPDC_CASDOOR_ENABLED": True,
     "HPDC_CASBIN_ENABLED": True,
+    "HPDC_PULSAR_ENABLED": True,
     "HPDC_INFISICAL_ENABLED": False,
     "HPDC_BACKSTAGE_ENABLED": False,
     "HPDC_GRAFANA_ENABLED": False,
@@ -234,6 +235,9 @@ DEFAULTS: dict[str, str] = {
     "HPDC_EVENTS_ALPINE_VERSION": "3.20",
     # Edge
     "HPDC_ENVOY_GATEWAY_VERSION": "1.9.0",
+    # Messaging / StreamNative operator
+    "HPDC_PULSAR_VERSION": "4.2.4",
+    "HPDC_PULSAR_OPERATOR_VERSION": "v0.21.0",
     # Auth / secrets
     "HPDC_CASDOOR_VERSION": "3.159.0",
     # NOTE: upstream deleted the historical 0.10.0 tag (scheme now v-prefixed
@@ -314,6 +318,10 @@ CATALOG: dict[str, list[tuple[str, str, str]]] = {
     ],
     "envoy-gateway": [
         ("docker.io/envoyproxy/gateway", "v{envoy_gateway_version}", "envoy-gateway/images/envoy-gateway-v{envoy_gateway_version}"),
+    ],
+    "pulsar": [
+        ("docker.io/apachepulsar/pulsar", "{pulsar_version}", "pulsar/images/pulsar-{pulsar_version}"),
+        ("docker.io/streamnative/pulsar-resources-operator", "{pulsar_operator_version}", "pulsar/images/pulsar-resources-operator-{pulsar_operator_version}"),
     ],
     "cert-manager": [
         ("quay.io/jetstack/cert-manager-controller", "v{cert_manager_version}", "cert-manager/images/cert-manager-controller-v{cert_manager_version}"),

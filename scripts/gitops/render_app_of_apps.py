@@ -37,10 +37,12 @@ APP_TOGGLE_MAP: dict[str, str] = {
     "casbin": "CASBIN_ENABLED",
     "casdoor": "CASDOOR_ENABLED",
     "crds-gateway": "ENVOY_GATEWAY_ENABLED",
+    "crds-pulsar": "PULSAR_ENABLED",
     "envoy-gateway": "ENVOY_GATEWAY_ENABLED",
     "infisical": "INFISICAL_ENABLED",
     "observability": "GRAFANA_ENABLED",
     "openapi": "SWAGGER_UI_ENABLED",
+    "pulsar": "PULSAR_ENABLED",
     "victoria-metrics": "VICTORIA_METRICS_ENABLED",
     "security": "CILIUM_ENABLED",
 }

@@ -57,10 +57,21 @@ spec:
         app.kubernetes.io/name: pulsar-standalone
     spec:
       hostname: pulsar-standalone
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        allowPrivilegeEscalation: false
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: pulsar-standalone
           image: docker.io/apachepulsar/pulsar:4.2.4
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command:
             - /bin/bash
             - -c

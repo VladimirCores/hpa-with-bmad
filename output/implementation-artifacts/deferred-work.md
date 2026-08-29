@@ -1,3 +1,11 @@
+## Deferred from: code review of 11-5-platform-convergence-app-of-apps (2026-08-29)
+
+- RWO local-path PVC pins broker to its node — pod Pending if it reschedules to a different node. Pre-existing cluster storage posture (same as git-mirror).
+- Bookie journal replay after unclean kill could exceed 600s startupProbe ceiling and default 30s termination grace. Operational tuning; observed recovery well within window.
+- No backlogQuota/msgTTL on PulsarNamespace — a stalled consumer could fill the 10Gi PV despite 24h retention. Operational hardening for dev budget.
+- Topic partition/policy mismatch is unrecoverable (partitions immutable) → operator retries until exhaustion. Documented operator limitation.
+- Pulsar image size (~multi-GB) not re-validated against 8GB qemu/Talos node disks — kind/local-path target OK, qemu target unproven. Topology-specific.
+
 ## Deferred from: code review of story-11.8 (2026-08-26)
 
 - AC#4 spec inconsistency — known components use `ENABLED_DEFAULTS`; only unknown defaults False. Documented user decision (opt-in for unknown). (deferred, spec clarification)

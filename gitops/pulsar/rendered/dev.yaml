@@ -70,15 +70,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
+  - events
   verbs:
   - create
-  - delete
-  - get
-  - list
   - patch
-  - update
-  - watch
 - apiGroups:
   - resource.streamnative.io
   resources:
@@ -706,6 +701,18 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: pulsar-resources-operator
       terminationGracePeriodSeconds: 10
 ---
@@ -775,6 +782,11 @@ spec:
           requests:
             cpu: 250m
             memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         startupProbe:
           failureThreshold: 60
           httpGet:
@@ -785,7 +797,43 @@ spec:
         - mountPath: /pulsar/data
           name: data
       hostname: pulsar-standalone
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 10000
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: pulsar-data
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: pulsar-network-policy
+    app.kubernetes.io/part: pulsar
+    environment: dev
+  name: pulsar-ingress
+  namespace: pulsar
+spec:
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: pulsar
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: hpdc-platform
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    - ipBlock:
+        cidr: 172.18.0.0/16
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part: pulsar
+      environment: dev
+  policyTypes:
+  - Ingress

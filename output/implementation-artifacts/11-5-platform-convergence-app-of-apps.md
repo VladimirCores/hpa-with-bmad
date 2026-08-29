@@ -48,6 +48,28 @@ So that live-cluster verification (story 11-4) runs against a fully converged pl
 - [ ] Task 4: Update sprint-status.yaml (AC: #1)
   - [ ] Mark 11-5 done; confirm 11-4 unblocked
 
+### Review Findings
+
+#### decision-needed
+
+- [ ] [Review][Decision] Operator security posture — chart-default ClusterRole grants cluster-wide CRUD on secrets + all pulsar CRs, operator Deployment has no `securityContext`, and the pulsar namespace ships no NetworkPolicy for 8080/6650/8443. Decide: accept chart-default (dev), or harden (scoped watch namespaces, securityContext, CiliumNetworkPolicy).
+- [ ] [Review][Decision] Standalone broker memory budget — `PULSAR_MEM=-Xms512m -Xmx1024m` covers only the broker JVM; in-process BookKeeper (direct-memory caches) shares a single 2048Mi container limit. Decide: raise limit / pin `BOOKKEEPER_MEM` + direct-memory caps, or accept for dev load.
+- [ ] [Review][Decision] Spec record contradiction — story KNOWN-GAP says Pulsar "cannot be hosted / was uninstalled", but the diff ships it and the kind cluster runs it healthy. Decide: amend 11-5 Completion Notes + frontmatter, or open a new story for the Pulsar milestone.
+
+#### patch
+
+- [ ] [Review][Patch] Register pulsar + crds-pulsar in render_app_of_apps APP_TOGGLE_MAP [scripts/gitops/render_app_of_apps.py:34] — next real run unlinks `gitops/apps/pulsar.yaml` (`pulsar` has no toggle mapping → opt-in excluded), so ArgoCD would prune the new child app on regeneration.
+- [ ] [Review][Patch] Source pulsar image refs from component_versions.py CATALOG [gitops/pulsar/base/standalone.yaml:62, gitops/pulsar/base/operator.yaml:629] — `apachepulsar/pulsar:4.2.4` + `streamnative/pulsar-resources-operator:v0.21.0` hardcoded, absent from catalog; image-preflight would not preload them for a fresh provision, breaking the offline-mirror posture.
+- [ ] [Review][Patch] Operator RBAC cleanup — drop duplicate core-group `secrets` rule; add `events create/patch` to manager ClusterRole [gitops/pulsar/base/operator.yaml:20-40, 11-533] — controller-runtime can't emit events on hpdc-platform CRs today.
+
+#### defer
+
+- [x] [Review][Defer] RWO local-path PVC pins broker to its node — pod Pending if it reschedules to a different node [gitops/pulsar/base/standalone.yaml:8-15] — deferred, pre-existing cluster storage posture (same as git-mirror).
+- [x] [Review][Defer] Bookie journal replay after unclean kill could exceed 600s startupProbe ceiling and default 30s termination grace [gitops/pulsar/base/standalone.yaml:85-90] — deferred, operational tuning; observed recovery well within window.
+- [x] [Review][Defer] No backlogQuota/msgTTL on namespace — a stalled consumer could fill the 10Gi PV despite 24h retention [gitops/platform/base/platform-scaffold.yaml:180-210] — deferred, operational hardening for dev budget.
+- [x] [Review][Defer] Topic partition/policy mismatch is unrecoverable (partitions immutable) → operator retries until exhaustion [gitops/platform/base/platform-scaffold.yaml:183-210] — deferred, documented operator limitation.
+- [x] [Review][Defer] Pulsar image size (~multi-GB) not re-validated against 8GB qemu/Talos node disks — kind/local-path target OK, qemu target unproven — deferred, topology-specific.
+
 ## Dev Notes
 
 ### Paradigm (2026-08-24 shift)

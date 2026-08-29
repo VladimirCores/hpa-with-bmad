@@ -26,15 +26,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
+  - events
   verbs:
   - create
-  - delete
-  - get
-  - list
   - patch
-  - update
-  - watch
 - apiGroups:
   - resource.streamnative.io
   resources:
@@ -624,10 +619,22 @@ spec:
     spec:
       serviceAccountName: pulsar-resources-operator
       terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        allowPrivilegeEscalation: false
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: manager
           image: docker.io/streamnative/pulsar-resources-operator:v0.21.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           args:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=0.0.0.0:8443
