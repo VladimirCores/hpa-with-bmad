@@ -864,7 +864,38 @@ metadata:
 spec:
   adminServiceURL: http://pulsar-standalone.pulsar.svc.cluster.local:8080
   brokerServiceURL: pulsar://pulsar-standalone.pulsar.svc.cluster.local:6650
-  clusterName: hpdc
+  clusterName: standalone
+---
+apiVersion: resource.streamnative.io/v1alpha1
+kind: PulsarNamespace
+metadata:
+  labels:
+    app.kubernetes.io/name: pulsar-namespace-hpdc-telemetry
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: hpdc-telemetry
+  namespace: hpdc-platform
+spec:
+  bundles: 16
+  connectionRef:
+    name: hpdc
+  name: hpdc/telemetry
+---
+apiVersion: resource.streamnative.io/v1alpha1
+kind: PulsarTenant
+metadata:
+  labels:
+    app.kubernetes.io/name: pulsar-tenant-hpdc
+    app.kubernetes.io/part: platform
+    environment: dev
+  name: hpdc
+  namespace: hpdc-platform
+spec:
+  allowedClusters:
+  - standalone
+  connectionRef:
+    name: hpdc
+  name: hpdc
 ---
 apiVersion: resource.streamnative.io/v1alpha1
 kind: PulsarTopic

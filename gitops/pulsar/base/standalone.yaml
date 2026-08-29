@@ -23,6 +23,7 @@ metadata:
     app.kubernetes.io/name: pulsar-standalone
     app.kubernetes.io/part: pulsar
 spec:
+  publishNotReadyAddresses: true
   selector:
     app.kubernetes.io/name: pulsar-standalone
   ports:

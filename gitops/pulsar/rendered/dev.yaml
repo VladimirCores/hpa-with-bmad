@@ -628,6 +628,7 @@ spec:
     port: 6650
     protocol: TCP
     targetPort: 6650
+  publishNotReadyAddresses: true
   selector:
     app.kubernetes.io/name: pulsar-standalone
     environment: dev
