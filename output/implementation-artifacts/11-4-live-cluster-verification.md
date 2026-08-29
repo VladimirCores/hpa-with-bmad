@@ -3,7 +3,7 @@ story_key: 11-4-live-cluster-verification
 epic: 11
 status: done
 baseline_commit: a72685e81f083c0032921f1c1a8ec69daedb3af5
-completion_commit: TBD
+completion_commit: a24c054
 ---
 
 # Story 11.4: Live-Cluster Verification
