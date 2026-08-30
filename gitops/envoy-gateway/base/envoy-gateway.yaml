@@ -548,7 +548,8 @@ spec:
             type: PathPrefix
             value: /data
       backendRefs:
-        - name: couchdb-entity-store
+        - group: ""
+          name: couchdb-entity-store
           namespace: entity-store
           port: 5984
           kind: Service

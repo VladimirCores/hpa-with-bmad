@@ -590,7 +590,8 @@ spec:
     sectionName: https
   rules:
   - backendRefs:
-    - kind: Service
+    - group: ""
+      kind: Service
       name: couchdb-entity-store
       namespace: entity-store
       port: 5984
