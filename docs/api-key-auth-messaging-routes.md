@@ -18,8 +18,13 @@ This story configures Envoy Gateway API-key authentication for machine-only mess
 ## Exclusions
 
 - Casdoor and Casbin are not used for `/events`, `/telemetry`, `/data`, or `/api`.
+- The CouchDB admin/Fauxton route (`admin.hpdc.local/couchdb`, HTTPRoute `hpdc-edge-couchdb-admin`)
+  is exempt from API-key auth so browsers can reach CouchDB's own UI and REST API; CouchDB's admin
+  session is the auth boundary there. See
+  [Exposing component admin/settings UIs](envoy-gateway-edge-routing.md#exposing-component-adminsettings-uis).
 
 ## GitOps paths
 
 - Base manifests: `gitops/security/base/api-key-authn.yaml`, `gitops/security/base/telemetry-http-api-key-authn.yaml`
 - Dev overlay: `gitops/security/overlays/dev/kustomization.yaml`
+- Admin route exception: `gitops/envoy-gateway/base/envoy-gateway.yaml` (`hpdc-edge-couchdb-admin` + `allow-hpdc-edge-data-to-couchdb` ReferenceGrant)

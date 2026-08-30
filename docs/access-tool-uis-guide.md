@@ -23,7 +23,7 @@ Look for the `hpdc-edge-*` proxy service and note its `EXTERNAL-IP`. It is the s
 Add the gateway IP and every tool hostname to `/etc/hosts` (all resolve to the same LoadBalancer IP):
 
 ```
-<GATEWAY_IP> hubble.hpdc.local grafana.hpdc.local backstage.hpdc.local argocd.hpdc.local kargo.hpdc.local
+<GATEWAY_IP> hubble.hpdc.local grafana.hpdc.local backstage.hpdc.local argocd.hpdc.local kargo.hpdc.local admin.hpdc.local
 ```
 
 The wildcard TLS certificate `*.hpdc.local` covers every host above, so no extra TLS setup is needed.
@@ -37,6 +37,11 @@ The wildcard TLS certificate `*.hpdc.local` covers every host above, so no extra
 | Backstage | `https://backstage.hpdc.local` | `backstage` | 80 |
 | Argo CD | `https://backstage.hpdc.local/argocd` | `argocd-server` | 80 |
 | Kargo | `https://backstage.hpdc.local/kargo` | `kargo-ui` | 8080 |
+| CouchDB Fauxton | `https://admin.hpdc.local/couchdb/_utils/` | `couchdb-entity-store` | 5984 |
+
+> Fauxton lives on `admin.hpdc.local` (not `backstage.hpdc.local`) because it is a component admin
+> console, not a platform tool UI — see
+> [Exposing component admin/settings UIs](envoy-gateway-edge-routing.md#exposing-component-adminsettings-uis).
 
 ## 4. Auth behavior
 

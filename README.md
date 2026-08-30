@@ -26,14 +26,17 @@ An offline-first, security-focused enterprise platform for high-RPS IoT telemetr
 
 ### Route domains (AD-2)
 
-| Route | Domain | AuthN | Pattern |
-|-------|--------|-------|---------|
-| `/data/*` | Document-serving | Casdoor JWT | CouchDB native (CRUD, MapReduce, `_changes`) |
-| `/api/*` | Serverless workflows | Casdoor JWT | KNative + Restate (SAGA, event-sourcing) |
-| `/gql` | Data federation | Casdoor JWT | Hasura (federates CouchDB + ClickHouse + YugabyteDB) |
-| `/telemetry/*` | Stream ingestion | API-Key | Pulsar native (MQTT/gRPC handlers) |
-| `/events/*` | Event pub-sub | API-Key | Kafka + SpinKube WASM |
-| `mqtt:1884` | Device telemetry | Platform MQTT auth | Pulsar native |
+| Route | Host | AuthN | Pattern |
+|-------|------|-------|---------|
+| `/data/*` | `*.hpdc.local` | X-API-Key | CouchDB native (CRUD, MapReduce, `_changes`) |
+| `/api/*` | `*.hpdc.local` | X-API-Key | KNative + Restate (SAGA, event-sourcing) |
+| `/gql` | `*.hpdc.local` | Casdoor JWT | Hasura (federates CouchDB + ClickHouse + YugabyteDB) |
+| `/telemetry/*` | `*.hpdc.local` | X-API-Key | Pulsar native (MQTT/gRPC handlers) |
+| `/events/*` | `*.hpdc.local` | X-API-Key | Kafka + SpinKube WASM |
+| `/couchdb/*` | `admin.hpdc.local` | CouchDB native login | CouchDB Fauxton admin UI + full REST API |
+| `mqtt:1884` | — | Platform MQTT auth | Pulsar native |
+
+The `/couchdb` admin route on `admin.hpdc.local` is the **only** path that skips gateway key auth: it serves CouchDB's own Fauxton UI and REST API, and the gateway URL rewrite strips `/couchdb` so requests reach CouchDB's root. Auth is CouchDB's own admin session (see [Exposing component admin/settings UIs](docs/envoy-gateway-edge-routing.md#exposing-component-adminsettings-uis)).
 
 ### Epics
 
@@ -329,6 +332,7 @@ The `envoy-*` service exposes `EXTERNAL-IP: 172.18.255.200` (from the Cilium L2 
 | Grafana | `https://grafana.hpdc.local` |
 | Hubble UI | `https://hubble.hpdc.local` |
 | Casdoor (SSO) | `https://casdoor.hpdc.local` |
+| CouchDB Fauxton admin | `https://admin.hpdc.local/couchdb/_utils/` |
 | Domain routes | `https://<any>.hpdc.local/data`, `/api`, `/gql`, `/telemetry`, `/events` (path-based, port 443) |
 | MQTT device route | `mqtt://<any>.hpdc.local:1884` |
 
@@ -342,6 +346,7 @@ Map every `*.hpdc.local` hostname to the fixed gateway IP `172.18.255.200`.
 
 ```bash
 echo "172.18.255.200 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
+echo "172.18.255.200 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local" | sudo tee -a /etc/hosts
 ```
 
 #### Option B — dnsmasq wildcard (all `*.hpdc.local`)
@@ -374,7 +379,7 @@ Edit the hosts file as Administrator. Open **Notepad as Administrator**, then op
 
 ```
 <GATEWAY_IP> hubble.hpdc.local grafana.hpdc.local casdoor.hpdc.local
-<GATEWAY_IP> backstage.hpdc.local argocd.hpdc.local kargo.hpdc.local
+<GATEWAY_IP> backstage.hpdc.local argocd.hpdc.local kargo.hpdc.local admin.hpdc.local
 <GATEWAY_IP> hpdc.local api.hpdc.local gql.hpdc.local telemetry.hpdc.local events.hpdc.local
 ```
 
