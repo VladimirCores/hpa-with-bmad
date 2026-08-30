@@ -89,6 +89,7 @@ spec:
             value: /telemetry
       backendRefs:
         - group: ""
+          kind: Service
           name: pulsar-standalone
           namespace: pulsar
           port: 8080

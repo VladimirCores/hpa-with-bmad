@@ -81,6 +81,7 @@ spec:
   rules:
   - backendRefs:
     - group: ""
+      kind: Service
       name: pulsar-standalone
       namespace: pulsar
       port: 8080
