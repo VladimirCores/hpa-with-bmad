@@ -573,6 +573,41 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
+  labels:
+    app.kubernetes.io/name: hpdc-edge-couchdb-admin
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-edge-couchdb-admin
+  namespace: envoy-gateway-system
+spec:
+  hostnames:
+  - admin.hpdc.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: hpdc-edge
+    sectionName: https
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: couchdb-entity-store
+      namespace: entity-store
+      port: 5984
+      weight: 1
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /couchdb
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   annotations:
     gateway.envoyproxy.io/rate-limit: '{"requestsPerUnit":1000,"unit":"minute"}'
   labels:

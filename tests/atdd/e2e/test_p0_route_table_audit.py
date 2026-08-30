@@ -16,8 +16,11 @@ GREEN PHASE: every HTTPRoute/GRPCRoute is covered - messaging/telemetry routes c
 explicit api-key SecurityPolicies against key-isolated stores, hpdc-graphql-gateway
 carries a JWT SecurityPolicy, and UI routes are authenticated by the gateway
 native-auth annotation (documented tolerance, gated to the string-bool "true"/"false").
-The casdoor JWKS route is intentionally public (documented tolerance, R-001). Every
-overlay kustomization resolves structurally (AC 3), GitOps YAML is valid with
+The casdoor JWKS route is intentionally public (documented tolerance, R-001), as is
+the hpdc-edge-couchdb-admin route (Fauxton UI on admin.hpdc.local/couchdb, whose auth
+is CouchDB's own admin login/session, not a gateway SecurityPolicy - documented
+tolerance, R-002); /data /api /events remain api-key gated. Every overlay
+kustomization resolves structurally (AC 3), GitOps YAML is valid with
 duplicate-key detection, and no route shadowing / dead duplicate matches remain.
 
 Run under pytest or standalone (main() executes all audit bodies).
@@ -40,6 +43,10 @@ NATIVE_AUTH_ANNOTATION = "gateway.envoyproxy.io/native-auth"
 # Public JWKS discovery endpoint (R-001): must remain unauthenticated so the JWT
 # provider's signing keys can be fetched by the graphql gateway policy.
 CASDOOR_JWKS_ROUTE = "hpdc-casdoor-jwks"
+# CouchDB Fauxton admin UI on admin.hpdc.local/couchdb (R-002 tolerance): served
+# behind CouchDB's own admin login/session because browsers cannot attach the
+# gateway X-API-Key header. /data /api /events keep their api-key policies.
+COUCHDB_ADMIN_ROUTE = "hpdc-edge-couchdb-admin"
 
 
 # YAML loader that rejects duplicate mapping keys instead of safe_load's last-wins
@@ -247,11 +254,14 @@ def test_every_http_grpc_route_has_security_policy() -> None:
             continue  # TCP is terminated at the gateway; SecurityPolicy is HTTP/GRPC scoped
         # Documented tolerances: UI routes (observability/tool-ui/grafana-hubble) are
         # authenticated by the gateway's native-auth annotation instead of a
-        # SecurityPolicy, and the casdoor JWKS route is intentionally public so the
-        # JWT provider signing keys can be discovered. All other routes must carry an
-        # explicit SecurityPolicy. The native-auth value is a project-declared marker
-        # with no upstream enum, so it is gated to the exact string-bool "true"/"false"
-        # (Task 1.4 finding).
+        # SecurityPolicy; the casdoor JWKS route is intentionally public so the
+        # JWT provider signing keys can be discovered; and the couchdb admin route
+        # (Fauxton) is gated by CouchDB's own admin login. All other routes must
+        # carry an explicit SecurityPolicy. The native-auth value is a
+        # project-declared marker with no upstream enum, so it is gated to the exact
+        # string-bool "true"/"false" (Task 1.4 finding).
+        if route["name"] == COUCHDB_ADMIN_ROUTE:
+            continue
         if route["native_auth_value"] is not None:
             assert route["native_auth_value"] in ("true", "false"), (
                 f"{NATIVE_AUTH_ANNOTATION} on {route['name']} must be the string-bool "
