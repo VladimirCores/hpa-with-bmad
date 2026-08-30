@@ -85,29 +85,6 @@ apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
   labels:
-    app.kubernetes.io/name: hpdc-telemetry-grpc-api-key-authn
-    app.kubernetes.io/part-of: hpdc-platform
-  name: hpdc-telemetry-grpc-api-key-authn
-  namespace: telemetry-ingestion
-spec:
-  apiKeyAuth:
-    credentialRefs:
-    - group: ""
-      kind: Secret
-      name: telemetry-api-key
-      namespace: security
-    extractFrom:
-    - headers:
-      - X-API-Key
-  targetRefs:
-  - group: gateway.networking.k8s.io
-    kind: GRPCRoute
-    name: hpdc-telemetry-grpc-ingestion
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: SecurityPolicy
-metadata:
-  labels:
     app.kubernetes.io/name: hpdc-telemetry-http-api-key-authn
     app.kubernetes.io/part-of: hpdc-platform
   name: hpdc-telemetry-http-api-key-authn

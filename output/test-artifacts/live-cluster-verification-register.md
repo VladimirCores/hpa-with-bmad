@@ -135,9 +135,10 @@ convergence. Gateway reachable via NodePort `443:30235` on `172.18.0.2`
   cluster; no log-search backend to time.
 - **REG-05 ⛔ blocked** — stale-metric SLO requires the telemetry ingest path +
   alerting; vmagent scrapes live (VM 4 pods + argocd + couchdb targets, E2E
-  cadence observed) but the `/telemetry`→`pulsar-telemetry-ingestion` route has
-  **no endpoints** (Service selector-less) and no vmalert exists to prove
-  ≤5min staleness detection end-to-end.
+  cadence observed) but the `/telemetry`→`pulsar-standalone` HTTPRoute (pulsar
+  ns, ReferenceGrant in place since 2026-08-30) lands on a Pulsar broker that
+  has no matching topics/consumers (Pulsar gap, 325c8cb) and no vmalert exists
+  to prove ≤5min staleness detection end-to-end.
 - **REG-08 / REG-09 ⛔ blocked** — no Knative / Restate / change-feed workloads
   in cluster (PG inbox or reaction consumer absent); cannot measure FR-15/16.
 - **REG-10 ⛔ blocked** — no Hasura deployment in cluster; cross-store join SLO
@@ -180,3 +181,9 @@ entries carry a concrete missing-component evidence tuple; none are silently
   with `claimToHeaders` (EG v1.9 replaces `forwardJWT`). JWT SecurityPolicy +
   casdoor route + postgres + graphql-gateway stub persisted to gitops and
   re-rendered; ArgoCD self-heal now drives them.
+- 2026-08-30: **Route realignment (Pulsar gap cleanup).** Base manifests aligned
+  to committed rendered state (325c8cb): GRPCRoute/TCPRoute + gRPC
+  SecurityPolicy removed from base, http-redirect listener dropped, `/data`
+  → `couchdb-entity-store.entity-store:5984` (ReferenceGrant), `/telemetry`
+  → `pulsar-standalone.pulsar:8080` (ReferenceGrant); flows require X-API-Key
+  from events/telemetry stores per R-009.

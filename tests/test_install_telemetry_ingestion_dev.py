@@ -25,14 +25,10 @@ def main() -> int:
         "name: hpdc-telemetry-http-ingestion",
         "value: /telemetry",
         "port: 8080",
-        "kind: GRPCRoute",
-        "name: hpdc-telemetry-grpc-ingestion",
-        "value: /hpdc.telemetry.v1.TelemetryService",
-        "port: 6669",
-        "kind: TCPRoute",
-        "name: hpdc-telemetry-mqtt-ingestion",
-        "sectionName: mqtt",
-        "port: 1884",
+        "name: pulsar-standalone",
+        "namespace: pulsar",
+        "kind: ReferenceGrant",
+        "name: allow-hpdc-telemetry-http-to-pulsar",
         "name: telemetry-ingestion-capacity",
         "default: 5000",
         "sensor: 25000",
@@ -43,10 +39,26 @@ def main() -> int:
         if item not in manifest:
             failures.append(f"telemetry-ingestion.yaml missing {item}")
 
-    if "name: mqtt" not in ENVOY_GATEWAY.read_text(encoding="utf-8"):
-        failures.append("envoy-gateway.yaml missing MQTT listener")
-    if "value: /telemetry" not in API_KEY_AUTHN.read_text(encoding="utf-8"):
-        failures.append("api-key-authn.yaml missing /telemetry API key route")
+    for deleted in [
+        "kind: GRPCRoute",
+        "hpdc-telemetry-grpc-ingestion",
+        "kind: TCPRoute",
+        "hpdc-telemetry-mqtt-ingestion",
+        "value: /hpdc.telemetry.v1.TelemetryService",
+        "sectionName: mqtt",
+    ]:
+        if deleted in manifest:
+            failures.append(f"telemetry-ingestion.yaml should not declare {deleted} (Pulsar gap)")
+
+    telemetry_http_policy = ROOT / "gitops" / "security" / "base" / "telemetry-http-api-key-authn.yaml"
+    if not telemetry_http_policy.is_file():
+        failures.append("telemetry-http-api-key-authn.yaml missing")
+    else:
+        policy = telemetry_http_policy.read_text(encoding="utf-8")
+        if "name: hpdc-telemetry-http-ingestion" not in policy:
+            failures.append("telemetry-http-api-key-authn.yaml missing /telemetry API key route target")
+        if "hpdc-telemetry-grpc-api-key-authn" in API_KEY_AUTHN.read_text(encoding="utf-8"):
+            failures.append("api-key-authn.yaml should not declare a gRPC SecurityPolicy (Pulsar gap)")
     if "../../base/telemetry-ingestion.yaml" not in TELEMETRY_OVERLAY.read_text(encoding="utf-8"):
         failures.append("telemetry-ingestion overlay missing base resource")
 

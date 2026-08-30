@@ -278,8 +278,10 @@ def test_every_http_grpc_route_has_security_policy() -> None:
 #        natively at Envoy Gateway (FR-38, credential isolation R-009)
 # When:  the SecurityPolicy set is inspected
 # Then:  hpdc-messaging-api-key-authn covers the hpdc-edge-domain-routes HTTPRoute
-#        (/data /api /events via the events store) and hpdc-telemetry-grpc-api-key-authn
-#        covers the gRPC ingestion route (telemetry store)
+#        (/data /api /events via the events store) and hpdc-telemetry-http-api-key-authn
+#        covers the HTTP telemetry route (telemetry store). The gRPC/MQTT ingestion
+#        routes are intentionally not declared (Pulsar gap, 325c8cb) so no gRPC policy
+#        may reference the removed GRPCRoute.
 def test_messaging_routes_covered_by_api_key_policy() -> None:
     policies = _policy_records()
     messaging = next((p for p in policies if p["policy_name"] == "hpdc-messaging-api-key-authn"), None)
@@ -295,11 +297,10 @@ def test_messaging_routes_covered_by_api_key_policy() -> None:
     assert set(_api_key_paths(telemetry_http)) >= {"/telemetry"}
     assert set(_api_key_headers(telemetry_http["spec"])) >= {"X-API-Key"}
 
-    grpc = next((p for p in policies if p["policy_name"] == "hpdc-telemetry-grpc-api-key-authn"), None)
-    assert grpc is not None, "hpdc-telemetry-grpc-api-key-authn SecurityPolicy missing"
-    assert grpc["kind"] == "GRPCRoute"
-    assert grpc["name"] == "hpdc-telemetry-grpc-ingestion"
-    assert grpc["namespace"] == "telemetry-ingestion"
+    assert all(
+        p["policy_name"] != "hpdc-telemetry-grpc-api-key-authn"
+        for p in policies
+    ), "hpdc-telemetry-grpc-api-key-authn must not exist (gRPC route dropped, Pulsar gap)"
 
 
 # P0-016 (R-009)
@@ -327,9 +328,8 @@ def test_api_key_stores_are_key_isolated() -> None:
 
     policies = {p["policy_name"]: p for p in _policy_records()}
     domain = policies.get("hpdc-messaging-api-key-authn")
-    grpc = policies.get("hpdc-telemetry-grpc-api-key-authn")
     telemetry_http = policies.get("hpdc-telemetry-http-api-key-authn")
-    assert domain is not None and grpc is not None and telemetry_http is not None
+    assert domain is not None and telemetry_http is not None
 
     domain_refs = _api_key_secret_refs(domain["spec"])
     assert domain_refs == ["events-api-key"], (
@@ -338,15 +338,14 @@ def test_api_key_stores_are_key_isolated() -> None:
     assert "telemetry-api-key" not in domain_refs, (
         "domain policy must not reference the telemetry store (R-009)"
     )
-    assert set(_api_key_secret_refs(grpc["spec"])) == {"telemetry-api-key"}
     assert set(_api_key_secret_refs(telemetry_http["spec"])) == {"telemetry-api-key"}
 
     expected_paths = {
         "events-api-key": {"/data", "/api", "/events"},
-        "telemetry-api-key": {"/telemetry", "/hpdc.telemetry.v1.TelemetryService"},
+        "telemetry-api-key": {"/telemetry"},
     }
     store_paths: dict[str, set[str]] = {}
-    for policy in (domain, grpc, telemetry_http):
+    for policy in (domain, telemetry_http):
         store = _api_key_secret_refs(policy["spec"])
         assert len(store) == 1, f"policy {policy['policy_name']} must reference exactly one api-key store (R-009)"
         assert store[0] in expected_paths, f"unknown api-key store {store[0]!r} (R-009)"
@@ -374,11 +373,12 @@ def test_no_dangling_security_policy_targets() -> None:
 
 # P0-016 (FR-38, R-002)
 # Given: the hpdc-edge Gateway is the single ingress  When: routes are audited
-# Then:  every HTTPRoute/GRPCRoute attaches to hpdc-edge in envoy-gateway-system,
-#        and the gateway never exposes plaintext HTTP to the data plane (80 redirects
-#        to 443; 1884 is the mTLS-scoped MQTT listener). parentRef namespace defaults
-#        to the Route's own namespace, so cross-namespace routes must pin it to
-#        envoy-gateway-system explicitly.
+# Then:  every HTTPRoute attaches to hpdc-edge in envoy-gateway-system and the
+#        https listener (443) is never exposed as plaintext HTTP. The http-redirect
+#        listener was dropped with the Pulsar-gap cleanup (325c8cb); the MQTT TCP
+#        listener (1884) remains for the telemetry ingress but has no bound route.
+#        parentRef namespace defaults to the Route's own namespace, so cross-namespace
+#        routes must pin it to envoy-gateway-system explicitly.
 def test_all_routes_attach_to_hpdc_edge_gateway() -> None:
     for route in _route_records():
         if route["kind"] == "TCPRoute":
@@ -407,10 +407,9 @@ def test_all_routes_attach_to_hpdc_edge_gateway() -> None:
     assert https and https.get("protocol") == "HTTPS" and https.get("port") == 443, (
         "https listener must terminate 443"
     )
-    assert http and http.get("protocol") == "HTTP" and http.get("port") == 80
-    redirects = http.get("redirects") or {}
-    assert redirects.get("toPort") == 443 and redirects.get("scheme") == "HTTPS", (
-        "port 80 must redirect to 443 and never serve the data plane"
+    assert http is None, (
+        "http-redirect listener must not be declared (Pulsar-gap cleanup, 325c8cb); "
+        "port 80 must not be exposed to the data plane"
     )
     assert mqtt and mqtt.get("protocol") == "TCP" and mqtt.get("port") == 1884, (
         "MQTT TCP listener (1884) must be declared for the telemetry ingress"
