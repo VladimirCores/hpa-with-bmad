@@ -1,8 +1,8 @@
 ---
 story_key: 11-6-tighten-hpdc-crd-schemas
 epic: 11
-status: ready-for-dev
-baseline_commit: TBD
+status: in-progress
+baseline_commit: 5ddd040
 completion_commit: TBD
 ---
 

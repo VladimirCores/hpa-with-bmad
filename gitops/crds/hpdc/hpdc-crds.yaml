@@ -1,3 +1,15 @@
+# HPDC platform CRDs (hpdc.io/v1) — structural schemas tightened.
+# Ground truth: live spec fields used across gitops/{platform,alerts,agent-engine,
+# entity-store,monitoring,observability,regional-hub,regional-sovereignty,
+# victoria-metrics,clustermesh}/base/*.yaml (source of truth, NOT SOLUTION-DESIGN.md).
+# All CRDs are Namespaced; CRs live in per-component namespaces.
+# NOTE: 26 kinds are instantiated across the tree; this bundle defines all 26,
+# including alertmanagerconfigs.hpdc.io (the 26th kind observed in
+# gitops/monitoring/base/alertmanager.yaml — previously instantiated with no CRD).
+# x-kubernetes-preserve-unknown-fields is used ONLY where a config map carries
+# free-form/single-key-pair payloads that a strict schema cannot enumerate.
+---
+
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -16,7 +28,40 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - registration
+              - channel
+              - impersonation
+            properties:
+              registration:
+                type: object
+                required:
+                  - registered_agents_required
+                properties:
+                  registered_agents_required:
+                    type: boolean
+              channel:
+                type: object
+                required:
+                  - authenticated
+                properties:
+                  authenticated:
+                    type: boolean
+              impersonation:
+                type: object
+                required:
+                  - unauthorized_prevented
+                  - discovery
+                properties:
+                  unauthorized_prevented:
+                    type: boolean
+                  discovery:
+                    type: string
+                    enum:
+                      - registered_agents_only
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -36,7 +81,58 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - actions
+            properties:
+              actions:
+                type: array
+                items:
+                  type: string
+              concurrent_edit_policy:
+                type: object
+                properties:
+                  prevent_same_state_update:
+                    type: boolean
+              visibility:
+                type: object
+                properties:
+                  authorized_users:
+                    type: boolean
+                  latest_state:
+                    type: boolean
+                  audit_history:
+                    type: boolean
+              retention:
+                type: object
+                properties:
+                  entries:
+                    type: integer
+                  history_days:
+                    type: integer
+              actor_validation:
+                type: object
+                properties:
+                  required:
+                    type: boolean
+                  unauthorized_response:
+                    type: object
+                    properties:
+                      http_status:
+                        type: integer
+                      record_attempt:
+                        type: boolean
+              invalid_transition_response:
+                type: object
+                properties:
+                  http_status:
+                    type: integer
+                  include_current_state:
+                    type: boolean
+                  record_attempt:
+                    type: boolean
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -56,7 +152,104 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - allowed_transitions
+              - actions
+              - roles
+            properties:
+              allowed_transitions:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+              actions:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    from:
+                      type: array
+                      items:
+                        type: string
+                    to:
+                      type: string
+                    requires_reason:
+                      type: boolean
+                    roles:
+                      type: array
+                      items:
+                        type: string
+              roles:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+              users:
+                type: object
+                additionalProperties:
+                  type: string
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: alertmanagerconfigs.hpdc.io
+spec:
+  group: hpdc.io
+  scope: Namespaced
+  names:
+    kind: AlertmanagerConfig
+    plural: alertmanagerconfigs
+    singular: alertmanagerconfig
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+              - routing
+              - channels
+            properties:
+              routing:
+                type: object
+                required:
+                  - configured
+                properties:
+                  configured:
+                    type: boolean
+              stale_metric_warning_minutes:
+                type: integer
+                minimum: 0
+              channels:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - type
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                      enum:
+                        - email
+                        - webhook
+                        - slack
+                        - pagerduty
+                    notify:
+                      type: string
+                    url:
+                      type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -76,7 +269,56 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            properties:
+              enabled_actions:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    description:
+                      type: string
+                    requires_approval:
+                      type: boolean
+                    latency_target_ms:
+                      type: integer
+              rate_limits:
+                type: object
+                properties:
+                  max_actions_per_minute:
+                    type: integer
+                  max_actions_per_alert:
+                    type: integer
+              health_check:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  interval_seconds:
+                    type: integer
+                  timeout_seconds:
+                    type: integer
+              device_communication_latency_ms:
+                type: integer
+              webhook_delivery_latency_ms:
+                type: integer
+              webhook_attempts:
+                type: integer
+              webhook_backoff:
+                type: string
+              workflow_start:
+                type: string
+              correlation_id:
+                type: string
+              ai_suggestion_policy:
+                type: object
+                properties:
+                  low_confidence:
+                    type: string
+                  sensitive_actions:
+                    type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -96,7 +338,31 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - topic
+            properties:
+              topic:
+                type: string
+              payload_fields:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - required
+                    - optional
+              routing:
+                type: object
+                properties:
+                  separate_from_telemetry:
+                    type: boolean
+              error_response:
+                type: object
+                properties:
+                  structured_http_error:
+                    type: boolean
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -116,7 +382,44 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - valid_path
+            properties:
+              valid_path:
+                type: array
+                items:
+                  type: string
+              persistence:
+                type: object
+                properties:
+                  couchdb:
+                    type: boolean
+                  keydb:
+                    type: boolean
+              latency_targets:
+                type: object
+                properties:
+                  couchdb_write_ms:
+                    type: integer
+                  keydb_update_ms:
+                    type: integer
+              invalid_transition_response:
+                type: object
+                properties:
+                  http_status:
+                    type: integer
+                  include_current_state:
+                    type: boolean
+              audit:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - required
+                    - optional
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -136,7 +439,92 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - default_action
+            properties:
+              workflows:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - trigger
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    trigger:
+                      type: object
+                      required:
+                        - alert_type
+                        - severity
+                      properties:
+                        alert_type:
+                          type: string
+                        severity:
+                          type: string
+                        cooldown_minutes:
+                          type: integer
+                    actions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - restart_deployment
+                              - delete_pod
+                              - scale_deployment
+                              - increase_hpa_target
+                              - notify
+                          target_selector:
+                            type: string
+                          namespace:
+                            type: string
+                          metric:
+                            type: string
+                          adjustment:
+                            type: string
+                          max_replicas:
+                            type: integer
+                          node:
+                            type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: string
+                    batch_size:
+                      type: integer
+                    on_success:
+                      type: array
+                      items:
+                        # Single-key-pair entries (e.g. update_alert: {state, reason})
+                        # with variant keys per action type — declare open.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    on_failure:
+                      type: array
+                      items:
+                        # Single-key-pair entries (e.g. notification / fallback_action)
+                        # with variant keys per action type — declare open.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+              default_action:
+                type: string
+              notification_templates:
+                type: object
+                additionalProperties:
+                  type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -156,7 +544,28 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - database
+              - tableName
+            properties:
+              database:
+                type: string
+              tableName:
+                type: string
+              template:
+                type: string
+              retention:
+                type: object
+                additionalProperties:
+                  type: string
+              storage:
+                type: object
+                properties:
+                  storage_class:
+                    type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -176,7 +585,37 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - protocol
+              - discovery
+              - traffic
+            properties:
+              protocol:
+                type: string
+                enum:
+                  - WireGuard
+              discovery:
+                type: object
+                required:
+                  - cross_cluster
+                  - manual_per_service_discovery
+                properties:
+                  cross_cluster:
+                    type: boolean
+                  manual_per_service_discovery:
+                    type: boolean
+              traffic:
+                type: object
+                properties:
+                  encrypted:
+                    type: boolean
+              regions:
+                type: array
+                items:
+                  type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -196,7 +635,20 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - virtual_objects
+              - dedupe_key
+              - processed_window
+            properties:
+              virtual_objects:
+                type: string
+              dedupe_key:
+                type: string
+              processed_window:
+                type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -216,7 +668,48 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - sources
+              - reaction_time_ms
+              - workflow
+            properties:
+              sources:
+                type: array
+                items:
+                  type: string
+              reaction_time_ms:
+                type: integer
+              workflow:
+                type: object
+                properties:
+                  knative:
+                    type: boolean
+                  restate:
+                    type: boolean
+                  exactly_once:
+                    type: boolean
+              idempotency:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  deduplication:
+                    type: string
+                    enum:
+                      - enabled
+                      - disabled
+              retry_policy:
+                type: object
+                properties:
+                  automatic_retry:
+                    type: boolean
+                  max_attempts:
+                    type: integer
+                  dead_letter_queue:
+                    type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -236,7 +729,62 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - entity_types
+              - bulk_limit
+              - mutation_logging
+              - latency_budget_ms
+            properties:
+              entity_types:
+                type: array
+                items:
+                  type: string
+              bulk_limit:
+                type: integer
+              mutation_logging:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - required
+                    - optional
+              latency_budget_ms:
+                type: integer
+              operations:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    roles:
+                      type: array
+                      items:
+                        type: string
+              actor_validation:
+                type: object
+                properties:
+                  required:
+                    type: boolean
+                  unauthorized_response:
+                    type: object
+                    properties:
+                      http_status:
+                        type: integer
+                      record_attempt:
+                        type: boolean
+              retention:
+                type: object
+                properties:
+                  entries:
+                    type: integer
+                  history_days:
+                    type: integer
+              users:
+                type: object
+                additionalProperties:
+                  type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -256,7 +804,27 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - logging
+              - retention
+            properties:
+              logging:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - required
+                    - optional
+              retention:
+                type: object
+                properties:
+                  entries:
+                    type: integer
+                  history_days:
+                    type: integer
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -276,7 +844,42 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - stores
+              - stateful_storage
+            properties:
+              stores:
+                type: object
+                properties:
+                  couchdb:
+                    type: object
+                    properties:
+                      document_hierarchy:
+                        type: boolean
+                      document_crud:
+                        type: boolean
+                  arcadedb:
+                    type: object
+                    properties:
+                      graph_lineage:
+                        type: boolean
+                      relationship_data:
+                        type: boolean
+                  yugabytedb:
+                    type: object
+                    properties:
+                      internal_transactional_state:
+                        type: boolean
+              stateful_storage:
+                type: object
+                properties:
+                  ceph_backed:
+                    type: boolean
+                  storage_class:
+                    type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -296,7 +899,32 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - endpoint
+              - joins
+              - latency_budget_ms
+            properties:
+              endpoint:
+                type: string
+              joins:
+                type: object
+                properties:
+                  couchdb_entities:
+                    type: boolean
+                  yugabytedb_resources:
+                    type: boolean
+                  clickhouse_telemetry:
+                    type: boolean
+              latency_budget_ms:
+                type: integer
+              permissions:
+                type: object
+                properties:
+                  role_model:
+                    type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -316,7 +944,38 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - default_ttl_seconds
+              - fallback_stores
+              - cache_miss_policy
+            properties:
+              default_ttl_seconds:
+                type: integer
+              fallback_stores:
+                type: array
+                items:
+                  type: string
+              cache_miss_policy:
+                type: object
+                properties:
+                  propagate_cache_errors:
+                    type: boolean
+                  fallback_timeout_ms:
+                    type: integer
+              refresh_triggers:
+                type: array
+                items:
+                  type: string
+              metrics:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - enabled
+                    - disabled
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -336,7 +995,56 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - provider
+              - response_scope
+            properties:
+              provider:
+                type: string
+              response_scope:
+                type: string
+              sensitive_action_policy:
+                type: object
+                properties:
+                  execute_without_approval:
+                    type: boolean
+              confidence:
+                type: object
+                properties:
+                  auto_execute_threshold:
+                    type: number
+                  manual_review_threshold:
+                    type: number
+              logging:
+                type: object
+                properties:
+                  input:
+                    type: boolean
+                  output:
+                    type: boolean
+                  decision_context:
+                    type: boolean
+              approval:
+                type: object
+                properties:
+                  required_for:
+                    type: array
+                    items:
+                      type: string
+                  allow_sensitive_auto_execute:
+                    type: boolean
+              approvers:
+                type: array
+                items:
+                  type: string
+              rate_limits:
+                type: object
+                properties:
+                  max_recommendations_per_minute:
+                    type: integer
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -356,7 +1064,42 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - tools
+              - validation
+              - logging
+            properties:
+              tools:
+                type: object
+                properties:
+                  query_databases:
+                    type: boolean
+                  call_apis:
+                    type: boolean
+                  trigger_workflows:
+                    type: boolean
+              validation:
+                type: object
+                properties:
+                  security_policy:
+                    type: string
+                    enum:
+                      - required
+                      - optional
+              logging:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - required
+                    - optional
+              agents:
+                type: array
+                items:
+                  type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -376,7 +1119,56 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - metrics_cluster
+            properties:
+              metrics_cluster:
+                type: object
+                properties:
+                  victoriametrics:
+                    type: object
+                    required:
+                      - components
+                    properties:
+                      components:
+                        type: array
+                        items:
+                          type: string
+                      retention:
+                        type: object
+                        additionalProperties:
+                          type: string
+              logs:
+                type: object
+                properties:
+                  vmlog:
+                    type: boolean
+                  search_within_seconds:
+                    type: integer
+              traces:
+                type: object
+                properties:
+                  opentelemetry_collector:
+                    type: boolean
+                  backend:
+                    type: string
+              dashboards:
+                type: object
+                properties:
+                  grafana:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+              alertmanager:
+                type: object
+                properties:
+                  routing:
+                    type: string
+                  stale_metric_warning_minutes:
+                    type: integer
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -396,7 +1188,49 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - runtime
+              - sink
+            properties:
+              source:
+                type: object
+                properties:
+                  subscriptionNamePrefix:
+                    type: string
+              runtime:
+                type: string
+                enum:
+                  - JAVA
+                  - GO
+                  - PYTHON
+              user_config:
+                # Free-form per-function config keys (values are strings or ints,
+                # e.g. aggregation_window/batch_size) — kept open deliberately.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              retry_policy:
+                type: object
+                properties:
+                  max_retries:
+                    type: integer
+              sink:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  database:
+                    type: string
+                  table:
+                    type: string
+                  flush_interval_ms:
+                    type: integer
+                  batch_size:
+                    type: integer
+                  ack_path:
+                    type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -416,7 +1250,32 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - central_hub
+              - auth
+              - aggregate_metrics
+            properties:
+              central_hub:
+                type: object
+                properties:
+                  stores_regional_data:
+                    type: boolean
+                  per_region_drilldown:
+                    type: boolean
+              auth:
+                type: object
+                properties:
+                  region_scoped:
+                    type: boolean
+              aggregate_metrics:
+                type: boolean
+              regions:
+                type: array
+                items:
+                  type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -436,7 +1295,35 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - regional_stores
+              - replication
+            properties:
+              regional_stores:
+                type: object
+                additionalProperties:
+                  type: boolean
+              replication:
+                type: object
+                properties:
+                  default:
+                    type: string
+                  explicit_configuration_required:
+                    type: boolean
+              regions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    stores:
+                      type: array
+                      items:
+                        type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -456,7 +1343,42 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - topic
+              - function_type
+              - field_mapping
+            properties:
+              topic:
+                type: string
+              function_type:
+                type: string
+                enum:
+                  - filtering
+                  - enrichment
+                  - transform
+              enrichment:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - enabled
+                    - disabled
+              field_mapping:
+                type: object
+                additionalProperties:
+                  type: string
+              scale:
+                type: object
+                properties:
+                  metric:
+                    type: string
+                  target_lag_per_replica:
+                    type: integer
+              latency_budget_ms:
+                type: integer
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -476,7 +1398,61 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - max_consumer_lag
+              - max_buffer_bytes
+              - exponential_backoff
+              - drop_policy
+              - memory_ceiling
+            properties:
+              max_consumer_lag:
+                type: integer
+              max_buffer_bytes:
+                type: integer
+              exponential_backoff:
+                type: object
+                properties:
+                  initial_ms:
+                    type: integer
+                  max_ms:
+                    type: integer
+                  multiplier:
+                    type: integer
+              drop_policy:
+                type: object
+                properties:
+                  drop_when_buffer_full:
+                    type: boolean
+                  reason_labels:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum:
+                        - enabled
+                        - disabled
+              metrics:
+                type: object
+                properties:
+                  ingestion_dropped_total:
+                    type: object
+                    properties:
+                      labels:
+                        type: object
+                        additionalProperties:
+                          type: string
+                          enum:
+                            - enabled
+                            - disabled
+              memory_ceiling:
+                type: object
+                properties:
+                  hard_limit_mb:
+                    type: integer
+                  soft_limit_mb:
+                    type: integer
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -496,4 +1472,36 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            required:
+              - routes
+              - tls
+            properties:
+              routes:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - host
+                    - service
+                  properties:
+                    host:
+                      type: string
+                    service:
+                      type: string
+                    native_auth:
+                      type: boolean
+              authz:
+                type: object
+                properties:
+                  casdoor_casbin_ext_authz:
+                    type: boolean
+              tls:
+                type: object
+                properties:
+                  termination:
+                    type: string
+                    enum:
+                      - envoy_gateway
