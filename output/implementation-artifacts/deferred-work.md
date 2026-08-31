@@ -1,5 +1,21 @@
 # Deferred Work Ledger
 
+## Deferred from: provider switch kind -> QEMU (2026-08-30)
+
+- **kind (Docker) cluster setup deferred** — the kind provider hit a pre-existing,
+  cluster-wide kube-proxy failure (`too many open files` crash-loop on workers →
+  in-cluster service networking to the apiserver `10.96.0.1:443` broken → ArgoCD
+  controller/repo-server/server degraded, no app-of-apps sync). Instead of debugging
+  the kind network stack, the dev cluster is being switched to the already-implemented,
+  code-reviewed QEMU provider (story q2). QEMU uses Talos + Cilium (no kube-proxy, so the
+  crash-loop root cause is eliminated) + Rook-Ceph on real virtio-blk disks.
+  **Resume path / left undone:** finish/validate the kind (Docker) provisioning story
+  (Epic 12 landing) later — the kind path (`HPDC_PROVIDER=kind`) remains implemented in
+  `scripts/` and selected via `.env`; it was failing only because of the environment
+  (kube-proxy fd exhaustion + argocd outage), not a code defect. Kind remains the fast,
+  resource-light local default for non-storage-sensitive work; QEMU is the prod-eval
+  topology. Both coexist; `.env` selects. See epic-12 + q2 story records.
+
 ## Deferred from: code review of 11-5-platform-convergence-app-of-apps (2026-08-29)
 
 - RWO local-path PVC pins broker to its node — pod Pending if it reschedules to a different node. Pre-existing cluster storage posture (same as git-mirror).
