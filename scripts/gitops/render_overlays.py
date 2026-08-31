@@ -83,7 +83,7 @@ def render(component: Path) -> int:
 
 
 def main() -> int:
-    component_versions.load_dotenv()
+    component_versions.load_all_dotenv()
     component_versions.resolve()
     failures = 0
     for component in sorted(GITOPS.iterdir()):

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -263,7 +263,7 @@ cp .env.prod .env
 
 **Toggle resolution priority:**
 1. Core components (`CILIUM`, `HUBBLE`, `HARBOR`, `SPEGEL`): always enabled
-2. `HPDC_STORAGE_BACKEND` resolves `ROOK_CEPH_ENABLED` / `LOCAL_PATH_ENABLED` (mutually exclusive)
+2. `HPDC_STORAGE_BACKEND` selects storage provisioner (`rook-ceph` or `local-path`)
 3. `os.environ["HPDC_<COMPONENT>_ENABLED"]` (shell export or `.env`)
 4. `ENABLED_DEFAULTS` in `component_versions.py` (per-component hardcoded default)
 5. `False` (safe default — opt-in, not opt-out)

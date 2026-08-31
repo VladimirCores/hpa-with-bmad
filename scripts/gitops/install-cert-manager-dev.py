@@ -10,7 +10,7 @@ from pathlib import Path
 from _provisioned import require
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
 CERT_MANAGER_BASE = ROOT / "gitops" / "cert-manager" / "base"

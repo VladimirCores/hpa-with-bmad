@@ -14,7 +14,7 @@ import yaml
 
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
 HARBOR_REDIS_VERSION = component_versions.get("HPDC_HARBOR_REDIS_VERSION")

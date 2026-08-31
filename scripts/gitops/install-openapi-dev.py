@@ -10,7 +10,7 @@ from pathlib import Path
 from _provisioned import require
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 SWAGGER_UI_VERSION = component_versions.get("HPDC_SWAGGER_UI_VERSION")

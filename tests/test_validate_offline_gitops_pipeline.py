@@ -19,7 +19,7 @@ from _provisioned import record  # noqa: E402
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 SPEGEL_VERSION = component_versions.get("HPDC_SPEGEL_VERSION")
 ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
 KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")

@@ -17,7 +17,7 @@ from _provisioned import record  # noqa: E402
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
 
 

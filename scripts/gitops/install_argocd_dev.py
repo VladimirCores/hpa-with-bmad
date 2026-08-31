@@ -13,7 +13,7 @@ from pathlib import Path
 from _provisioned import require
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
 ARGOCD_IMAGE = ROOT / "output" / "argocd" / "images" / f"argocd-v{ARGOCD_VERSION}"

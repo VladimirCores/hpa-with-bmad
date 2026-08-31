@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
 REQUIRED = [
     "gitops/cert-manager/base/cert-manager.yaml",

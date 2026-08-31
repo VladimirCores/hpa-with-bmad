@@ -15,8 +15,8 @@ so that I can enable only the components I need for a given deployment (dev/prod
 **Given** `.env.dev` and `.env.dev.example` exist (committed), and `.env.prod` exists (gitignored or committed per team preference)
 **When** the user copies `.env.dev` to `.env` (or `.env.prod` to `.env`)
 **Then** every component and sub-system has an `HPDC_<COMPONENT>_ENABLED=true|false` variable
-**And** core components are always `true` and cannot be overridden to `false`: `HPDC_CILIUM_ENABLED`, `HPDC_HUBBLE_ENABLED`, `HPDC_ROOK_CEPH_ENABLED` (or `HPDC_LOCAL_PATH_ENABLED`), `HPDC_HARBOR_ENABLED`, `HPDC_SPEGEL_ENABLED`
-**And** storage backend is selectable: `HPDC_STORAGE_BACKEND=rook-ceph|local-path` (mutually exclusive; only one storage provisioner runs)
+**And** core components are always `true` and cannot be overridden to `false`: `HPDC_CILIUM_ENABLED`, `HPDC_HUBBLE_ENABLED`, `HPDC_HARBOR_ENABLED`, `HPDC_SPEGEL_ENABLED`
+**And** storage backend is selectable: `HPDC_STORAGE_BACKEND=rook-ceph|local-path`
 
 **Given** a component has `HPDC_<COMPONENT>_ENABLED=false`
 **When** `startup.dev.py` runs (any mode: `--dry-run`, `--apply`, `--check`)
@@ -50,8 +50,7 @@ so that I can enable only the components I need for a given deployment (dev/prod
 |----------|-----------|------|-------|
 | `HPDC_CILIUM_ENABLED=true` | Cilium CNI | 03 | Always on |
 | `HPDC_HUBBLE_ENABLED=true` | Hubble UI | 03 | Installed with Cilium |
-| `HPDC_ROOK_CEPH_ENABLED=true` | Rook-Ceph storage | 05 | Mutually exclusive with local-path |
-| `HPDC_LOCAL_PATH_ENABLED=false` | Local-Path Provisioner | 05 | Mutually exclusive with Rook-Ceph |
+| `HPDC_STORAGE_BACKEND=rook-ceph` | Rook-Ceph storage | 05 | Selected via HPDC_STORAGE_BACKEND |
 | `HPDC_HARBOR_ENABLED=true` | Harbor registry | 06 | Always on |
 | `HPDC_SPEGEL_ENABLED=true` | Spegel P2P distribution | 10 | Always on |
 
@@ -103,8 +102,8 @@ so that I can enable only the components I need for a given deployment (dev/prod
 - [x] Task 3: Extend `component_versions.py` with toggle resolution (AC: #1, #4)
   - [x] Add `ENABLED_DEFAULTS: dict[str, bool]` mapping each `HPDC_*_ENABLED` var to its default
   - [x] Add `is_enabled(component: str) -> bool` API: reads `os.environ.get(f"HPDC_{component}_ENABLED")`, falls back to `ENABLED_DEFAULTS`, falls back to `False` (safe default: opt-in)
-  - [x] Core components (`CILIUM`, `HUBBLE`, `ROOK_CEPH`/`LOCAL_PATH`, `HARBOR`, `SPEGEL`) are always `True` regardless of env
-  - [x] `HPDC_STORAGE_BACKEND` resolution: `rook-ceph` → `ROOK_CEPH_ENABLED=True, LOCAL_PATH_ENABLED=False`; `local-path` → inverse
+  - [x] Core components (`CILIUM`, `HUBBLE`, `HARBOR`, `SPEGEL`) are always `True` regardless of env
+  - [x] `HPDC_STORAGE_BACKEND` selects storage provisioner: `rook-ceph` or `local-path`
   - [x] Load toggles from `.env` via existing `load_dotenv()` (same dialect)
 
 - [x] Task 4: Wire `startup.dev.py` to respect toggles (AC: #2, #3)
@@ -120,7 +119,7 @@ so that I can enable only the components I need for a given deployment (dev/prod
 
 - [x] Task 6: Storage backend mutual exclusion (AC: #1)
   - [x] `HPDC_STORAGE_BACKEND` resolves to exactly one of `rook-ceph` or `local-path`
-  - [x] Startup validates: if both `HPDC_ROOK_CEPH_ENABLED=true` and `HPDC_LOCAL_PATH_ENABLED=true`, error with remediation
+  - [x] Startup validates: if `HPDC_STORAGE_BACKEND` is not `rook-ceph` or `local-path`, error with remediation
   - [x] `--storage` CLI flag on `startup.dev.py` maps to `HPDC_STORAGE_BACKEND`
 
 - [x] Task 7: Tests (AC: #5)
@@ -165,11 +164,11 @@ so that I can enable only the components I need for a given deployment (dev/prod
 
 Named profiles (e.g., `HPDC_PROFILE=dev-minimal`) that expand to a preset set of toggles. Saved for future story — current `.env`-based approach is sufficient for now.
 
-### Storage mutual exclusion
+### Storage backend selection
 
-- `HPDC_STORAGE_BACKEND=rook-ceph` sets `ROOK_CEPH_ENABLED=True, LOCAL_PATH_ENABLED=False`
-- `HPDC_STORAGE_BACKEND=local-path` sets `ROOK_CEPH_ENABLED=False, LOCAL_PATH_ENABLED=True`
-- If both are explicitly `true` in env, startup errors with: "Set HPDC_STORAGE_BACKEND to one of: rook-ceph, local-path"
+- `HPDC_STORAGE_BACKEND=rook-ceph` selects Rook-Ceph storage provisioner
+- `HPDC_STORAGE_BACKEND=local-path` selects Local-Path Provisioner
+- If value is not `rook-ceph` or `local-path`, startup errors with: "Set HPDC_STORAGE_BACKEND to one of: rook-ceph, local-path"
 
 ### Key files to modify
 

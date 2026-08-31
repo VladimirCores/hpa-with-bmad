@@ -104,9 +104,12 @@ def _pf():
 
 
 def test_env_example_documents_every_var() -> None:
+    """Every DEFAULTS variable appears in .env.example or .env.versions.example."""
     example = (cv.ROOT / ".env.example").read_text(encoding="utf-8")
-    missing = [var for var in cv.DEFAULTS if var not in example]
-    assert not missing, f".env.example missing variables: {missing}"
+    versions_example = (cv.ROOT / ".env.versions.example").read_text(encoding="utf-8")
+    combined = example + versions_example
+    missing = [var for var in cv.DEFAULTS if var not in combined]
+    assert not missing, f"variable missing from both .env.example and .env.versions.example: {missing}"
 
 
 def test_substitution_map_rook_plain_tag() -> None:
@@ -214,20 +217,6 @@ def test_core_always_enabled() -> None:
             del os.environ[key]
 
 
-def test_storage_backend_mutex() -> None:
-    """Both storage backends enabled raises ValueError from validation."""
-    os.environ["HPDC_ROOK_CEPH_ENABLED"] = "true"
-    os.environ["HPDC_LOCAL_PATH_ENABLED"] = "true"
-    os.environ["HPDC_STORAGE_BACKEND"] = "rook-ceph"
-    try:
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            cv.validate_storage_backend()
-    finally:
-        del os.environ["HPDC_ROOK_CEPH_ENABLED"]
-        del os.environ["HPDC_LOCAL_PATH_ENABLED"]
-        del os.environ["HPDC_STORAGE_BACKEND"]
-
-
 def test_storage_backend_invalid_does_not_traceback() -> None:
     """Invalid HPDC_STORAGE_BACKEND surfaces a clean error via validate."""
     os.environ["HPDC_STORAGE_BACKEND"] = "nfs"
@@ -249,21 +238,19 @@ def test_is_enabled_truthiness() -> None:
 
 
 def test_storage_backend_rook_ceph() -> None:
-    """Storage backend=rook-ceph sets ROOK_CEPH=true, LOCAL_PATH=false."""
+    """Storage backend=rook-ceph validates successfully."""
     os.environ["HPDC_STORAGE_BACKEND"] = "rook-ceph"
     try:
-        assert cv.is_enabled("ROOK_CEPH") is True
-        assert cv.is_enabled("LOCAL_PATH") is False
+        cv.validate_storage_backend()  # should not raise
     finally:
         del os.environ["HPDC_STORAGE_BACKEND"]
 
 
 def test_storage_backend_local_path() -> None:
-    """Storage backend=local-path sets ROOK_CEPH=false, LOCAL_PATH=true."""
+    """Storage backend=local-path validates successfully."""
     os.environ["HPDC_STORAGE_BACKEND"] = "local-path"
     try:
-        assert cv.is_enabled("ROOK_CEPH") is False
-        assert cv.is_enabled("LOCAL_PATH") is True
+        cv.validate_storage_backend()  # should not raise
     finally:
         del os.environ["HPDC_STORAGE_BACKEND"]
 

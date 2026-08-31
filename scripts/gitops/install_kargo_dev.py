@@ -12,7 +12,7 @@ from pathlib import Path
 from _provisioned import require
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")
 KARGO_IMAGE = ROOT / "output" / "kargo" / "images" / f"kargo-v{KARGO_VERSION}"

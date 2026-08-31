@@ -12,7 +12,7 @@ from pathlib import Path
 
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")

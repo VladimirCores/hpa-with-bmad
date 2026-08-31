@@ -22,29 +22,15 @@ DEFAULT_STORAGE = "local-path"
 KIND_CONFIG = Path("/tmp/kind-hpdc.yaml")
 import component_versions as _cv
 
-_cv.load_dotenv()
+_cv.load_all_dotenv()
 CILIUM_VERSION = _cv.get("HPDC_CILIUM_VERSION")
 
 
-def load_env() -> dict[str, str]:
-    """Load environment variables from .env file."""
-    env_path = ROOT / ".env"
-    env = {}
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, _, value = line.partition("=")
-                env[key.strip()] = value.strip()
-    # Override with actual environment variables
-    for key in list(env.keys()):
-        if key in os.environ:
-            env[key] = os.environ[key]
-    return env
 
 
-# Load .env configuration
-_env = load_env()
+
+# Load configuration from three-layer env
+_env = dict(os.environ)
 CLUSTER_NAME = _env.get("HPDC_CLUSTER_NAME", "hpdc-talos")
 GATEWAY_IP = _env.get("HPDC_GATEWAY_IP", "172.18.255.200")
 LB_POOL_START = _env.get("HPDC_LB_POOL_START", "172.18.255.200")

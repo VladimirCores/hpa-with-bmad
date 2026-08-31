@@ -88,7 +88,7 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, default=APPS_ENABLED, help="output directory for enabled apps")
     args = parser.parse_args()
 
-    cv.load_dotenv()
+    cv.load_all_dotenv()
     cv.resolve()
 
     # Bootstrap apps.all/ if it doesn't exist

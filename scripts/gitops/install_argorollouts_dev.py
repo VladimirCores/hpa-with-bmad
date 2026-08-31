@@ -10,7 +10,7 @@ from pathlib import Path
 from _provisioned import require
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 ARGO_ROLLOUTS_VERSION = component_versions.get("HPDC_ARGO_ROLLOUTS_VERSION")
 ARGO_ROLLOUTS_IMAGE = ROOT / "output" / "argo-rollouts" / "images" / f"argo-rollouts-v{ARGO_ROLLOUTS_VERSION}"

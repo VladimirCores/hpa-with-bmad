@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")
 
 

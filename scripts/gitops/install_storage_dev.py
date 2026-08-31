@@ -18,7 +18,7 @@ from pathlib import Path
 
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
 LOCAL_PATH_VERSION = component_versions.get("HPDC_LOCAL_PATH_PROVISIONER_VERSION")

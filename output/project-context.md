@@ -14,8 +14,21 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ## Technology Stack & Versions
 
-_To be completed in step 02._
+_Technology stack details available in project README._
 
 ## Critical Implementation Rules
 
-_To be completed in step 02._
+### Config Layer System (Three-File Split)
+
+The project uses a three-layer configuration system loaded by `component_versions.load_all_dotenv()`:
+
+1. **`.env`** — Provisioning & sizing only: `HPDC_PROVIDER`, `HPDC_CONTROLPLANES`, `HPDC_WORKERS`, `HPDC_CPUS_*`, `HPDC_MEMORY_*`, `HPDC_DISK_CAPACITY_*`, `HPDC_SUBNET`, `HPDC_DISKS`
+2. **`.env.components`** — Feature toggles: `HPDC_*_ENABLED` flags, `HPDC_STORAGE_BACKEND`
+3. **`.env.versions`** — Version pins: `HPDC_*_VERSION`, `HPDC_*_CHART_VERSION`, `HPDC_*_TAG`
+
+**Loading order:** `.env` → `.env.components` → `.env.versions` (setdefault semantics — existing env wins).
+
+**Rules:**
+- All bootstrap scripts must call `component_versions.load_all_dotenv()` — never read `.env` directly with `open()`/`read_text()`
+- New variables must go in exactly one layer; grep to verify no cross-layer duplication
+- `HPDC_STORAGE_BACKEND` lives in `.env.components` (not provisioning) despite affecting storage behavior

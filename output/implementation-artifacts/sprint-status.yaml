@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-08-29T18:00:00Z
+last_updated: 2026-08-31T18:30:00Z
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -158,6 +158,7 @@ development_status:
   # Epic 12: Docker (kind) dev provisioning — both providers coexist, .env selects
   epic-12: in-progress
   12-1-docker-kind-default-dev-provisioning-with-local-path: done # HPDC_PROVIDER in {kind,docker,qemu}; kind=kind+local-path(fast default), docker=Talos-on-Docker+local-path, qemu=Talos/QEMU+rook-ceph(prod-eval); all tear down running cluster before recreate; add HPDC_DISK_CAPACITY_WORKER/HPDC_DISK_CAPACITY_CONTROL_PLANE to .env
+  12-2-split-env-into-three-config-layers: done # COMPLETED 2026-08-31: 10/10 tasks + 5 review patches; three-layer split (.env / .env.components / .env.versions); load_all_dotenv() consolidates 25+ call sites + 7 test files; zero cross-layer duplicates; reverted bundled YAML changes (git-mirror storageClass, rook restartPolicy/image prefix); added Pulsar version pins
 
 action_items:
   - epic: 10

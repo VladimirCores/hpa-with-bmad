@@ -20,7 +20,7 @@ from pathlib import Path
 import yaml
 
 from component_versions import DEFAULTS as _VERSION_DEFAULTS
-from component_versions import load_dotenv as _load_dotenv_impl
+
 import component_versions
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -424,6 +424,19 @@ def purge_stale_cluster_state() -> None:
         _write_with_sudo(Path("/root/.talos/config"), yaml.safe_dump(pruned, default_flow_style=False))
 
 
+def _path_exists_via_sudo(path: Path) -> bool:
+    """Check file existence via sudo for paths under /root/ (700 permissions).
+
+    The invoking user (e.g. cores) cannot traverse /root/, so
+    Path.exists() returns False even when the file is readable via sudo.
+    """
+    result = subprocess.run(
+        ["sudo", "-n", "test", "-f", str(path)],
+        capture_output=True, text=True, check=False,
+    )
+    return result.returncode == 0
+
+
 def _generate_kubeconfig_via_talosctl(node_ip: str) -> str | None:
     """Materialize admin kubeconfig straight from the node.
 
@@ -435,9 +448,15 @@ def _generate_kubeconfig_via_talosctl(node_ip: str) -> str | None:
         return None
     # `cluster create` runs under sudo whose HOME may be reset to /root,
     # so the merged talosconfig lands at /root/.talos/config regardless of
-    # our override. Try both locations.
-    candidates = [Path("/root/.talos/config"), TALOS_HOME / ".talos" / "config"]
-    talosconfig = next((c for c in candidates if c.exists()), None)
+    # our override. Try both locations.  Use sudo test -f for /root/ paths
+    # because the invoking user cannot traverse /root/ (700 permissions).
+    root_candidate = Path("/root/.talos/config")
+    talos_home_candidate = TALOS_HOME / ".talos" / "config"
+    talosconfig = None
+    if _path_exists_via_sudo(root_candidate):
+        talosconfig = root_candidate
+    elif talos_home_candidate.exists():
+        talosconfig = talos_home_candidate
     if talosconfig is None:
         return None
     tmpdir = tempfile.mkdtemp(prefix="hpdc-kubeconfig-")
@@ -724,15 +743,13 @@ def provision_cluster(args: argparse.Namespace) -> None:
 
 
 def load_dotenv() -> None:
-    """Seed os.environ from ROOT/.env (existing env wins).
+    """Seed os.environ from the three-layer config (existing env wins).
 
-    Lets cluster sizing/topology live in a committed .env.example with local
-    overrides in .env (gitignored). Safe under sudo: path is repo-relative.
-
+    Loads .env → .env.components → .env.versions in order.
     Implementation lives in component_versions (single dotenv dialect for the
     whole toolchain); kept as a thin wrapper for backward compatibility.
     """
-    component_versions.load_dotenv(ROOT / ".env")
+    component_versions.load_all_dotenv()
 
 
 def main() -> int:

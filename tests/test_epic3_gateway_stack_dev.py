@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 CASDOOR_VERSION = component_versions.get("HPDC_CASDOOR_VERSION")
 INFISICAL_VERSION = component_versions.get("HPDC_INFISICAL_VERSION")
 SWAGGER_UI_VERSION = component_versions.get("HPDC_SWAGGER_UI_VERSION")

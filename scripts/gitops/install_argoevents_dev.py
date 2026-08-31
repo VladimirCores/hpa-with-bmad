@@ -10,7 +10,7 @@ from pathlib import Path
 from _provisioned import require
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 ARGO_EVENTS_VERSION = component_versions.get("HPDC_ARGO_EVENTS_VERSION")
 ARGO_EVENTS_IMAGE = ROOT / "output" / "argo-events" / "images" / f"argo-events-v{ARGO_EVENTS_VERSION}"

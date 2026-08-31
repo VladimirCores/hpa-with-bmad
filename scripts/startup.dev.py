@@ -39,7 +39,7 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "03-install-cilium-dev": ["CILIUM_ENABLED"],
     "03-install-cilium-online": ["CILIUM_ENABLED"],
     "04-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],  # mTLS + SPIRE (same step)
-    "05-install-rook-ceph-dev": ["ROOK_CEPH_ENABLED"],
+    "05-install-rook-ceph-dev": ["STORAGE_BACKEND"],  # routes on HPDC_STORAGE_BACKEND
     "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
     "06-install-harbor-dev": ["HARBOR_ENABLED"],
     "07-preload-harbor-cache": ["HARBOR_ENABLED"],
@@ -193,7 +193,7 @@ def print_status(show_all: bool = False) -> int:
         sys.path.insert(0, str(GITOPS_DIR))
         import _provisioned
         import component_versions
-        component_versions.load_dotenv()
+        component_versions.load_all_dotenv()
         for component, ref in component_versions.image_refs():
             tag = ref.rsplit(":", 1)[-1]
             resolved_versions.setdefault(component, tag)
@@ -447,7 +447,7 @@ def main() -> int:
 
     # Load .env (toggles + versions) before any toggle filtering or status.
     import component_versions
-    component_versions.load_dotenv()
+    component_versions.load_all_dotenv()
     component_versions.resolve()
     # Resolve provider AFTER .env is loaded: CLI wins, then env/.env, else kind.
     if args.provider is None:

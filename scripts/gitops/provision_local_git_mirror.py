@@ -12,7 +12,7 @@ from pathlib import Path
 from _provisioned import require, value
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 GIT_MIRROR_IMAGE_VERSION = component_versions.get("HPDC_GIT_MIRROR_IMAGE_VERSION")

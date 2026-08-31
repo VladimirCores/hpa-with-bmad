@@ -33,7 +33,7 @@ MIRROR = "http://localhost:5000"
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 component_versions.resolve()
 
 # ── Image Registry ──────────────────────────────────────────────────────────

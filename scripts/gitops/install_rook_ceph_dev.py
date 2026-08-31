@@ -13,7 +13,7 @@ from pathlib import Path
 
 import component_versions
 
-component_versions.load_dotenv()
+component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 ROOK_VERSION = component_versions.get("HPDC_ROOK_CEPH_VERSION")
 ROOK_IMAGE_REF = f"quay.io/rook/ceph:v{ROOK_VERSION}"

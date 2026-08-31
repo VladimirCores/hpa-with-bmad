@@ -26,8 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 _EXPORT_PREFIX = "export "
 
 
-def load_dotenv(env_file: Path | None = None) -> None:
-    """Seed os.environ from a .env file (existing environment wins).
+def load_dotenv(env_files: list[Path] | Path | None = None) -> None:
+    """Seed os.environ from one or more .env files (existing environment wins).
 
     Dialect (matches historical bootstrap_talos_dev.load_dotenv):
     blank lines / ``#`` comments skipped; leading ``export `` stripped; split on
@@ -35,23 +35,48 @@ def load_dotenv(env_file: Path | None = None) -> None:
     empty values skipped (variable falls back to its default); last assignment
     wins inside the file.
     Safe under sudo: default path is repo-relative.
+
+    Parameters
+    ----------
+    env_files:
+        Single path, list of paths, or None (loads ``.env`` only).
+        When a list is given, files are loaded in order; later files set
+        variables that are not yet present in the environment.
     """
-    env_file = env_file or ROOT / ".env"
-    try:
-        lines = env_file.read_text(encoding="utf-8").splitlines()
-    except (FileNotFoundError, PermissionError, UnicodeDecodeError):
-        return
-    for raw in lines:
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    if env_files is None:
+        env_files = [ROOT / ".env"]
+    elif isinstance(env_files, Path):
+        env_files = [env_files]
+
+    for env_file in env_files:
+        try:
+            lines = env_file.read_text(encoding="utf-8").splitlines()
+        except (FileNotFoundError, PermissionError, UnicodeDecodeError):
             continue
-        if line.startswith(_EXPORT_PREFIX):
-            line = line[len(_EXPORT_PREFIX):]
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.split(" #", 1)[0].strip().strip('"').strip("'")
-        if key and value:
-            os.environ.setdefault(key, value)
+        for raw in lines:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if line.startswith(_EXPORT_PREFIX):
+                line = line[len(_EXPORT_PREFIX):]
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.split(" #", 1)[0].strip().strip('"').strip("'")
+            if key and value:
+                os.environ.setdefault(key, value)
+
+
+def load_all_dotenv() -> None:
+    """Load the three-layer config: .env → .env.components → .env.versions.
+
+    Existing environment variables always win (setdefault semantics).
+    This is the recommended entry point for all bootstrap scripts.
+    """
+    load_dotenv([
+        ROOT / ".env",
+        ROOT / ".env.components",
+        ROOT / ".env.versions",
+    ])
 
 
 # ── Toggle variables ──────────────────────────────────────────────────────────
@@ -60,8 +85,6 @@ def load_dotenv(env_file: Path | None = None) -> None:
 CORE_TOGGLES: frozenset[str] = frozenset({
     "HPDC_CILIUM_ENABLED",
     "HPDC_HUBBLE_ENABLED",
-    "HPDC_ROOK_CEPH_ENABLED",
-    "HPDC_LOCAL_PATH_ENABLED",
     "HPDC_HARBOR_ENABLED",
     "HPDC_SPEGEL_ENABLED",
 })
@@ -72,8 +95,6 @@ ENABLED_DEFAULTS: dict[str, bool] = {
     # Core (always on; toggle is informational)
     "HPDC_CILIUM_ENABLED": True,
     "HPDC_HUBBLE_ENABLED": True,
-    "HPDC_ROOK_CEPH_ENABLED": True,
-    "HPDC_LOCAL_PATH_ENABLED": False,
     "HPDC_HARBOR_ENABLED": True,
     "HPDC_SPEGEL_ENABLED": True,
     # Optional components
@@ -109,30 +130,18 @@ _STORAGE_MUTEX_REMEDIATION = (
 
 
 def _resolve_storage_backend() -> None:
-    """Apply HPDC_STORAGE_BACKEND mutual exclusion.
+    """Validate HPDC_STORAGE_BACKEND is a known value.
 
-    Sets ROOK_CEPH_ENABLED / LOCAL_PATH_ENABLED based on STORAGE_BACKEND,
-    or errors if both are explicitly true in the environment.
+    Raises ValueError if the backend is not one of: rook-ceph, local-path.
+    Storage selection is now driven solely by HPDC_STORAGE_BACKEND — the
+    legacy HPDC_ROOK_CEPH_ENABLED / HPDC_LOCAL_PATH_ENABLED toggles are
+    removed.
     """
     backend = os.environ.get(STORAGE_BACKEND_VAR, "rook-ceph").strip().lower()
     if backend not in ("rook-ceph", "local-path"):
         raise ValueError(
             f"invalid {STORAGE_BACKEND_VAR}={backend!r}; {_STORAGE_MUTEX_REMEDIATION}"
         )
-    rook = os.environ.get("HPDC_ROOK_CEPH_ENABLED", "").lower()
-    local = os.environ.get("HPDC_LOCAL_PATH_ENABLED", "").lower()
-    # If both are explicitly "true", that's an error
-    if rook == "true" and local == "true":
-        raise ValueError(
-            f"HPDC_ROOK_CEPH_ENABLED=true and HPDC_LOCAL_PATH_ENABLED=true are "
-            f"mutually exclusive. {_STORAGE_MUTEX_REMEDIATION}"
-        )
-    if backend == "rook-ceph":
-        os.environ["HPDC_ROOK_CEPH_ENABLED"] = "true"
-        os.environ["HPDC_LOCAL_PATH_ENABLED"] = "false"
-    else:
-        os.environ["HPDC_ROOK_CEPH_ENABLED"] = "false"
-        os.environ["HPDC_LOCAL_PATH_ENABLED"] = "true"
 
 
 def _truthy(value: str | None) -> bool:
@@ -172,14 +181,6 @@ def is_enabled(component: str) -> bool:
                 file=sys.stderr,
             )
         return True
-    # ROOK_CEPH and LOCAL_PATH are governed by storage backend
-    if var in ("HPDC_ROOK_CEPH_ENABLED", "HPDC_LOCAL_PATH_ENABLED"):
-        try:
-            _resolve_storage_backend()
-        except ValueError as exc:
-            print(f"[error] {exc}", file=sys.stderr)
-            return False
-        return _truthy(os.environ.get(var, "false"))
     env_val = os.environ.get(var)
     if env_val is not None:
         return _truthy(env_val)
@@ -393,7 +394,7 @@ def resolve() -> dict[str, str]:
     for var, default in DEFAULTS.items():
         _resolved[var] = os.environ.get(var) or default
         _resolved[_normalize_var_key(var)] = _resolved[var]
-    # Apply storage backend mutual exclusion
+    # Validate storage backend selection
     try:
         _resolve_storage_backend()
     except ValueError:

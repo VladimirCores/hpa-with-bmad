@@ -117,6 +117,7 @@ metadata:
 data:
   topic_namespace: hpdc.telemetry
   default_partitions: "12"
+  topicType: partitioned
   partition_keys: |
     device_type,region_id
   ordering_key: device_id
