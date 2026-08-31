@@ -18,10 +18,10 @@ data:
   sync-waves.yaml: "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n\
     \  name: hpdc-platform\n  namespace: argocd\n  annotations:\n    argocd.argoproj.io/sync-wave:\
     \ \"-10\"\nspec:\n  destination:\n    server: https://kubernetes.default.svc\n\
-    \    namespace: default\n  source:\n    repoURL: http://git-mirror.git-mirror.svc.cluster.local:9418/with-bmad.git\n\
+    \    namespace: default\n  source:\n    repoURL: http://10.6.0.1:9418/with-bmad.git\n\
     \    targetRevision: HEAD\n    path: gitops/platform\n---\napiVersion: argoproj.io/v1alpha1\n\
     kind: ApplicationSet\nmetadata:\n  name: hpdc-applications\n  namespace: argocd\n\
-    spec:\n  generators:\n    - git:\n        repoURL: http://git-mirror.git-mirror.svc.cluster.local:9418/with-bmad.git\n\
+    spec:\n  generators:\n    - git:\n        repoURL: http://10.6.0.1:9418/with-bmad.git\n\
     \        revision: HEAD\n        directories:\n          - path: gitops/*/overlays/dev/*\n"
 ---
 apiVersion: v1
@@ -1037,7 +1037,7 @@ spec:
               key: applicationsetcontroller.status.max.resources.count
               name: argocd-cmd-params-cm
               optional: true
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         name: argocd-applicationset-controller
         ports:
@@ -1210,7 +1210,7 @@ spec:
         - -n
         - /usr/local/bin/argocd
         - /shared/argocd-dex
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         name: copyutil
         securityContext:
@@ -1331,7 +1331,7 @@ spec:
               key: notificationscontroller.repo.server.client.cert.key.path
               name: argocd-cmd-params-cm
               optional: true
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           tcpSocket:
@@ -1447,7 +1447,7 @@ spec:
         - argocd
         - admin
         - redis-initial-password
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         name: secret-init
         securityContext:
@@ -1763,7 +1763,7 @@ spec:
           value: /helm-working-dir
         - name: HELM_DATA_HOME
           value: /helm-working-dir
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -1820,7 +1820,7 @@ spec:
         command:
         - sh
         - -c
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         name: copyutil
         securityContext:
           allowPrivilegeEscalation: false
@@ -2285,7 +2285,7 @@ spec:
               key: server.sync.replace.allowed
               name: argocd-cmd-params-cm
               optional: true
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -2755,7 +2755,7 @@ spec:
               optional: true
         - name: KUBECACHEDIR
           value: /tmp/kubecache
-        image: quay.io/argoproj/argocd:v3.5.2
+        image: quay.io/argoproj/argocd:v3.5.1
         imagePullPolicy: IfNotPresent
         name: argocd-application-controller
         ports:
