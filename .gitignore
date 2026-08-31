@@ -25,6 +25,9 @@ output/.*.diff
 .zed
 .qwen
 .claude
+.codex
+.gemini
+.github
 .opencode
 !README.md
 _bmad/render/
