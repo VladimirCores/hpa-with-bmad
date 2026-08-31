@@ -1431,7 +1431,7 @@ spec:
             secretKeyRef:
               key: auth
               name: argocd-redis
-        image: public.ecr.aws/docker/library/redis:8.2.3-alpine
+        image: docker.io/library/redis:8.2.8-alpine
         imagePullPolicy: IfNotPresent
         name: redis
         ports:
