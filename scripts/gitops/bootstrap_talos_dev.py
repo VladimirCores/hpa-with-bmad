@@ -298,8 +298,12 @@ def prune_kubeconfig_prefix(cfg: dict, prefix: str) -> dict:
             ]
     current = cfg.get("current-context")
     if isinstance(current, str) and _kubeconfig_name_matches(current, prefix):
+        # Guard against a half-written/stale kubeconfig where `contexts` is
+        # null (e.g. from an interrupted `talosctl cluster create`). Without this
+        # guard, iterating None raises TypeError and aborts the whole bootstrap.
+        contexts = cfg.get("contexts")
         names = [
-            entry["name"] for entry in cfg.get("contexts", [])
+            entry["name"] for entry in (contexts if isinstance(contexts, list) else [])
             if isinstance(entry, dict) and "name" in entry
         ]
         if names:

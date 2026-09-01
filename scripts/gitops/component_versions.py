@@ -170,10 +170,14 @@ def is_enabled(component: str) -> bool:
     if name.endswith("_ENABLED"):
         name = name[: -len("_ENABLED")]
     var = f"HPDC_{name}_ENABLED"
-    # Core components are always on
-    if var in CORE_TOGGLES and component in (
-        "CILIUM", "HUBBLE", "HARBOR", "SPEGEL",
-    ):
+    # Core components (Cilium/Hubble/Harbor/Spegel) are always on — the override
+    # is ignored regardless of how the name was normalized above. Match on the
+    # resolved var only so the guard holds for ALL input forms (CILIUM,
+    # CILIUM_ENABLED, HPDC_CILIUM_ENABLED). Previously the joint clause also
+    # required the bare component name, which let every execution call-site
+    # (startup.dev.py / render_app_of_apps.py pass *ENABLED) bypass the guard
+    # and silently disable a core component.
+    if var in CORE_TOGGLES:
         env_val = os.environ.get(var)
         if env_val is not None and not _truthy(env_val):
             print(
@@ -394,11 +398,14 @@ def resolve() -> dict[str, str]:
     for var, default in DEFAULTS.items():
         _resolved[var] = os.environ.get(var) or default
         _resolved[_normalize_var_key(var)] = _resolved[var]
-    # Validate storage backend selection
+    # Validate storage backend selection. Do NOT swallow silently: surface the
+    # misconfiguration to stderr so render/preflight consumers that never call
+    # validate_storage_backend() still observe it. (startup.dev.py still calls
+    # validate_storage_backend() at process entry for a hard fail-fast.)
     try:
         _resolve_storage_backend()
-    except ValueError:
-        pass  # let consumers handle the error when they call is_enabled()
+    except ValueError as exc:
+        print(f"[warn] {exc}", file=sys.stderr)
     return dict(_resolved)
 
 

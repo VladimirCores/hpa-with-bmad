@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: pulsar
+  name: infisical
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-wave: "3"
 spec:
   project: default
   source:
     repoURL: http://git-mirror.git-mirror.svc.cluster.local:9418/with-bmad.git
     targetRevision: HEAD
-    path: gitops/pulsar/rendered
+    path: gitops/infisical/rendered
   destination:
     server: https://kubernetes.default.svc
-    namespace: pulsar
+    namespace: infisical
   syncPolicy:
     automated:
       selfHeal: true

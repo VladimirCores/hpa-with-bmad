@@ -31,6 +31,12 @@ TALOS_CILIUM_VALUES = {
     "securityContext.privileged": "true",
     "cgroup.autoMount.enabled": "false",
     "cgroup.hostRoot": "/sys/fs/cgroup",
+    # Hubble observability (corresponds to HPDC_HUBBLE_ENABLED=true in .env.components).
+    # The Cilium 1.20 chart does NOT enable relay/ui by default even though
+    # hubble.enabled defaults true, so enable them explicitly for the dev cluster.
+    "hubble.enabled": "true",
+    "hubble.relay.enabled": "true",
+    "hubble.ui.enabled": "true",
 }
 
 

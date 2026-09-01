@@ -44,6 +44,38 @@ spec:
     app.kubernetes.io/component: secrets
     app.kubernetes.io/name: infisical
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: infisical-postgres
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical-postgres
+  namespace: infisical
+spec:
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+  selector:
+    app.kubernetes.io/name: infisical-postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: infisical-redis
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical-redis
+  namespace: infisical
+spec:
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+  selector:
+    app.kubernetes.io/name: infisical-redis
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -67,38 +99,61 @@ spec:
         app.kubernetes.io/part-of: hpdc-platform
     spec:
       containers:
-      - args:
-        - --configPath
-        - /config/infisical-config.yaml
+      - command:
+        - node
+        - --enable-source-maps
+        - /backend/dist/main.mjs
         env:
-        - name: INFISICAL_DATABASE_HOST
+        - name: DB_HOST
           value: infisical-postgres
-        - name: INFISICAL_DATABASE_PORT
+        - name: DB_PORT
           value: "5432"
-        - name: INFISICAL_DATABASE_NAME
+        - name: DB_NAME
           value: infisical
-        - name: INFISICAL_DATABASE_USER
+        - name: DB_USER
           value: infisical
-        - name: INFISICAL_DATABASE_PASSWORD
+        - name: DB_PASSWORD
           value: InfisicalAdmin12345
+        - name: REDIS_URL
+          value: redis://infisical-redis:6379
+        - name: BASE_URL
+          value: http://infisical.infisical.svc.cluster.local
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              key: encryptionKey
+              name: infisical-secrets
+        - name: ROOT_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              key: rootEncryptionKey
+              name: infisical-secrets
+        - name: AUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: authSecret
+              name: infisical-secrets
         image: docker.io/infisical/infisical:v0.162.24
         imagePullPolicy: IfNotPresent
         livenessProbe:
+          failureThreshold: 30
           httpGet:
-            path: /api/health
+            path: /health
             port: http
-          initialDelaySeconds: 20
+          initialDelaySeconds: 120
           periodSeconds: 20
+          timeoutSeconds: 8
         name: infisical
         ports:
         - containerPort: 8080
           name: http
         readinessProbe:
           httpGet:
-            path: /api/health
+            path: /health
             port: http
-          initialDelaySeconds: 5
+          initialDelaySeconds: 15
           periodSeconds: 10
+          timeoutSeconds: 8
         volumeMounts:
         - mountPath: /config
           name: config
@@ -107,6 +162,107 @@ spec:
       - configMap:
           name: infisical-config
         name: config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: infisical-postgres
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical-postgres
+  namespace: infisical
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infisical-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: infisical-postgres
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: infisical
+        - name: POSTGRES_USER
+          value: infisical
+        - name: POSTGRES_PASSWORD
+          value: InfisicalAdmin12345
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        image: docker.io/library/postgres:15.19-alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - psql
+            - -U
+            - infisical
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: postgres
+        readinessProbe:
+          exec:
+            command:
+            - psql
+            - -U
+            - infisical
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: infisical-redis
+    app.kubernetes.io/part-of: hpdc-platform
+  name: infisical-redis
+  namespace: infisical
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infisical-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: infisical-redis
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - args:
+        - redis-server
+        - --appendonly
+        - "no"
+        image: docker.io/library/redis:8.2.8-alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+        name: redis
+        ports:
+        - containerPort: 6379
+          name: redis
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 6
+          periodSeconds: 8
+          timeoutSeconds: 5
 ---
 apiVersion: secrets.infisical.com/v1alpha1
 kind: InfisicalSecret

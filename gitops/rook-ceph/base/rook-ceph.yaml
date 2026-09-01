@@ -16,6 +16,15 @@ metadata:
   name: rook-ceph
   namespace: rook-ceph
 spec:
+  # NOTE (Talos workaround): Rook 1.20.6 CephCluster CRD has no podSecurityContext
+  # field, so we cannot set runAsUser/fsGroup here. Ceph daemons run as the
+  # rook/ceph image default uid (2016, non-root) and lack CAP_CHOWN on Talos, so
+  # rook's chown-container-data-dir init (chown -> ceph:167) hits "Operation not
+  # permitted". This is fixed at runtime by a MutatingWebhookConfiguration
+  # (rook-sec-hook) that injects securityContext.runAsUser:0 into rook-ceph
+  # mon/mgr/osd pods so the init runs as root (root HAS CAP_CHOWN on Talos).
+  # The privileged rook-dirs-bootstrap DaemonSet pre-chowns /var/lib/rook -> 167
+  # as a safety net. Re-evaluate for Rook >= 1.22 (adds spec.podSecurityContext).
   cephVersion:
     image: quay.io/rook/ceph:v1.20.6
     allowUnsupported: true

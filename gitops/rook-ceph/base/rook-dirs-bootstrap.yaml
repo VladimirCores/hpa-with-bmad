@@ -20,7 +20,10 @@ spec:
       tolerations:
         - operator: Exists
       terminationGracePeriodSeconds: 0
-      restartPolicy: OnFailure
+      # DaemonSet pods MUST use restartPolicy: Always (OnFailure is rejected by
+      # the DaemonSet admission controller). The fix container re-chowns on each
+      # restart — chown is idempotent, so this is harmless.
+      restartPolicy: Always
       containers:
         - name: fix
           image: quay.io/rook/ceph:v1.20.6

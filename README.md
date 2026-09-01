@@ -42,8 +42,8 @@ The `/couchdb` admin route on `admin.hpdc.local` is the **only** path that skips
 
 | Epic | Scope | Status |
 |------|-------|--------|
-| 1 | Kubernetes substrate: Talos 1.13.7 (Docker), Cilium eBPF with kube-proxy replacement + L2 LB, Cilium mTLS (SPIFFE/SPIRE), local-path storage | done |
-| 2 | Offline GitOps delivery: Harbor 2.11.3 registry (scan + sign), Spegel P2P image distribution, local Git mirror, Kargo v1.11 Freight promotion, Argo CD v3.5 ApplicationSet + sync waves, Argo Rollouts v1.9 canary, Argo Events v1.9 | done |
+| 1 | Kubernetes substrate: Talos 1.13.7, Cilium eBPF with kube-proxy replacement + L2 LB, Cilium mTLS (SPIFFE/SPIRE), local-path storage | done |
+| 2 | Offline GitOps delivery: Harbor registry (scan + sign), Spegel P2P image distribution, local Git mirror, Kargo Freight promotion, Argo CD ApplicationSet + sync waves, Argo Rollouts canary, Argo Events | done |
 | 3 | Secure gateway & access: Envoy Gateway edge routing, cert-manager TLS, API-key auth, Casdoor JWT, Casbin RBAC/ReBAC/ABAC, Infisical secrets, mTLS mesh, OpenAPI governance, Backstage + tool UI routes | done |
 | 4 | Real-time telemetry: IoT device simulator, MQTT/HTTP/gRPC ingestion, Protobuf `CommonEnvelope` normalization, partitioned Pulsar topics, back-pressure, ClickHouse metrics + retention, KeyDB hot cache, Spin WASM events, E2E validation | done |
 | 5 | Alert detection & response: Kafka-directed alert streams, alert state machine persistence, automated responses, human alert handling with audit trail, basic LLM decision support | done |
@@ -52,7 +52,7 @@ The `/couchdb` admin route on `admin.hpdc.local` is the **only** path that skips
 | 8 | Multi-region federation: Cilium ClusterMesh over WireGuard, regional data sovereignty (no cross-region replication by default), central hub querying regional APIs | done |
 | 9 | AI agent engine: MCP tool registry (query DBs, call APIs, trigger workflows) with security policy + audit, authenticated agent-to-agent (A2A) messaging | done |
 | 10 | Dev cluster lifecycle: kind-based dev cluster with Cilium CNI, kube-proxy replacement, component initialization, persistent storage | done |
-| 11 | Dev cluster VM provisioning: Talos Docker provider, idempotent startup, Cilium networking (flannel + kube-proxy disabled at provision), component installation | in progress |
+| 11 | Dev cluster VM provisioning: Talos 1.13.7 on QEMU, offline image + chart mirrors at 10.6.0.1, idempotent `startup.dev.py` bootstrap, Cilium networking (flannel + kube-proxy disabled at provision), Rook-Ceph storage, full component stack | in progress |
 
 ### Architecture sources
 
@@ -84,27 +84,31 @@ All configuration must be centralized in `.env` — no hardcoded IPs, ports, dom
 ## Prerequisites
 
 - Python 3
-- Docker for container-based dev clusters
-- `kind` (Kubernetes in Docker) for dev cluster management
-- `kubectl` for cluster management
-- `helm` for package management
-- Optional: `talosctl` for production Talos clusters
+- QEMU/KVM (`/dev/kvm` present) — the dev cluster runs on **Talos 1.13.7 VMs**, not `kind`
+- `talosctl` v1.13.7 (Talos config at `~/.talos/config`; bundled `output/talos/talosconfig`)
+- `kubectl` v1.36.2 (matches the cluster's Kubernetes version)
+- `helm` v3 (Helm charts served from the local `10.6.0.1:8080` chart server)
+- `skopeo` (offline image prefetch / mirroring into `10.6.0.1:5000`)
 
-### DNS Wildcard for `*.hpdc.local`
+### DNS / gateway address for `*.hpdc.local`
 
-The dev cluster uses `*.hpdc.local` domains (e.g., `harbor.hpdc.local`, `argocd.hpdc.local`) routed through the Cilium L2 LoadBalancer at `172.18.255.200`. Configure your host to resolve these:
+The dev cluster is fully offline. The Envoy Gateway edge address is **`172.18.0.2`**
+(the Cilium L2 LoadBalancer IP assigned to the `envoy-*` Service in
+`envoy-gateway-system`; see `gitops/envoy-gateway/base/envoy-gateway.yaml`). All
+`*.hpdc.local` hostnames resolve here. Map them on your host:
 
-**Option A — `/etc/hosts` (simple, per-hostname):**
+**Option A — `/etc/hosts` (per-hostname):**
 ```bash
-echo "172.18.255.200 harbor.hpdc.local argocd.hpdc.local" | sudo tee -a /etc/hosts
+echo "172.18.0.2 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
+echo "172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local" | sudo tee -a /etc/hosts
 ```
 
-**Option B — dnsmasq wildcard (recommended, all `*.hpdc.local`):**
+**Option B — dnsmasq wildcard (all `*.hpdc.local`):**
 ```bash
 sudo dnf install dnsmasq
 
 sudo tee /etc/dnsmasq.d/hpdc.conf << 'EOF'
-address=/hpdc.local/172.18.255.200
+address=/hpdc.local/172.18.0.2
 no-resolv
 EOF
 
@@ -123,86 +127,70 @@ sudo systemctl restart systemd-resolved
 
 ### 1. Bootstrap the dev cluster
 
-The Talos bootstrap (`scripts/startup.dev.py --apply`) provisions the cluster with **flannel and kube-proxy disabled** via `platform/talos/talos-cni-patch.yaml` (`cluster.cni.name: none`, `cluster.proxy.disabled: true`); Cilium is then installed as the only CNI in kube-proxy-replacement mode.
+The dev cluster is a **Talos 1.13.7 / Kubernetes v1.36.2** cluster on QEMU VMs,
+provisioned fully offline: all images pull from `10.6.0.1:5000`, all Helm charts
+from `10.6.0.1:8080`. The bootstrap (`scripts/startup.dev.py --offline --apply`)
+provisions the cluster with **flannel and kube-proxy disabled** via
+`platform/talos/talos-cni-patch.yaml` (`cluster.cni.name: none`,
+`cluster.proxy.disabled: true`); Cilium is then installed as the only CNI in
+kube-proxy-replacement mode. Rook-Ceph provides the dev storage backend.
 
-Create a kind cluster with Cilium as the CNI (replacing kube-proxy):
+Bring the cluster up idempotently:
 
 ```bash
-# Create kind cluster with Cilium
-kind create cluster --config /tmp/kind-hpdc.yaml
+export KUBECONFIG=/tmp/hpacore.kc   # written by the bootstrap; regenerate with:
+sudo -n cat /root/.kube/config > /tmp/hpacore.kc && chmod 600
 
-# Install Cilium with kube-proxy replacement
-helm upgrade --install cilium cilium/cilium --namespace kube-system \
-  --set kubeProxyReplacement=true \
-  --set k8sServiceHost=hpdc-talos-control-plane \
-  --set k8sServicePort=6443 \
-  --set ipam.mode=cluster-pool \
-  --set ipam.operator.clusterPoolIPv4PodCIDRList="10.244.0.0/16" \
-  --set cluster.name=hpdc-talos \
-  --set cluster.id=1 \
-  --set kind.enabled=true \
-  --set routingMode=native \
-  --set ipv4NativeRoutingCIDR="10.244.0.0/16" \
-  --set autoDirectNodeRoutes=true \
-  --set bpf.masquerade=true
+python3 scripts/startup.dev.py --offline --apply --storage rook-ceph
+```
 
-# Remove kube-proxy (Cilium replaces it)
-kubectl delete ds kube-proxy -n kube-system
+**Resume-safe state (survives interruption / host reboot):**
+- QEMU VMs on a host bridge (`talos3fa363a2`, `10.6.0.1/24`; nodes `10.6.0.2`–`10.6.0.5`)
+  hold etcd + Pod state on persistent disks — a re-run of `startup.dev.py` resumes
+  where it left off.
+- `KUBECONFIG=/tmp/hpacore.kc` — regenerate after a reboot with
+  `sudo -n cat /root/.kube/config > /tmp/hpacore.kc && chmod 600`.
+- The local registry (`10.6.0.1:5000`) and Helm chart server (`10.6.0.1:8080`,
+  setsid) run as host background processes; QEMU nodes mirror exclusively through them.
+- A host MutatingWebhook `rook-sec-hook` (`https://10.6.0.1:8443`) injects
+  `pod.securityContext.runAsUser:0` into Rook pods — a workaround for Talos blocking
+  the `/var/lib/rook` chown (JSONPatch only; Merge is silently dropped on uid). It
+  survives a cluster rebuild but **not** a host reboot. Resurrect it with
+  `bash /tmp/deploy_webhook.sh`.
 
-# Install local-path-provisioner
-kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+Tear down cleanly (PID-based — never `pkill -f` a self-referential pattern):
+
+```bash
+bash /tmp/kill_cluster.sh
 ```
 
 ### 2. Install platform components
 
-Install all required components:
+Platform components deploy **declaratively via GitOps** — no manual `helm install`.
+Each component is a rendered Kustomize overlay under `gitops/<component>/rendered/dev.yaml`,
+reconciled by Argo CD through the app-of-apps children in `gitops/apps/`.
+
+The bootstrap order is encoded as numbered steps in `scripts/startup.dev.py`
+(inspect with `--status` / `--status --all`). After a version or toggle change,
+regenerate all rendered overlays from `.env` (offline-safe):
 
 ```bash
-# cert-manager
-helm upgrade --install cert-manager jetstack/cert-manager \
-  --namespace cert-manager --create-namespace --version v1.16.3
-
-# Harbor
-helm upgrade --install harbor harbor/harbor \
-  --namespace harbor --create-namespace \
-  --set expose.type=clusterIP \
-  --set persistence.enabled=false
-
-# Argo CD
-helm upgrade --install argocd argo/argo-cd \
-  --namespace argocd --create-namespace \
-  --set server.service.type=ClusterIP \
-  --set server.extraArgs[0]=--insecure
-
-# Kargo
-helm upgrade --install kargo oci://ghcr.io/akuity/kargo-charts/kargo \
-  --namespace kargo --create-namespace \
-  --set api.adminAccount.passwordHash='$2a$10$Z9yB0vG7F8y5vQ4z6u5u5e5u5e5u5e5u5e5u5e5u5e5u5e5u5e5u5e' \
-  --set api.adminAccount.tokenSigningKey=signing-key-change-me-in-production
-
-# VictoriaMetrics
-helm upgrade --install victoria-metrics victoriametrics/victoria-metrics-single \
-  --namespace monitoring --create-namespace \
-  --set server.retentionPeriod=7d \
-  --set server.persistentVolume.enabled=false
-
-# Grafana
-helm upgrade --install grafana grafana/grafana \
-  --namespace monitoring \
-  --set persistence.enabled=false \
-  --set adminPassword=admin
+python3 scripts/gitops/render_overlays.py       # gitops/<component>/rendered/dev.yaml
+python3 scripts/gitops/render_app_of_apps.py    # gitops/apps/ Argo CD Application children
 ```
 
-### 3. Validate the cluster
+Component image versions are centralized in `.env.versions`, resolved exclusively
+through `scripts/gitops/component_versions.py`, and validated against the offline
+mirror by `python3 scripts/services/image-preflight.py --check`.
 
-Run the validation tests:
+### 3. Validate the cluster
 
 ```python
 python3 -m compileall -q scripts tests
 for t in tests/test_*.py; do python3 "$t"; done
 ```
 
-Or run a single test:
+A single component's install validator:
 
 ```python
 python3 tests/test_install_grafana_alertmanager_dev.py
@@ -210,14 +198,19 @@ python3 tests/test_install_grafana_alertmanager_dev.py
 
 ### 4. Run the ATDD P0 suite
 
-The acceptance suite under `tests/atdd/` is the green-phase contract suite
-(143 passed, 7 skipped as of 2026-08-11). Run it with pytest:
+The green-phase contract suite lives under `tests/atdd/`. The **P0 suite (16/16
+passed in 4.64s)** gates the live cluster — it audits route-table security-policy
+coverage (`test_p0_route_table_audit.py`) and gitops secret hygiene
+(`test_p0_secret_scan.py`):
 
-```python
-python3 -m pytest tests/ -q
+```bash
+KUBECONFIG=/tmp/hpacore.kc python3 -m pytest \
+  tests/atdd/e2e/test_p0_route_table_audit.py \
+  tests/atdd/e2e/test_p0_secret_scan.py -v
 ```
 
-The 7 skips are RED-phase live journeys still gated on a live cluster (B-001).
+The wider `tests/` tree (143 passed, 7 skipped as of 2026-08-11) additionally
+includes RED-phase live journeys still gated on a live cluster (B-001).
 
 **Harnesses that back the suite** (all built 2026-08-11, offline contracts):
 
@@ -235,70 +228,47 @@ runs a bounded local simulation against the dev edge service.
 
 #### Storage backend selection
 
-The cluster supports two storage backends via the `--storage` flag:
-
-- **local-path** (default): Lightweight local-path-provisioner for Docker-based dev clusters
-- **rook-ceph**: Full Ceph storage with RBD and CephFS (requires block devices)
-
-```python
-# With local-path storage (recommended for Docker dev clusters)
-python3 scripts/startup.dev.py --offline --apply --storage local-path
-
-# With rook-ceph storage (requires block devices)
-python3 scripts/startup.dev.py --offline --apply --storage rook-ceph
-```
+The dev cluster uses **Rook-Ceph** (`HPDC_STORAGE_BACKEND=rook-ceph` in
+`.env.components`) — a CephCluster with 3 OSDs and RBD/CephFS CSI, running on the
+QEMU worker nodes. (The legacy `local-path` backend is retained for single-node
+Docker dev only; it is **not** the active dev configuration.)
 
 #### Component feature toggles
 
-Per-component and per-sub-system toggles (`HPDC_*_ENABLED=true|false`) control which steps run. Toggle values live in environment-specific `.env` files.
+Per-component and per-sub-system toggles (`HPDC_*_ENABLED=true|false`) control which
+steps run. Toggle values live in the three-layer `.env` stack:
 
-**Quick start:**
-```bash
-# Dev defaults (minimal footprint — core + auth + gateway only)
-cp .env.dev .env
+- `.env` — your local overrides (**gitignored**)
+- `.env.components` — committed dev config (toggles + storage backend)
+- `.env.versions` — committed version pins
 
-# Production defaults (full stack)
-cp .env.prod .env
-```
+`startup.dev.py` / `component_versions.load_all_dotenv()` load all three in order
+(`.env` → `.env.components` → `.env.versions`); **existing environment variables
+always win.**
 
 **Toggle resolution priority:**
-1. Core components (`CILIUM`, `HUBBLE`, `HARBOR`, `SPEGEL`): always enabled
+1. Core components (`CILIUM`, `HUBBLE`, `HARBOR`, `SPEGEL`): always enabled (override ignored)
 2. `HPDC_STORAGE_BACKEND` selects storage provisioner (`rook-ceph` or `local-path`)
 3. `os.environ["HPDC_<COMPONENT>_ENABLED"]` (shell export or `.env`)
 4. `ENABLED_DEFAULTS` in `component_versions.py` (per-component hardcoded default)
 5. `False` (safe default — opt-in, not opt-out)
 
-**Dev vs prod defaults:**
+The committed dev defaults (`.env.components`) enable: Cilium/Hubble, Harbor, Spegel,
+Git Mirror, Envoy Gateway, ArgoCD, Cert-Manager, Casdoor, Casbin and Infisical (Rook-Ceph
+storage). Everything else (Kargo, Argo-Rollouts, Argo-Events, Backstage, full observability,
+mTLS/SPIRE, API-key auth, Casbin RBAC/ReBAC/ABAC) is **off** by default — enable it in
+`.env` to opt in.
 
-| Category | Dev | Prod |
-|----------|-----|------|
-| Core (Cilium, Hubble, Harbor, Spegel) | always on | always on |
-| Storage | `rook-ceph` | `rook-ceph` |
-| Git Mirror, Envoy Gateway, Casdoor, Casbin | on | on |
-| Kargo, ArgoCD, Argo-Rollouts, Argo-Events | off | on |
-| Cert-Manager, Infisical, Backstage | off | on |
-| Observability (Grafana, VictoriaMetrics, OTEL, Alertmanager) | off | on |
-| Sub-systems (mTLS, SPIRE, API-Key-Auth, Casbin RBAC/ReBAC/ABAC) | off | on |
-
-**Status and debugging:**
 ```bash
 # Show status (skipped steps hidden)
 python3 scripts/startup.dev.py --status
 
-# Show all steps including skipped
-python3 scripts/startup.dev.py --status --all
-```
-
-**ArgoCD app filtering:**
-```bash
-# Preview which apps would be deployed
+# Preview which Argo CD apps the toggles would deploy
 python3 scripts/gitops/render_app_of_apps.py --dry-run
 
 # Filter apps by toggles (writes enabled apps to gitops/apps/)
 python3 scripts/gitops/render_app_of_apps.py
 ```
-
-Disabled components are excluded from `gitops/apps/` — ArgoCD only syncs the apps present in that directory.
 
 ## Quick health check
 
@@ -310,19 +280,15 @@ python3 scripts/startup.dev.py --offline --dry-run --step 15-validate-offline-gi
 
 ## Local Access to Cluster Components
 
-All cluster components are reached through the Envoy Gateway single entry point, which serves the wildcard host `*.hpdc.local` on port 80.
-
-### Gateway IP (fixed)
-
-The Envoy Gateway LoadBalancer IP is **fixed** at `172.18.255.200` — it's the first IP in the Cilium L2 pool (`172.18.255.200-209`). This IP persists across cluster restarts.
+All cluster components are reached through the Envoy Gateway single entry point,
+which serves the wildcard host `*.hpdc.local`. The `envoy-*` Service is a Cilium
+LoadBalancer whose external IP is **172.18.0.2** (see
+`gitops/envoy-gateway/base/envoy-gateway.yaml`).
 
 ```bash
-kubectl get svc -n envoy-gateway-system
+kubectl -n envoy-gateway-system get svc
+# envoy-envoy-gateway-system-hpdc-edge-...  LoadBalancer  10.97.127.64  172.18.0.2
 ```
-
-The `envoy-*` service exposes `EXTERNAL-IP: 172.18.255.200` (from the Cilium L2 LoadBalancer pool).
-
-### Component hostnames
 
 | Component | URL |
 |-----------|-----|
@@ -340,60 +306,40 @@ Native tool auth is enforced per tool (e.g. Backstage signs in via Casdoor); Cas
 
 ### Hosts file setup
 
-Map every `*.hpdc.local` hostname to the fixed gateway IP `172.18.255.200`.
+Map the hostnames above to `172.18.0.2`. (For the full wildcard, see
+[DNS / gateway address](#dns--gateway-address-for-hpdclocal) in Prerequisites.)
 
-#### Option A — `/etc/hosts` (per-hostname)
-
+**Linux:**
 ```bash
-echo "172.18.255.200 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
-echo "172.18.255.200 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local" | sudo tee -a /etc/hosts
+echo "172.18.0.2 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
+echo "172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local casdoor.hpdc.local" | sudo tee -a /etc/hosts
 ```
 
-#### Option B — dnsmasq wildcard (all `*.hpdc.local`)
+**macOS:**
+```bash
+echo "172.18.0.2 *.hpdc.local" | sudo tee -a /etc/hosts
+# or install dnsmasq `brew install dnsmasq` and point it at 172.18.0.2
+```
 
-See [DNS Wildcard for `*.hpdc.local`](#dns-wildcard-for-hpdclocal) in Prerequisites.
+**Windows** (Notepad as Administrator → `C:\Windows\System32\drivers\etc\hosts`):
+```
+172.18.0.2 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local
+172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local casdoor.hpdc.local
+172.18.0.2 hpdc.local api.hpdc.local gql.hpdc.local telemetry.hpdc.local events.hpdc.local
+```
 
 Flush the DNS cache:
-
 ```bash
 # macOS
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
-
+sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
 # Linux (systemd-resolved)
 sudo resolvectl flush-caches
-# or
-sudo systemd-resolve --flush-caches
 ```
 
 Verify:
-
 ```bash
 ping hubble.hpdc.local
 curl -k -I https://hubble.hpdc.local
-```
-
-#### Windows
-
-Edit the hosts file as Administrator. Open **Notepad as Administrator**, then open `C:\Windows\System32\drivers\etc\hosts` and add:
-
-```
-<GATEWAY_IP> hubble.hpdc.local grafana.hpdc.local casdoor.hpdc.local
-<GATEWAY_IP> backstage.hpdc.local argocd.hpdc.local kargo.hpdc.local admin.hpdc.local
-<GATEWAY_IP> hpdc.local api.hpdc.local gql.hpdc.local telemetry.hpdc.local events.hpdc.local
-```
-
-Flush the DNS cache:
-
-```powershell
-ipconfig /flushdns
-```
-
-Verify:
-
-```powershell
-ping hubble.hpdc.local
-curl.exe -k -I https://hubble.hpdc.local
 ```
 
 > The TLS certificate for `*.hpdc.local` is a cert-manager-issued wildcard (self-signed CA for offline dev). Browsers will show a certificate warning unless you trust the dev CA; use `-k` for curl or "proceed anyway" in the browser.

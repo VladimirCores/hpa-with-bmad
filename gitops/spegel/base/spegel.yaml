@@ -40,9 +40,12 @@ spec:
           image: ghcr.io/spegel-org/spegel:v0.7.4
           imagePullPolicy: IfNotPresent
           args:
-            - --namespace=spegel
-            - --registry=registry.k8s.io
-            - --containerd-address=/run/containerd/containerd.sock
+            - registry
+            - --containerd-sock=/run/containerd/containerd.sock
+            - --registry-addr=:7979
+            - --mirrored-registries=https://registry.k8s.io
+            - --bootstrap-kind=static
+            - --data-dir=/tmp/spegel-data
           ports:
             - name: registry
               containerPort: 7979
@@ -50,6 +53,11 @@ spec:
             - name: containerd
               mountPath: /run/containerd
               readOnly: true
+      volumes:
+        - name: containerd
+          hostPath:
+            path: /run/containerd
+            type: DirectoryOrCreate
 
 ---
 apiVersion: v1

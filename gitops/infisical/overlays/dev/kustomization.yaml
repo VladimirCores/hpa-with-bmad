@@ -3,6 +3,8 @@ kind: Kustomization
 resources:
   - ../../base/infisical.yaml
   - ../../base/infisical-secret.yaml
+  - ../../base/infisical-postgres.yaml
+  - ../../base/infisical-redis.yaml
 
 # Dev explicitly binds the dev environment; the base InfisicalSecret stays on the
 # production envSlug so a future prod overlay cannot silently pull dev credentials.

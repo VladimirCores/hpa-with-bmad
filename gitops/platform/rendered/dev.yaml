@@ -92,6 +92,7 @@ data:
     staging: 7d
     prod: configurable
   topic_namespace: hpdc.telemetry
+  topicType: partitioned
 kind: ConfigMap
 metadata:
   labels:
