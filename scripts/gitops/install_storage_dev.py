@@ -285,7 +285,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Install storage backend for HPDC dev cluster")
     parser.add_argument("--offline", action="store_true", help="accepted for runner compatibility")
     parser.add_argument("--apply", action="store_true", help="install the selected storage backend")
-    parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default=os.getenv("HPDC_STORAGE_BACKEND", "rook-ceph").strip().lower(), help="storage backend to install (default: HPDC_STORAGE_BACKEND or rook-ceph)")
+    parser.add_argument("--storage", choices=["rook-ceph", "local-path"], default=os.getenv("HPDC_STORAGE_BACKEND", "local-path").strip().lower(), help="storage backend to install (default: HPDC_STORAGE_BACKEND or local-path)")
     parser.add_argument("--dry-run", action="store_true", help="validate and print commands without applying")
     parser.add_argument("--check", action="store_true", help="validate prerequisites without applying")
     args = parser.parse_args()

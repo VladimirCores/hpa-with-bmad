@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Install the HPDC Rook-Ceph dev cluster from offline GitOps manifests."""
+"""Install the HPDC Rook-Ceph staging cluster from offline GitOps manifests.
+
+Rook-Ceph is staging-only: the dev cluster uses local-path-provisioner (see
+install_storage_dev.py). This installer is selected by startup only when
+HPDC_ENV=staging and HPDC_STORAGE_BACKEND=rook-ceph (gated in startup's
+STEP_TOGGLE_MAP / _is_step_enabled).
+"""
 
 from __future__ import annotations
 
@@ -208,9 +214,9 @@ def check_scaffold() -> list[str]:
     failures = []
     required = [
         ROOT / "scripts" / "startup.dev.py",
-        ROOT / "scripts" / "steps" / "05-install-rook-ceph-dev.py",
-        ROOT / "docs" / "rook-ceph-dev-storage.md",
-        ROOT / "tests" / "test_install_rook_ceph_dev.py",
+        ROOT / "scripts" / "steps" / "05-install-rook-ceph-staging.py",
+        ROOT / "docs" / "rook-ceph-staging-storage.md",
+        ROOT / "tests" / "test_install_rook_ceph_staging.py",
     ]
     for path in required:
         if not path.exists():

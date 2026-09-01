@@ -109,6 +109,7 @@ ENABLED_DEFAULTS: dict[str, bool] = {
     "HPDC_CASBIN_ENABLED": True,
     "HPDC_PULSAR_ENABLED": True,
     "HPDC_INFISICAL_ENABLED": False,
+    "HPDC_STAGING_ENABLED": False,  # rook-ceph + staging-only components (dev uses local-path)
     "HPDC_BACKSTAGE_ENABLED": False,
     "HPDC_GRAFANA_ENABLED": False,
     "HPDC_VICTORIA_METRICS_ENABLED": False,
@@ -137,7 +138,7 @@ def _resolve_storage_backend() -> None:
     legacy HPDC_ROOK_CEPH_ENABLED / HPDC_LOCAL_PATH_ENABLED toggles are
     removed.
     """
-    backend = os.environ.get(STORAGE_BACKEND_VAR, "rook-ceph").strip().lower()
+    backend = os.environ.get(STORAGE_BACKEND_VAR, "local-path").strip().lower()
     if backend not in ("rook-ceph", "local-path"):
         raise ValueError(
             f"invalid {STORAGE_BACKEND_VAR}={backend!r}; {_STORAGE_MUTEX_REMEDIATION}"

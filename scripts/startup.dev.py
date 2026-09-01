@@ -39,7 +39,7 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "03-install-cilium-dev": ["CILIUM_ENABLED"],
     "03-install-cilium-online": ["CILIUM_ENABLED"],
     "04-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],  # mTLS + SPIRE (same step)
-    "05-install-rook-ceph-dev": ["STORAGE_BACKEND"],  # routes on HPDC_STORAGE_BACKEND
+    "05-install-rook-ceph-staging": ["STORAGE_BACKEND"],  # staging-only; gated on HPDC_STAGING_ENABLED in _is_step_enabled
     "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
     "06-install-harbor-dev": ["HARBOR_ENABLED"],
     "07-preload-harbor-cache": ["HARBOR_ENABLED"],
@@ -237,9 +237,11 @@ def _is_step_enabled(step: Step) -> bool:
     if not toggle_vars:
         return True  # no toggle mapped — always enabled
     if "STORAGE_BACKEND" in toggle_vars:
-        backend = os.environ.get("HPDC_STORAGE_BACKEND", "rook-ceph").strip().lower()
-        if stem == "05-install-rook-ceph-dev":
-            return backend == "rook-ceph"
+        backend = os.environ.get("HPDC_STORAGE_BACKEND", "local-path").strip().lower()
+        if stem == "05-install-rook-ceph-staging":
+            # Rook-Ceph is staging-only: dev always uses local-path, so rook runs
+            # only in staging (HPDC_STAGING_ENABLED=true) with a rook-ceph backend.
+            return backend == "rook-ceph" and cv.is_enabled("STAGING")
         if stem == "05-install-storage-dev":
             return True  # storage-dev handles both backends
         return True
@@ -252,6 +254,14 @@ def _step_toggle_reason(step: Step) -> str | None:
         return None
     stem = step.path.stem
     toggle_vars = STEP_TOGGLE_MAP.get(stem, ["UNKNOWN"])
+    if stem == "05-install-rook-ceph-staging":
+        # Rook-Ceph is staging-only; surface the actual gate (the STORAGE_BACKEND
+        # value is incidental) so operators see why it is skipped on dev.
+        backend = os.environ.get("HPDC_STORAGE_BACKEND", "local-path").strip().lower()
+        return (
+            f"[SKIP] {stem}: rook-ceph is staging-only "
+            f"(HPDC_STAGING_ENABLED=false; dev also uses HPDC_STORAGE_BACKEND={backend})"
+        )
     names = " / ".join(f"HPDC_{t}=false" for t in toggle_vars)
     return f"[SKIP] {stem}: component disabled via {names}"
 
@@ -457,13 +467,13 @@ def main() -> int:
     os.environ["HPDC_PROVIDER"] = args.provider
     # Derive storage default: honour HPDC_STORAGE_BACKEND from .env (load_all_dotenv
     # ran above with setdefault semantics) unless --storage was passed explicitly.
-    # qemu/rook-ceph on Talos is blocked (the rook-sec-hook mutating webhook that
-    # injects runAsUser:0 is unimplemented — see gitops/rook-ceph/base/rook-ceph.yaml),
-    # so the .env default of local-path is used when present.
+    # Dev ALWAYS defaults to local-path: rook-ceph is staging-only (gated on
+    # HPDC_STAGING_ENABLED above) because the rook-sec-hook mutating webhook that
+    # injects runAsUser:0 is unimplemented — see
+    # gitops/rook-ceph/base/rook-ceph.yaml — so rook-ceph cannot run on the dev
+    # Talos/QEMU cluster; it is reserved for a future staging cluster.
     if args.storage is None:
-        args.storage = os.getenv("HPDC_STORAGE_BACKEND") or (
-            "local-path" if args.provider in ("kind", "docker") else "rook-ceph"
-        )
+        args.storage = os.getenv("HPDC_STORAGE_BACKEND") or "local-path"
     # Wire --storage CLI flag to the storage backend toggle.
     if getattr(args, "storage", None):
         os.environ["HPDC_STORAGE_BACKEND"] = args.storage

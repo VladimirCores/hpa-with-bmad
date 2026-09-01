@@ -17,7 +17,7 @@ REQUIRED_FILES = [
     ROOT / "scripts/startup.dev.py",
     ROOT / "scripts" / "steps" / "05-install-storage-dev.py",
     ROOT / "scripts" / "gitops" / "install_storage_dev.py",
-    ROOT / "docs" / "rook-ceph-dev-storage.md",
+    ROOT / "docs" / "rook-ceph-staging-storage.md",
     ROOT / "tests" / "test_install_storage_dev.py",
 ]
 
