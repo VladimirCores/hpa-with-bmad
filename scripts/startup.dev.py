@@ -455,9 +455,15 @@ def main() -> int:
     # Export the resolved provider so step 02 (which routes on HPDC_PROVIDER)
     # follows the CLI/.env choice consistently.
     os.environ["HPDC_PROVIDER"] = args.provider
-    # Derive storage default from provider when not explicitly set.
+    # Derive storage default: honour HPDC_STORAGE_BACKEND from .env (load_all_dotenv
+    # ran above with setdefault semantics) unless --storage was passed explicitly.
+    # qemu/rook-ceph on Talos is blocked (the rook-sec-hook mutating webhook that
+    # injects runAsUser:0 is unimplemented — see gitops/rook-ceph/base/rook-ceph.yaml),
+    # so the .env default of local-path is used when present.
     if args.storage is None:
-        args.storage = "local-path" if args.provider in ("kind", "docker") else "rook-ceph"
+        args.storage = os.getenv("HPDC_STORAGE_BACKEND") or (
+            "local-path" if args.provider in ("kind", "docker") else "rook-ceph"
+        )
     # Wire --storage CLI flag to the storage backend toggle.
     if getattr(args, "storage", None):
         os.environ["HPDC_STORAGE_BACKEND"] = args.storage

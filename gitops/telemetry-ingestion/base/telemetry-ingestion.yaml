@@ -114,3 +114,56 @@ spec:
     - group: ""
       kind: Service
       name: pulsar-standalone
+
+---
+# gRPC ingestion route: hpdc.telemetry.v1.TelemetryService -> Pulsar gRPC (port 6669).
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: hpdc-telemetry-grpc-ingestion
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-grpc-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: https
+  rules:
+    - matches:
+        - ls: /hpdc.telemetry.v1.TelemetryService
+          value: /hpdc.telemetry.v1.TelemetryService
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: pulsar-telemetry-ingestion
+          port: 6669
+
+---
+# Raw TCP MQTT ingestion (listener: mqtt, port 1884) -> Pulsar MQTT (1884).
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: hpdc-telemetry-mqtt-ingestion
+  namespace: telemetry-ingestion
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-mqtt-ingestion
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: hpdc-edge
+      namespace: envoy-gateway-system
+      sectionName: mqtt
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: pulsar-telemetry-ingestion
+          port: 1884

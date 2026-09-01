@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -41,8 +42,12 @@ def validate_manifests() -> list[str]:
         failures.append("git-mirror.yaml missing Git mirror Deployment")
     if f"alpine/git:{GIT_MIRROR_IMAGE_VERSION}" not in mirror:
         failures.append("git-mirror.yaml missing Git image")
-    if "storageClassName: rook-ceph-rbd" not in mirror:
-        failures.append("git-mirror.yaml missing Rook-Ceph PVC storageClass")
+
+    # The PVC storage class must match the configured storage backend.
+    storage_backend = os.getenv("HPDC_STORAGE_BACKEND") or "rook-ceph"
+    storage_class = "local-path" if storage_backend == "local-path" else "rook-ceph-rbd"
+    if f"storageClassName: {storage_class}" not in mirror:
+        failures.append(f"git-mirror.yaml missing {storage_class} PVC storageClass")
     return failures
 
 

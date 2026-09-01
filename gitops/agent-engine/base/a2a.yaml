@@ -59,3 +59,75 @@ data:
     discovery: registered_agents_only
     transport: kafka
     topic: hpdc.agent.messages
+
+---
+# A2A broker (placeholder image: rancher/local-path-provisioner:v0.0.37, cached in Harbor).
+# Enforces authenticated agent-to-agent messaging over hpdc.agent.messages.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-broker
+  namespace: agent-engine
+  labels:
+    app.kubernetes.io/name: a2a-broker
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: a2a-broker
+  template:
+    metadata:
+      labels:
+        app: a2a-broker
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 2000
+      containers:
+        - name: a2a-broker
+          image: localhost:5000/rancher/local-path-provisioner:v0.0.37
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          env:
+            - name: A2A_AGENT_REGISTRY
+              value: agent-registry
+            - name: A2A_ROUTING_TOPIC
+              value: hpdc.agent.messages
+            - name: A2A_AUTH_CHANNEL
+              value: authenticated
+            - name: A2A_DISCOVERY
+              value: registered_agents_only
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          ports:
+            - name: grpc
+              containerPort: 443
+              protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: a2a-broker
+  namespace: agent-engine
+  labels:
+    app.kubernetes.io/name: a2a-broker
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app: a2a-broker
+  ports:
+    - name: grpc
+      port: 443
+      targetPort: grpc
+      protocol: TCP
+  type: ClusterIP

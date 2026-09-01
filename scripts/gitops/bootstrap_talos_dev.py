@@ -516,26 +516,41 @@ def sync_kubeconfigs(server: str, node_ip: str | None = None) -> None:
         fallback = Path.home() / ".kube" / "config"
         raw = fallback.read_text(encoding="utf-8") if fallback.exists() else ""
 
+    # NOTE: do NOT prune the candidate by CLUSTER_NAME prefix here. We reach
+    # this point only after destroy_existing_cluster() + purge_stale_cluster_state()
+    # have already cleared stale hpdc-talos* entries, so the merged config from
+    # `cluster create` holds exactly one fresh `admin@hpdc-talos` context.
+    # Pruning by prefix (as the old code did) strips that live context too —
+    # it cannot distinguish the live one from stale -N renames — leaving
+    # nothing, which then falsely triggers the (broken) talosctl fallback and
+    # raises, aborting the whole provision with no kubeconfig written.
     cfg = yaml.safe_load(raw) or {}
-    cfg = prune_kubeconfig_prefix(cfg, CLUSTER_NAME)
     contexts = [e for e in cfg.get("contexts", []) if isinstance(e, dict)]
     if not any(_kubeconfig_name_matches(str(e.get("name", "")), CLUSTER_NAME) for e in contexts):
         if node_ip is None:
-            raise RuntimeError("no admin credentials found for the new cluster; refusing to write empty kubeconfig")
-        generated = _generate_kubeconfig_via_talosctl(node_ip)
-        if not generated:
-            raise RuntimeError("could not materialize admin kubeconfig via talosctl; cluster create merged none")
-        # NOTE: no prefix-prune here — the generated config is already
-        # canonical for this cluster, and pruning would strip its only context.
-        cfg = yaml.safe_load(generated) or {}
+            if raw:
+                print("Warning: no hpdc-talos context matched; writing candidate config as-is.", file=sys.stderr)
+            else:
+                raise RuntimeError("no admin credentials found for the new cluster; refusing to write empty kubeconfig")
+        else:
+            generated = _generate_kubeconfig_via_talosctl(node_ip)
+            if generated:
+                cfg = yaml.safe_load(generated) or {}
+            elif raw:
+                print("Warning: talosctl kubeconfig fallback unavailable; writing candidate config as-is.", file=sys.stderr)
+            else:
+                raise RuntimeError("could not materialize admin kubeconfig via talosctl; cluster create merged none")
     cfg, count = patch_cluster_servers(cfg, server)
     text = yaml.safe_dump(cfg, default_flow_style=False)
 
-    # Under sudo, Path.home() is /root; write to the invoking user's home too.
+    # Write the canonical kubeconfig to every location downstream steps use:
+    #   - ROOT/.kube/config            (repo-local; in-process steps via KUBECONFIG)
+    #   - <user_home>/.kube/config      (cores' default ~/.kube/config)
+    #   - /root/.kube/config            (for any step that shells out via `sudo -n`,
+    #                                    whose env_reset sets HOME=/root)
     sudo_user = os.environ.get("SUDO_USER")
     user_home = Path("/home") / sudo_user if sudo_user and sudo_user != "root" else Path.home()
     targets = [ROOT / ".kube" / "config", user_home / ".kube" / "config"]
-    sudo_user = os.environ.get("SUDO_USER")
     owner = None
     if sudo_user and sudo_user != "root":
         import pwd
@@ -546,8 +561,12 @@ def sync_kubeconfigs(server: str, node_ip: str | None = None) -> None:
         os.chmod(target, 0o600)
         if owner:
             os.chown(target, owner.pw_uid, owner.pw_gid)
+    if shutil.which("sudo"):
+        subprocess.run(["sudo", "-n", "mkdir", "-p", "/root/.kube"],
+                       capture_output=True, check=False)
+        _write_with_sudo(Path("/root/.kube/config"), text)
     print(f"Patched {count} kubeconfig server(s) to {server}")
-    print(f"Wrote single-context kubeconfig to {len(targets)} location(s)")
+    print(f"Wrote single-context kubeconfig to {len(targets) + 1} location(s) (incl. /root/.kube/config)")
 
 
 def build_cluster_create_command(talosctl_cmd: list[str], args: argparse.Namespace) -> list[str]:
@@ -706,6 +725,14 @@ def provision_cluster(args: argparse.Namespace) -> None:
     # fresh state. See ensure_dirs().
     subprocess.run(["sudo", "-n", "rm", "-rf", str(TALOS_STATE_LINK)],
                    capture_output=True, check=False)
+    # Re-install the talos-state symlink NOW (not just pre-create) so talosctl
+    # writes cluster state under resources/talos/home/.talos/clusters/hpdc-talos
+    # — the canonical path rook's QEMU_DISK check and stop.dev.py expect. Without
+    # this, `cluster create --state talos-state` materializes talos-state as a
+    # root-owned real dir, which (a) roots the state outside chown coverage,
+    # (b) breaks rook's ensure_qemu_disk path, and (c) hides the cluster from
+    # stop.dev's detection so teardown can't find/kill it.
+    ensure_dirs()
 
     # Ensure ISO/CNI assets exist under every HOME talosctl might resolve
     if provider == "qemu":
@@ -865,6 +892,11 @@ def main() -> int:
         return 0
 
     provision_cluster(args)
+    # Expose the canonical, sync_kubeconfigs()-written kubeconfig to every
+    # subsequent in-process step (startup's runner executes steps in this
+    # same process). Steps that shell out to kubectl/helm with env=None
+    # inherit this; standalone runs also resolve it via ~/.kube/config.
+    os.environ["KUBECONFIG"] = str(ROOT / ".kube" / "config")
     print("Talos dev cluster bootstrap complete.")
     return 0
 

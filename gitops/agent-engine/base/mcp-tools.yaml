@@ -103,3 +103,100 @@ data:
       - parameters
       - result
     storage: vmlogs
+
+---
+# Managed MCP server (placeholder image: rancher/local-path-provisioner:v0.0.37, cached in Harbor).
+# Registered against the platform-capabilities-mcp-tools MCPToolRegistry so every
+# query_databases / call_api / trigger_workflow call is audited with agent_id,
+# tool_name, parameters, and result -> vmlogs (see mcp-audit-log-config).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: agent-engine
+  labels:
+    app.kubernetes.io/name: mcp-server
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 2000
+      containers:
+        - name: mcp-server
+          image: localhost:5000/rancher/local-path-provisioner:v0.0.37
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          env:
+            - name: MCP_TOOL_REGISTRY
+              value: platform-capabilities-mcp-tools
+            - name: MCP_AUDIT_AGENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-tool-definitions
+                  key: agent_id
+                  optional: true
+            - name: MCP_AUDIT_TOOL_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-tool-definitions
+                  key: tool_name
+                  optional: true
+            - name: MCP_AUDIT_PARAMETERS
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-tool-definitions
+                  key: parameters
+                  optional: true
+            - name: MCP_AUDIT_RESULT
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-tool-definitions
+                  key: result
+                  optional: true
+            - name: MCP_AUDIT_STORAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-audit-log-config
+                  key: storage
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server
+  namespace: agent-engine
+  labels:
+    app.kubernetes.io/name: mcp-server
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  selector:
+    app: mcp-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  type: ClusterIP

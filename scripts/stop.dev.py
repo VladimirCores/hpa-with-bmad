@@ -72,25 +72,24 @@ def talos_cluster_exists(name: str, state_dir: Path) -> bool:
     if not _has_talosctl():
         return False
 
+    # State may live at the project-local symlink (ROOT/talos-state/<name>) when
+    # the cluster was created with `--state talos-state`, or inside TALOS_HOME
+    # (resources/talos/home/.talos/clusters/<name>) when talosctl resolved the
+    # symlink target. Check both layouts.
+    for candidate in (TALOS_STATE_LINK / name, state_dir / name):
+        if candidate.exists():
+            return True
+
     # Check for Docker containers
     if _has_docker():
         result = _run(["docker", "ps", "-a", "--filter", f"label=talos.cluster.name={name}", "--format", "{{.Names}}"])
         if result.returncode == 0 and result.stdout.strip():
             return True
 
-    # Check if state directory exists (QEMU - stale or running)
-    cluster_state = state_dir / name
-    if cluster_state.exists():
-        return True
-
-    # Check talosctl cluster show (project-local HOME/state)
+    # A cluster registered in talosctl's project-local state counts as existing.
     result = _run(["talosctl", "cluster", "show", "--name", name, "--state", str(TALOS_STATE_LINK)], env=_talos_env())
-    if result.returncode == 0:
-        # Check for actual node entries
-        lines = result.stdout.splitlines()
-        for line in lines:
-            if "controlplane" in line.lower() or "worker" in line.lower():
-                return True
+    if result.returncode == 0 and result.stdout.strip():
+        return True
 
     return False
 
@@ -157,14 +156,17 @@ def talos_destroy(name: str, state_dir: Path) -> int:
         print("ERROR: QEMU processes still alive after destroy.", file=sys.stderr)
         return 1
 
-    # Remove leftover cluster state directory (disks included; registry data,
-    # ISO cache, and CNI bundle live outside the cluster lifecycle and persist)
-    cluster_state = state_dir / name
-    if cluster_state.exists():
-        print(f"Removing cluster state: {cluster_state.relative_to(ROOT)}")
-        result = _run(["sudo", "-n", "rm", "-rf", str(cluster_state)])
-        if result.returncode != 0:
-            print(f"Warning: could not remove cluster state: {result.stderr.strip()}")
+    # Remove leftover cluster state directories (disks included; registry data,
+    # ISO cache, and CNI bundle live outside the cluster lifecycle and persist).
+    # Clean both the project-local symlink layout (ROOT/talos-state/<name>) and
+    # the TALOS_HOME layout (resources/talos/home/.talos/clusters/<name>).
+    for state_path in (TALOS_STATE_LINK / name, state_dir / name):
+        if state_path.exists():
+            rel = state_path.relative_to(ROOT) if state_path.is_relative_to(ROOT) else state_path
+            print(f"Removing cluster state: {rel}")
+            result = _run(["sudo", "-n", "rm", "-rf", str(state_path)])
+            if result.returncode != 0:
+                print(f"Warning: could not remove cluster state ({state_path}): {result.stderr.strip()}")
 
     return 0
 

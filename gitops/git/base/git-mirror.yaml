@@ -209,7 +209,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: standard
+  # storageClassName follows HPDC_STORAGE_BACKEND (local-path | rook-ceph-rbd).
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi

@@ -87,8 +87,13 @@ def ensure_cilium() -> None:
 def ensure_qemu_disk() -> None:
     # Worker data disks live inside the QEMU cluster state dir; presence of the
     # cluster state is the practical proxy for 'disks attached'.
+    # talosctl writes under the --state path (talos-state), which on a clean
+    # create (ensure_dirs()) is a symlink into resources/.../clusters so it lands
+    # at QEMU_DISK/hpdc-talos. A stale real-dir layout (pre-ensure_dirs fix)
+    # lives directly under talos-state/, so accept either location.
     cluster_state = QEMU_DISK / "hpdc-talos"
-    if cluster_state.exists():
+    alt_state = ROOT / "talos-state" / "hpdc-talos"
+    if cluster_state.exists() or alt_state.exists():
         return
     raise RuntimeError(f"QEMU cluster state not found: {cluster_state}")
 

@@ -500,6 +500,33 @@ metadata:
 spec:
   gatewayClassName: hpdc-envoy-gateway
   addresses:
+  - type: IPAddress
+    value: 10.6.0.1
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+  # HTTPS edge with HTTP->HTTPS redirect and hpdc-edge-tls termination.
+  - name: https
+    port: 443
+    protocol: HTTPS
+    scheme: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: hpdc-edge-tls
+        kind: Secret
+        group: ""
+  # MQTT over TLS (telemetry ingestion).
+  - name: mqtt
+    port: 1884
+    protocol: TLS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: hpdc-edge-tls
+        kind: Secret
+        group: ""
     - type: IPAddress
       value: ${HPDC_GATEWAY_IP}
   listeners:

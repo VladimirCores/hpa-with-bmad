@@ -78,3 +78,27 @@ spec:
           - X-API-Key
 
 ---
+# gRPC authentication for the telemetry gRPC route (mirrors
+# hpdc-messaging-api-key-authn but targets GRPCRoute + telemetry-api-key).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: hpdc-telemetry-grpc-ingestion
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/name: hpdc-telemetry-grpc-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+      name: hpdc-telemetry-grpc-ingestion
+  apiKeyAuth:
+    credentialRefs:
+      - group: ""
+        kind: Secret
+        name: telemetry-api-key
+        namespace: security
+    extractFrom:
+      - headers:
+          - X-API-Key
