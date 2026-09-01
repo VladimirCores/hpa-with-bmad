@@ -17,7 +17,7 @@ component_versions.load_all_dotenv()
 ROOT = Path(__file__).resolve().parents[2]
 ROOK_VERSION = component_versions.get("HPDC_ROOK_CEPH_VERSION")
 ROOK_IMAGE_REF = f"quay.io/rook/ceph:v{ROOK_VERSION}"
-REGISTRY = "http://localhost:5000"
+REGISTRY = os.getenv("HPDC_LOCAL_REGISTRY_URL", "http://localhost:5000")
 TALOSCONFIG = ROOT / "output" / "talos" / "talosconfig"
 QEMU_DISK = ROOT / "resources" / "talos" / "home" / ".talos" / "clusters"
 ROOK_BASE = ROOT / "gitops" / "rook-ceph" / "base"

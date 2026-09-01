@@ -20,20 +20,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "output"
-MIRROR = "http://localhost:5000"
 
 sys.path.insert(0, str(ROOT / "scripts" / "gitops"))
 import component_versions  # noqa: E402
 
 component_versions.load_all_dotenv()
+# Resolve the local registry URL AFTER .env is loaded (env file > hardcoded default).
+MIRROR = os.getenv("HPDC_LOCAL_REGISTRY_URL", "http://localhost:5000")
 component_versions.resolve()
 
 # ── Image Registry ──────────────────────────────────────────────────────────
@@ -120,7 +123,7 @@ def remediation_for(image_ref: str) -> str:
     path = mirror_repo_path(image_ref) or ""
     tag = image_ref.split("@")[0].rsplit(":", 1)[-1]
     return (
-        f"skopeo copy --all docker://{image_ref} docker://localhost:5000/{path}:{tag}"
+        f"skopeo copy --all docker://{image_ref} docker://{urlparse(MIRROR).netloc}/{path}:{tag}"
         f"   (or: python3 scripts/services/mirror-image.py {image_ref} {path}:{tag})"
     )
 

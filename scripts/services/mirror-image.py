@@ -27,7 +27,7 @@ import urllib.request
 SOURCE = sys.argv[1]
 DEST = sys.argv[2]
 DEST_REPO, DEST_TAG = DEST.split(":")
-LOCAL = "http://127.0.0.1:5000"
+LOCAL = os.getenv("HPDC_LOCAL_REGISTRY_URL", "http://localhost:5000")
 CHUNK = 4 * 1024 * 1024
 _DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 

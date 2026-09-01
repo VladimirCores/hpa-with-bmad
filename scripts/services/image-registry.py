@@ -9,6 +9,7 @@ canonical config if missing.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,7 +52,7 @@ def ensure_registry() -> int:
     # Health probe
     import urllib.request
     try:
-        with urllib.request.urlopen("http://localhost:5000/v2/_catalog", timeout=5) as resp:
+        with urllib.request.urlopen(os.getenv("HPDC_LOCAL_REGISTRY_URL", "http://localhost:5000") + "/v2/_catalog", timeout=5) as resp:
             repos = len(__import__("json").load(resp).get("repositories", []))
         print(f"{CONTAINER} healthy: {repos} repos cached.")
         return 0

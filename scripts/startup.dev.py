@@ -159,7 +159,7 @@ def registry_summary() -> str:
     import json
     import urllib.request
     try:
-        with urllib.request.urlopen("http://localhost:5000/v2/_catalog", timeout=3) as resp:
+        with urllib.request.urlopen(os.getenv("HPDC_LOCAL_REGISTRY_URL", "http://localhost:5000") + "/v2/_catalog", timeout=3) as resp:
             repos = json.load(resp).get("repositories", [])
         return f"{len(repos)} image repos cached"
     except Exception:
