@@ -15,17 +15,15 @@ STEP_DESCRIPTION = "Validate HPDC telemetry simulator and acceptance harness."
 
 
 def main() -> int:
-    args = ["--offline"]
-    for arg in sys.argv[1:]:
-        if arg not in {"--offline", "--dry-run", "--check", "--apply"}:
-            args.append(arg)
-    if "--check" in sys.argv:
-        args.append("--check")
-    elif "--apply" in sys.argv:
-        args.append("--apply")
-    else:
-        args.append("--dry-run")
-    return int(subprocess.run([sys.executable, str(SCRIPT), *args], cwd=ROOT, check=False).returncode)
+    # Validation-only gate (mirrors the other app-layer manifest gates which run
+    # validate-only with --dry-run). This step "validates the telemetry simulator
+    # and acceptance harness" (config + payload generation + schema), not live
+    # emission. It must NOT be driven by startup's --apply: the simulator's
+    # --apply performs live emission against localhost:8080/1883/50051 (see
+    # output/telemetry-simulator/config.yaml), which have no listener in the
+    # offline dev cluster (envoy-gateway is itself a validate-only gate), so
+    # --apply always fails with "Connection refused" (exit 5).
+    return int(subprocess.run([sys.executable, str(SCRIPT), "--offline", "--dry-run"], cwd=ROOT, check=False).returncode)
 
 
 if __name__ == "__main__":
