@@ -1303,6 +1303,51 @@ So that operators receive actionable recommendations across alerts, entities, an
 **And** the process completes without internet access
 **And** the script exits with a non-zero status on failure
 
+## Epic 10: Production Hardening
+
+Close the verified hardening gaps surfaced by the P0 ATDD acceptance audits: full per-route security-policy coverage, malformed GitOps YAML, and overlay drift — keeping validation offline/GitOps-safe.
+
+**FRs covered:** FR-37, FR-38, FR-40, FR-44, FR-45
+**NFRs covered:** NFR17, NFR18, NFR21
+**Additional requirements:** Python 3 scripting rule, testing strategy, offline GitOps delivery.
+**UX Design Requirements:** No UX Design Requirements apply to this epic.
+
+### Story 10.1: Harden Edge Gateway Security Coverage and Fix GitOps Drift
+
+As a Platform Engineer,
+I want every edge route covered by an explicit security policy and the GitOps tree free of malformed YAML and overlay drift,
+So that the P0 route-audit and secret-scan acceptance contracts hold and no route bypasses authentication.
+
+**Acceptance Criteria:**
+
+**Given** the edge gateway routes declared in GitOps
+**When** the P0 route-table audit runs
+**Then** every `hpdc-edge` attached route has a SecurityPolicy whose targetRef resolves to it
+**And** the `hpdc-graphql-gateway` and `hpdc-telemetry-http-ingestion` routes are covered
+**And** the `envoy-ui-routes.yaml` overlay reference matches the base it extends
+**And** the harbor base manifest parses as valid YAML
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on failure
+
+### Story 10.2: Harden Route-Policy Live Config, GitOps Build Validity, Secret Isolation, and Test-Suite Robustness
+
+As a Platform Engineer,
+I want the route-policy set to be live (no shadowed SecurityPolicies, in-tree JWKS host), the GitOps tree to actually build, secret stores to enforce key-level isolation, and the P0 suite to catch regressions it currently misses,
+So that production onboarding does not silently deploy dead auth config or a non-building GitOps tree, and R-009/R-008/R-001 contracts hold.
+
+**Acceptance Criteria:**
+
+**Given** the `hpdc-edge-domain-routes` HTTPRoute and the SecurityPolicy set
+**When** the route-table audit runs with path-level awareness
+**Then** `/data`, `/api`, and `/events` carry path-level apiKeyAuth on `hpdc-edge-domain-routes`, and the duplicated `/gql` and `/telemetry` matches are removed from that route (owned by `hpdc-graphql-gateway` and `hpdc-telemetry-http-ingestion`)
+**And** no SecurityPolicy targets a route whose traffic is shadowed by an identical PathPrefix + wildcard hostname route
+**And** the JWKS host `casdoor.hpdc.local` resolves in-tree via an HTTPRoute
+**And** every overlay builds with `kustomize build --load-restrictor=LoadRestrictionsNone`
+**And** `events-key` authenticates only `/events` and `telemetry-key` only `/telemetry` (R-009)
+**And** the prod-named InfisicalSecret does not embed the dev `envSlug`
+**And** the P0 suite adds a structural GitOps build-validity check, duplicate-key YAML detection, and strict `main()` tuple guards
+**And** all existing P0 checks stay GREEN with validation remaining offline/GitOps-safe
+
 ## Epic 11: Dev Cluster Bring-Up & Verification
 
 Platform Engineer can provision, tear down, and recreate the HPDC dev cluster with idempotent persistent storage, run the full 44-step component initialization against a live Talos/QEMU cluster, and verify all live-cluster acceptance criteria (REG-01..10).
@@ -1444,50 +1489,57 @@ So that controllers, admission validation, and tooling can safely rely on the cu
 
 **Implementation notes:** Promoted from NEXT.md §A.3 follow-up candidate. Sequenced AFTER 11.5 convergence and 11.4 verification — nothing in verification depends on strict schemas; tightening earlier churns a moving tree.
 
-## Epic 10: Production Hardening
-
-Close the verified hardening gaps surfaced by the P0 ATDD acceptance audits: full per-route security-policy coverage, malformed GitOps YAML, and overlay drift — keeping validation offline/GitOps-safe.
-
-**FRs covered:** FR-37, FR-38, FR-40, FR-44, FR-45
-**NFRs covered:** NFR17, NFR18, NFR21
-**Additional requirements:** Python 3 scripting rule, testing strategy, offline GitOps delivery.
-**UX Design Requirements:** No UX Design Requirements apply to this epic.
-
-### Story 10.1: Harden Edge Gateway Security Coverage and Fix GitOps Drift
+### Story 11.7: Centralize Component Image Versions in .env with Preflight Gate
 
 As a Platform Engineer,
-I want every edge route covered by an explicit security policy and the GitOps tree free of malformed YAML and overlay drift,
-So that the P0 route-audit and secret-scan acceptance contracts hold and no route bypasses authentication.
+I want every upstream component image version resolved from `.env` / `.env.example` through one shared resolver,
+so that I can choose what versions get installed in the cluster in one place, and version drift between installers, GitOps manifests, image cache, and tests becomes structurally impossible.
 
 **Acceptance Criteria:**
 
-**Given** the edge gateway routes declared in GitOps
-**When** the P0 route-table audit runs
-**Then** every `hpdc-edge` attached route has a SecurityPolicy whose targetRef resolves to it
-**And** the `hpdc-graphql-gateway` and `hpdc-telemetry-http-ingestion` routes are covered
-**And** the `envoy-ui-routes.yaml` overlay reference matches the base it extends
-**And** the harbor base manifest parses as valid YAML
-**And** the process completes without internet access
-**And** the script exits with a non-zero status on failure
+**Given** a fresh clone of the repo
+**When** `.env.example` is copied to `.env` and any consumer resolves component versions
+**Then** every `HPDC_<COMPONENT>_VERSION` resolves to an exact pinned version — zero `:latest` tags remain in `scripts/`, committed `gitops/**` bases, or rendered artifacts
+**And** existing-environment variables win over `.env` values
+**And** defaults equal the reconciled per-component truth table in Dev Notes
 
-### Story 10.2: Harden Route-Policy Live Config, GitOps Build Validity, Secret Isolation, and Test-Suite Robustness
+**Given** a user changes one component version in `.env`
+**When** `python3 scripts/gitops/render_overlays.py` runs
+**Then** regenerated `gitops/<comp>/rendered/dev.yaml` files carry the new tag for every image of that component
+**And** `gitops/<comp>/base/*.yaml` and `overlays/` remain byte-identical
+**And** re-running render with unchanged `.env` is byte-stable (idempotent)
+
+**Given** a chosen version's images are absent from the local registry mirror
+**When** any consumer resolves versions before cluster operations
+**Then** resolution fails fast with non-zero exit BEFORE any cluster/mirror mutation
+**And** the failure prints, per missing ref, the exact remediation command
+
+**Given** `pytest tests/ -q` runs
+**When** tests assert on versions/image refs
+**Then** assertions use resolver-derived values, not duplicated literals
+
+**Given** the story completes
+**When** Epic 11 is finalized
+**Then** all 41 catalogued component images are present in localhost:5000 with correct versions
+
+### Story 11.8: Component Feature Toggles via .env
 
 As a Platform Engineer,
-I want the route-policy set to be live (no shadowed SecurityPolicies, in-tree JWKS host), the GitOps tree to actually build, secret stores to enforce key-level isolation, and the P0 suite to catch regressions it currently misses,
-So that production onboarding does not silently deploy dead auth config or a non-building GitOps tree, and R-009/R-008/R-001 contracts hold.
+I want per-component and per-sub-system feature toggles (`*_ENABLED=true|false`) in `.env` files,
+so that I can enable only the components I need for a given deployment (dev/prod).
 
 **Acceptance Criteria:**
 
-**Given** the `hpdc-edge-domain-routes` HTTPRoute and the SecurityPolicy set
-**When** the route-table audit runs with path-level awareness
-**Then** `/data`, `/api`, and `/events` carry path-level apiKeyAuth on `hpdc-edge-domain-routes`, and the duplicated `/gql` and `/telemetry` matches are removed from that route (owned by `hpdc-graphql-gateway` and `hpdc-telemetry-http-ingestion`)
-**And** no SecurityPolicy targets a route whose traffic is shadowed by an identical PathPrefix + wildcard hostname route
-**And** the JWKS host `casdoor.hpdc.local` resolves in-tree via an HTTPRoute
-**And** every overlay builds with `kustomize build --load-restrictor=LoadRestrictionsNone`
-**And** `events-key` authenticates only `/events` and `telemetry-key` only `/telemetry` (R-009)
-**And** the prod-named InfisicalSecret does not embed the dev `envSlug`
-**And** the P0 suite adds a structural GitOps build-validity check, duplicate-key YAML detection, and strict `main()` tuple guards
-**And** all existing P0 checks stay GREEN with validation remaining offline/GitOps-safe
+**Given** `.env.dev` and `.env.prod` exist with toggle variables
+**When** the user selects components via `*_ENABLED=true|false`
+**Then** only enabled components are installed during `startup.dev.py`
+**And** disabled components are skipped with state `skipped` in status report
+**And** core components (Cilium, Hubble, Harbor, Spegel) are always `true` and non-overrideable
+
+**Given** a component has `HPDC_<COMPONENT>_ENABLED=false`
+**When** `render_overlays.py` runs
+**Then** the component's ArgoCD Application is excluded from `gitops/apps/`
+**And** ArgoCD only syncs enabled applications
 
 ## Epic 12: DRY Principle Investigation & Refactoring
 

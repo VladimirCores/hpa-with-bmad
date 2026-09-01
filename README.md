@@ -92,15 +92,19 @@ All configuration must be centralized in `.env` — no hardcoded IPs, ports, dom
 
 ### DNS / gateway address for `*.hpdc.local`
 
-The dev cluster is fully offline. The Envoy Gateway edge address is **`172.18.0.2`**
-(the Cilium L2 LoadBalancer IP assigned to the `envoy-*` Service in
-`envoy-gateway-system`; see `gitops/envoy-gateway/base/envoy-gateway.yaml`). All
-`*.hpdc.local` hostnames resolve here. Map them on your host:
+The dev cluster is fully offline. The Envoy Gateway edge address is the value of
+**`HPDC_GATEWAY_IP`** in `.env` (default `172.18.0.2`), i.e. the Cilium L2
+LoadBalancer IP assigned to the `envoy-*` Service in `envoy-gateway-system` (see
+`gitops/envoy-gateway/base/envoy-gateway.yaml` and
+`gitops/cilium/base/cilium-loadbalancer-ippool.yaml`). All `*.hpdc.local`
+hostnames resolve there. Map them on your host (`HPDC_GATEWAY_IP` is loaded from
+`.env` by `scripts/startup.dev.py`):
 
 **Option A — `/etc/hosts` (per-hostname):**
 ```bash
-echo "172.18.0.2 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
-echo "172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local" | sudo tee -a /etc/hosts
+GATEWAY_IP="${HPDC_GATEWAY_IP:-172.18.0.2}"
+echo "$GATEWAY_IP harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
+echo "$GATEWAY_IP backstage.hpdc.local hubble.hpdc.local admin.hpdc.local" | sudo tee -a /etc/hosts
 ```
 
 **Option B — dnsmasq wildcard (all `*.hpdc.local`):**
@@ -108,7 +112,7 @@ echo "172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local" | sudo
 sudo dnf install dnsmasq
 
 sudo tee /etc/dnsmasq.d/hpdc.conf << 'EOF'
-address=/hpdc.local/172.18.0.2
+address=/hpdc.local/${HPDC_GATEWAY_IP:-172.18.0.2}
 no-resolv
 EOF
 
@@ -282,12 +286,13 @@ python3 scripts/startup.dev.py --offline --dry-run --step 15-validate-offline-gi
 
 All cluster components are reached through the Envoy Gateway single entry point,
 which serves the wildcard host `*.hpdc.local`. The `envoy-*` Service is a Cilium
-LoadBalancer whose external IP is **172.18.0.2** (see
-`gitops/envoy-gateway/base/envoy-gateway.yaml`).
+LoadBalancer whose external IP is the value of `HPDC_GATEWAY_IP` from `.env`
+(default `172.18.0.2`; see `gitops/envoy-gateway/base/envoy-gateway.yaml` and
+`gitops/cilium/base/cilium-loadbalancer-ippool.yaml`).
 
 ```bash
 kubectl -n envoy-gateway-system get svc
-# envoy-envoy-gateway-system-hpdc-edge-...  LoadBalancer  10.97.127.64  172.18.0.2
+# envoy-envoy-gateway-system-hpdc-edge-...  LoadBalancer  10.97.127.64  <HPDC_GATEWAY_IP from .env>
 ```
 
 | Component | URL |
@@ -306,26 +311,29 @@ Native tool auth is enforced per tool (e.g. Backstage signs in via Casdoor); Cas
 
 ### Hosts file setup
 
-Map the hostnames above to `172.18.0.2`. (For the full wildcard, see
+Map the hostnames above to the value of `HPDC_GATEWAY_IP` from `.env` (default
+`172.18.0.2`). (For the full wildcard, see
 [DNS / gateway address](#dns--gateway-address-for-hpdclocal) in Prerequisites.)
 
 **Linux:**
 ```bash
-echo "172.18.0.2 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
-echo "172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local casdoor.hpdc.local" | sudo tee -a /etc/hosts
+GATEWAY_IP="${HPDC_GATEWAY_IP:-172.18.0.2}"
+echo "$GATEWAY_IP harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local" | sudo tee -a /etc/hosts
+echo "$GATEWAY_IP backstage.hpdc.local hubble.hpdc.local admin.hpdc.local casdoor.hpdc.local" | sudo tee -a /etc/hosts
 ```
 
 **macOS:**
 ```bash
-echo "172.18.0.2 *.hpdc.local" | sudo tee -a /etc/hosts
-# or install dnsmasq `brew install dnsmasq` and point it at 172.18.0.2
+GATEWAY_IP="${HPDC_GATEWAY_IP:-172.18.0.2}"
+echo "$GATEWAY_IP *.hpdc.local" | sudo tee -a /etc/hosts
+# or install dnsmasq `brew install dnsmasq` and point it at $GATEWAY_IP
 ```
 
 **Windows** (Notepad as Administrator → `C:\Windows\System32\drivers\etc\hosts`):
 ```
-172.18.0.2 harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local
-172.18.0.2 backstage.hpdc.local hubble.hpdc.local admin.hpdc.local casdoor.hpdc.local
-172.18.0.2 hpdc.local api.hpdc.local gql.hpdc.local telemetry.hpdc.local events.hpdc.local
+<GATEWAY_IP> harbor.hpdc.local argocd.hpdc.local grafana.hpdc.local
+<GATEWAY_IP> backstage.hpdc.local hubble.hpdc.local admin.hpdc.local casdoor.hpdc.local
+<GATEWAY_IP> hpdc.local api.hpdc.local gql.hpdc.local telemetry.hpdc.local events.hpdc.local
 ```
 
 Flush the DNS cache:

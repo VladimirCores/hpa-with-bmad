@@ -15,6 +15,7 @@ the catalog (CRD bundles, custom project builds) pass through untouched.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -28,6 +29,25 @@ GITOPS = ROOT / "gitops"
 _IMAGE_LINE = re.compile(
     r'^(\s*(?:-\s*)?image:\s*)(["\']?)([^:"\'\s]+):([^"\'#\s]+)\2(\s*#.*)?$'
 )
+
+# ${HPDC_*} placeholders in base manifests are expanded from the live env at
+# render time. component_versions.load_all_dotenv() (called in main()) uses
+# os.environ.setdefault, so an actual runtime env var always wins over .env.
+_ENV_VAR = re.compile(r"\$\{(HPDC_[A-Z0-9_]+)\}")
+
+
+def substitute_env(text: str) -> str:
+    """Expand ${HPDC_*} placeholders from the live environment.
+
+    Only HPDC_-prefixed placeholders are touched, so unrelated ${...} tokens in
+    Kubernetes templates pass through untouched. A placeholder whose variable is
+    unset is left intact (match.group(0)) so a missing provisioning value is
+    visible in the rendered output rather than silently blanking a manifest.
+    """
+    def repl(match: re.Match[str]) -> str:
+        key = match.group(1)
+        return os.environ.get(key, match.group(0))
+    return _ENV_VAR.sub(repl, text)
 
 
 def substitute_images(text: str) -> tuple[str, list[tuple[str, str, str]]]:
@@ -71,7 +91,8 @@ def render(component: Path) -> int:
     if result.returncode != 0:
         print(f"FAIL {component.name}: {result.stderr.strip()[:300]}")
         return 1
-    rendered, changes = substitute_images(result.stdout)
+    env_subbed = substitute_env(result.stdout)
+    rendered, changes = substitute_images(env_subbed)
     target = out_dir / "dev.yaml"
     if target.exists() and target.read_text(encoding="utf-8") == rendered:
         print(f"OK   {component.name} -> gitops/{component.name}/rendered/dev.yaml (unchanged)")

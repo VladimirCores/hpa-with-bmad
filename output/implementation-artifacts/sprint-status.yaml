@@ -1,5 +1,5 @@
 # generated: 2026-08-06T00:00:00Z
-# last_updated: 2026-08-26T18:00:00Z
+# last_updated: 2026-09-01T06:57:25+03:00
 # project: High Performance Distributed Cluster (HPDC)
 # project_key: NOKEY
 # tracking_system: file-system
@@ -138,7 +138,7 @@ development_status:
   10-2-harden-gitops-and-route-policy-live-config: done
   epic-10-retrospective: done
 
-  epic-11: in-progress
+  epic-11: done
   11-1-dev-cluster-vm-provisioning-lifecycle: done
   11-2-idempotent-startup-with-persistent-storage: done
   11-3-live-component-initialization: done
@@ -155,10 +155,11 @@ development_status:
   q1-firewalld-zone-for-qemu-provisioner: done # zone persists by design; reviewed
   q2-migrate-dev-cluster-docker-to-qemu: done # code-reviewed 2026-08-25: 34 patches applied, 3 deferred, 2 dismissed
 
-  # Epic 12: Docker (kind) dev provisioning — both providers coexist, .env selects
-  epic-12: in-progress
+  # Epic 12: Three dev-cluster providers (kind/docker/qemu) with .env selection
+  epic-12: done
   12-1-docker-kind-default-dev-provisioning-with-local-path: done # HPDC_PROVIDER in {kind,docker,qemu}; kind=kind+local-path(fast default), docker=Talos-on-Docker+local-path, qemu=Talos/QEMU+rook-ceph(prod-eval); all tear down running cluster before recreate; add HPDC_DISK_CAPACITY_WORKER/HPDC_DISK_CAPACITY_CONTROL_PLANE to .env
   12-2-split-env-into-three-config-layers: done # COMPLETED 2026-08-31: 10/10 tasks + 5 review patches; three-layer split (.env / .env.components / .env.versions); load_all_dotenv() consolidates 25+ call sites + 7 test files; zero cross-layer duplicates; reverted bundled YAML changes (git-mirror storageClass, rook restartPolicy/image prefix); added Pulsar version pins
+  12-3-centralize-gateway-ip-and-cilium-lb-range-in-env: done # COMPLETED 2026-09-01: HPDC_GATEWAY_IP + HPDC_CILIUM_LB_POOL_RANGE added to .env/.env.example; base manifests use ${HPDC_*} placeholders; render_overlays.py env-substitution implemented; README updated to use HPDC_GATEWAY_IP variable; no hardcoded IPs in base manifests
 
 action_items:
   - epic: 10
