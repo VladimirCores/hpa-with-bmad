@@ -24,6 +24,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -100,26 +101,53 @@ def talos_cluster_exists(name: str, state_dir: Path) -> bool:
     return False
 
 
-def kill_cluster_qemu() -> int:
-    """SIGTERM only QEMU processes referencing this cluster's state path."""
-    killed = 0
-    seen = set()
+def _qemu_pids() -> list[str]:
+    """PIDs of QEMU processes referencing this cluster (both state layouts)."""
     root = str(ROOT)
+    pids: list[str] = []
+    seen: set[str] = set()
     for marker in (f"qemu-system.*{root}/talos-state/{TALOS_CLUSTER_NAME}",
                    f"qemu-system.*clusters/{TALOS_CLUSTER_NAME}"):
         result = _run(["pgrep", "-f", marker])
         if result.returncode != 0:
             continue
         for pid in result.stdout.split():
-            if not pid.isdigit() or pid in seen:
-                continue
-            seen.add(pid)
-            if _run(["sudo", "-n", "kill", "-15", pid]).returncode == 0:
-                killed += 1
-    if len(seen) > killed:
-        print(f"Warning: {len(seen)-killed} QEMU process(es) could not be signalled "
-              "(sudo -n unavailable?)", file=__import__('sys').stderr)
-    return killed
+            if pid.isdigit() and pid not in seen:
+                seen.add(pid)
+                pids.append(pid)
+    return pids
+
+
+def kill_cluster_qemu() -> int:
+    """SIGTERM (then SIGKILL stragglers) QEMU processes for this cluster.
+
+    Waits for QEMU to exit before returning so the caller can safely remove the
+    cluster state directory: QEMU releases its sockets/disks on exit, and
+    removing the state dir while a QEMU is still dying yields "Directory not
+    empty" (the cause of startup's own pre-provision teardown abort).
+    """
+    pids = _qemu_pids()
+    if not pids:
+        return 0
+    for pid in pids:
+        _run(["sudo", "-n", "kill", "-15", pid])
+    deadline = time.perf_counter() + 8.0
+    while time.perf_counter() < deadline:
+        if not _qemu_pids():
+            return len(pids)
+        time.sleep(0.5)
+    for pid in _qemu_pids():
+        _run(["sudo", "-n", "kill", "-9", pid])
+    deadline = time.perf_counter() + 5.0
+    while time.perf_counter() < deadline:
+        if not _qemu_pids():
+            break
+        time.sleep(0.5)
+    remaining = _qemu_pids()
+    if remaining:
+        print(f"Warning: {len(remaining)} QEMU process(es) survived SIGKILL.",
+              file=sys.stderr)
+    return len(pids) - len(remaining)
 
 
 def talos_destroy(name: str, state_dir: Path) -> int:
@@ -154,11 +182,13 @@ def talos_destroy(name: str, state_dir: Path) -> int:
     # Remove Docker network if it exists
     _run(["docker", "network", "rm", name])
 
-    # Kill any remaining QEMU processes; their death is the real success signal
+    # Kill any remaining QEMU processes; their death is the real success signal.
+    # kill_cluster_qemu waits for QEMU to exit (SIGKILL stragglers) so the state
+    # directory is unlocked before we rm it.
     killed = kill_cluster_qemu()
     if killed:
         print(f"Killed {killed} QEMU process(es).")
-    elif _run(["pgrep", "-f", f"qemu-system.*clusters/{name}"]).returncode == 0:
+    elif _qemu_pids():
         print("ERROR: QEMU processes still alive after destroy.", file=sys.stderr)
         return 1
 
@@ -166,13 +196,22 @@ def talos_destroy(name: str, state_dir: Path) -> int:
     # ISO cache, and CNI bundle live outside the cluster lifecycle and persist).
     # Clean both the project-local symlink layout (ROOT/talos-state/<name>) and
     # the TALOS_HOME layout (resources/talos/home/.talos/clusters/<name>).
+    # Retry:QEMU may still be releasing sockets/disks on SIGTERM, in which case
+    # `rm -rf` sees "Directory not empty" until the process is fully gone.
     for state_path in (TALOS_STATE_LINK / name, state_dir / name):
         if state_path.exists():
             rel = state_path.relative_to(ROOT) if state_path.is_relative_to(ROOT) else state_path
             print(f"Removing cluster state: {rel}")
-            result = _run(["sudo", "-n", "rm", "-rf", str(state_path)])
-            if result.returncode != 0:
-                print(f"Warning: could not remove cluster state ({state_path}): {result.stderr.strip()}")
+            removed = False
+            for _attempt in range(5):
+                _run(["sudo", "-n", "rm", "-rf", str(state_path)])
+                if not state_path.exists():
+                    removed = True
+                    break
+                time.sleep(1.0)
+            if not removed:
+                print(f"Warning: could not remove cluster state ({state_path}) after retries.",
+                      file=sys.stderr)
 
     return 0
 
