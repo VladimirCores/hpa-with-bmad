@@ -86,8 +86,14 @@ def talos_cluster_exists(name: str, state_dir: Path) -> bool:
         if result.returncode == 0 and result.stdout.strip():
             return True
 
-    # A cluster registered in talosctl's project-local state counts as existing.
-    result = _run(["talosctl", "cluster", "show", "--name", name, "--state", str(TALOS_STATE_LINK)], env=_talos_env())
+    # A running QEMU cluster is the definitive "alive" signal — pgrep matches
+    # the qemu-system cmdline referencing this cluster's state path. We
+    # deliberately do NOT use `talosctl cluster show` here: it reads the
+    # project-local talosconfig which retains a stale cluster registration
+    # even after the state dir is deleted, producing false positives that
+    # caused startup to abort its own pre-provision teardown.
+    root = str(ROOT)
+    result = _run(["pgrep", "-f", f"qemu-system.*{root}/talos-state/{name}"])
     if result.returncode == 0 and result.stdout.strip():
         return True
 
