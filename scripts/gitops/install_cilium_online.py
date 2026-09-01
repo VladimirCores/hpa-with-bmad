@@ -137,7 +137,13 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="validate and print commands without applying")
     parser.add_argument("--check", action="store_true", help="validate prerequisites without applying")
     parser.add_argument("--verify", action="store_true", help="verify existing installation")
+    parser.add_argument("--apply", action="store_true", help="install Cilium (online); no-op under --offline)")
     args = parser.parse_args()
+
+    if args.offline:
+        print("online Cilium install skipped in --offline mode "
+              "(03-install-cilium-dev handles offline installs).")
+        return 0
 
     if args.check:
         print("Cilium installation prerequisites validated.")

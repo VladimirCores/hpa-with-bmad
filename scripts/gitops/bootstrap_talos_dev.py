@@ -62,12 +62,17 @@ def ensure_dirs() -> None:
     TALOSCONFIG.parent.mkdir(parents=True, exist_ok=True)
     for directory in (TALOS_STATE_DIR, TALOS_CACHE_DIR, TALOS_CNI_BIN):
         directory.mkdir(parents=True, exist_ok=True)
-    if TALOS_STATE_LINK.exists() and not TALOS_STATE_LINK.is_symlink():
-        raise RuntimeError(
-            f"{TALOS_STATE_LINK} exists but is not the required symlink to {TALOS_STATE_DIR}; "
-            "remove or rename it and re-run."
-        )
     if not TALOS_STATE_LINK.is_symlink():
+        # talosctl `cluster create --state <link>` mkdirs the state path itself
+        # and aborts (EEXIST) if it already exists; a prior create may have left
+        # talos-state as a real dir (or stale symlink). teardown_existing_cluster()
+        # has already torn down any live cluster by the time ensure_dirs() runs,
+        # so clearing it is safe. Use `sudo rm -rf` because a prior root-run create
+        # may have left talos-state root-owned (rmtree as cores cannot unlink
+        # root-owned contents). `rm -rf` on a symlink removes the LINK, not its
+        # target — TALOS_STATE_DIR (under resources/) is preserved.
+        subprocess.run(["sudo", "-n", "rm", "-rf", str(TALOS_STATE_LINK)],
+                       capture_output=True, check=False)
         TALOS_STATE_LINK.symlink_to(TALOS_STATE_DIR.relative_to(ROOT), target_is_directory=True)
 
 
@@ -177,7 +182,14 @@ def talos_env() -> dict[str, str]:
 def talosctl_command() -> list[str]:
     talosctl = resolve_talosctl()
     if shutil.which("sudo"):
-        return ["sudo", "-n", "-E", talosctl]
+        # `sudo -E` nominally preserves the caller environment, but sudoers
+        # env_reset resets HOME to the target user's home (/root). That silently
+        # defeats the HOME pin in talos_env() and redirects talosctl's cache and
+        # merged configs into /root/.talos, surfacing as "cannot seed /root/.talos:
+        # Permission denied" and aborting config-apply. Force HOME through `env`
+        # AFTER sudo so it survives the reset and talosctl keeps using
+        # resources/talos/home (the project-intended, gitignored runtime dir).
+        return ["sudo", "-n", "env", f"HOME={TALOS_HOME}", talosctl]
     return [talosctl]
 
 
@@ -466,9 +478,9 @@ def _generate_kubeconfig_via_talosctl(node_ip: str) -> str | None:
     tmpdir = tempfile.mkdtemp(prefix="hpdc-kubeconfig-")
     try:
         result = subprocess.run(
-            ["sudo", "-n", "-E", resolve_talosctl(),
+            [*talosctl_command(),
              "--talosconfig", str(talosconfig),
-             "-n", node_ip, "kubeconfig", tmpdir, "--force"],
+             "-n", node_ip, "--insecure", "kubeconfig", tmpdir, "--force"],
             capture_output=True, text=True, check=False, env=talos_env(),
         )
         generated = Path(tmpdir) / "kubeconfig"
@@ -687,6 +699,14 @@ def provision_cluster(args: argparse.Namespace) -> None:
     # Destroy existing cluster first
     destroy_existing_cluster()
 
+    # `talosctl cluster create --state <dir>` calls os.Mkdir on the state path
+    # and aborts (EEXIST) if it already exists (it mkdirs, not mkdirall).
+    # ensure_dirs() installs talos-state as a symlink; destroy above leaves it in
+    # place. Clear it (root-owned stale real dir or symlink) so create installs
+    # fresh state. See ensure_dirs().
+    subprocess.run(["sudo", "-n", "rm", "-rf", str(TALOS_STATE_LINK)],
+                   capture_output=True, check=False)
+
     # Ensure ISO/CNI assets exist under every HOME talosctl might resolve
     if provider == "qemu":
         seed_talos_assets()
@@ -705,6 +725,17 @@ def provision_cluster(args: argparse.Namespace) -> None:
             "the node-readiness wait times out with cni=none. Verifying API server...",
             file=sys.stderr,
         )
+
+    # talosctl ran as root (via sudo) with HOME=TALOS_HOME, so it wrote the
+    # merged admin kubeconfig + talosconfig as root-owned 0600 into the
+    # cores-owned TALOS_HOME. This process runs as cores and must read them for
+    # sync_kubeconfigs() below and every downstream kubectl/helm step — hand
+    # ownership back to the invoking user so they are not PermissionError'd.
+    subprocess.run(
+        ["sudo", "-n", "chown", "-R", f"{os.getuid()}:{os.getgid()}",
+         str(TALOS_HOME / ".kube"), str(TALOS_HOME / ".talos")],
+        capture_output=True, text=True, check=False,
+    )
 
     # Sync kubeconfig based on provider
     if provider == "qemu":
