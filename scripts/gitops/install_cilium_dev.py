@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[2]
 CILIUM_VERSION = component_versions.get("HPDC_CILIUM_VERSION")
 CILIUM_BASE = ROOT / "gitops" / "cilium" / "base"
 CILIUM_OVERLAY = ROOT / "gitops" / "cilium" / "overlays" / "dev"
+# Local Helm chart (platform/charts) is the offline source of truth; fall back to
+# the `cilium/cilium` repo shorthand only when the local package is absent.
+CILIUM_CHART = ROOT / "platform" / "charts" / f"cilium-{CILIUM_VERSION}.tgz"
 
 TALOS_CILIUM_VALUES = {
     "kubeProxyReplacement": "true",
@@ -72,8 +75,9 @@ def install_cilium_helm(args: argparse.Namespace) -> None:
     values_args.extend(["--set", f"k8sServiceHost={host}"])
     values_args.extend(["--set", f"k8sServicePort={port}"])
 
+    chart_ref = str(CILIUM_CHART) if CILIUM_CHART.exists() else "cilium/cilium"
     run([
-        helm, "upgrade", "--install", "cilium", "cilium/cilium",
+        helm, "upgrade", "--install", "cilium", chart_ref,
         "--namespace", "kube-system",
         "--version", CILIUM_VERSION,
         *values_args,
