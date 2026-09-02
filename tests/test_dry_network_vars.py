@@ -20,7 +20,7 @@ GITOPS = ROOT / "gitops"
 # Network IPs that MUST be defined as variables, not literals
 NETWORK_IPS = {
     "HPDC_GATEWAY_IP": "172.18.0.2",
-    "HPDC_CILIUM_LB_POOL_RANGE": "192.168.100.200/32",
+    "HPDC_CILIUM_LB_POOL_RANGE": "172.18.0.0/24",
 }
 
 

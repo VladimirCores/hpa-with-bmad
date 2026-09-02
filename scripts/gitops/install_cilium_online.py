@@ -20,6 +20,7 @@ component_versions.load_all_dotenv()
 component_versions.resolve()
 CILIUM_VERSION = component_versions.get("HPDC_CILIUM_VERSION")
 CILIUM_NAMESPACE = "kube-system"
+CILIUM_BASE = ROOT / "gitops" / "cilium" / "base"
 CLUSTER_NAME = "hpdc-talos"
 
 
@@ -64,6 +65,7 @@ def install_cilium_with_helm() -> None:
         "--set", "ipv4NativeRoutingCIDR=10.244.0.0/16",
         "--set", "autoDirectNodeRoutes=true",
         "--set", "bpf.masquerade=true",
+        "--set", "l2NeighDiscovery.enabled=true",
     ])
 
     # Wait for Cilium to be ready
@@ -73,6 +75,24 @@ def install_cilium_with_helm() -> None:
     # Remove kube-proxy (Cilium replaces it)
     print("Removing kube-proxy (Cilium replaces it)...")
     run(["kubectl", "delete", "ds", "kube-proxy", "-n", CILIUM_NAMESPACE])
+
+    # Apply shared Cilium L2 LoadBalancer resources from rendered manifest
+    print("Applying Cilium L2 LoadBalancer resources...")
+    rendered = ROOT / "gitops" / "cilium" / "rendered" / "dev.yaml"
+    if not rendered.exists():
+        raise RuntimeError(f"Rendered manifest not found: {rendered}")
+    # Extract only L2 resources from the rendered manifest
+    content = rendered.read_text(encoding="utf-8")
+    l2_kinds = ("kind: CiliumL2AnnouncementPolicy", "kind: CiliumLoadBalancerIPPool")
+    docs = content.split("---")
+    l2_docs = [doc.strip() for doc in docs if any(k in doc for k in l2_kinds)]
+    for doc in l2_docs:
+        result = subprocess.run(
+            ["kubectl", "apply", "-f", "-"],
+            input=doc, capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"kubectl apply failed: {result.stderr.strip()}")
 
     print("Cilium installed successfully with kube-proxy replacement.")
 

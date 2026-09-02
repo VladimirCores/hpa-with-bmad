@@ -40,6 +40,10 @@ TALOS_CILIUM_VALUES = {
     "hubble.enabled": "true",
     "hubble.relay.enabled": "true",
     "hubble.ui.enabled": "true",
+    # Cilium L2 LoadBalancer — enables L2 neighbor discovery so
+    # CiliumL2AnnouncementPolicy and CiliumLoadBalancerIPPool CRDs
+    # can announce LoadBalancer IPs on the local network.
+    "l2NeighDiscovery.enabled": "true",
 }
 
 
@@ -58,6 +62,33 @@ def get_k8s_service_host_port() -> tuple[str, str]:
     )
     host = result.stdout.strip()
     return host, "6443"
+
+
+def apply_l2_resources(kubectl: str) -> None:
+    """Apply CiliumL2AnnouncementPolicy and CiliumLoadBalancerIPPool from
+    rendered gitops manifests. These must be applied after the Cilium CRDs
+    are established (post Helm install + rollout)."""
+    rendered = ROOT / "gitops" / "cilium" / "rendered" / "dev.yaml"
+    if not rendered.exists():
+        raise RuntimeError(f"Rendered manifest not found: {rendered}")
+    # Extract only the L2 resources (CiliumL2AnnouncementPolicy and
+    # CiliumLoadBalancerIPPool) from the rendered manifest.  The rendered
+    # file also contains a Cilium CRD resource that requires CRDs not
+    # present in the Helm chart, so we skip it.
+    content = rendered.read_text(encoding="utf-8")
+    l2_kinds = ("kind: CiliumL2AnnouncementPolicy", "kind: CiliumLoadBalancerIPPool")
+    docs = content.split("---")
+    l2_docs = [doc.strip() for doc in docs if any(k in doc for k in l2_kinds)]
+    if not l2_docs:
+        raise RuntimeError(f"No L2 resources found in {rendered}")
+    for doc in l2_docs:
+        result = subprocess.run(
+            [kubectl, "apply", "-f", "-"],
+            input=doc, capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"kubectl apply failed: {result.stderr.strip()}")
+    print("Cilium L2 LoadBalancer resources applied.")
 
 
 def install_cilium_helm(args: argparse.Namespace) -> None:
@@ -87,12 +118,15 @@ def install_cilium_helm(args: argparse.Namespace) -> None:
     run([kubectl, "rollout", "status", "deployment/cilium-operator", "-n", "kube-system", "--timeout=300s"])
     run([kubectl, "get", "pods", "-n", "kube-system", "-l", "k8s-app=cilium"])
 
+    apply_l2_resources(kubectl)
+
 
 def check_scaffold() -> list[str]:
     failures = []
     required = [
         ROOT / "scripts" / "startup.dev.py",
         ROOT / "scripts" / "steps" / "03-install-cilium-dev.py",
+        ROOT / "gitops" / "cilium" / "rendered" / "dev.yaml",
     ]
     for path in required:
         if not path.exists():
@@ -133,6 +167,7 @@ def main() -> int:
         print(f"k8sServicePort: {port}")
         for key, value in TALOS_CILIUM_VALUES.items():
             print(f"  {key}: {value}")
+        print(f"L2 resources: {ROOT / 'gitops' / 'cilium' / 'rendered' / 'dev.yaml'}")
         return 0
 
     print("Cilium install requires --dry-run or --apply.", file=sys.stderr)

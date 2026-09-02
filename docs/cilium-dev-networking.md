@@ -2,60 +2,55 @@
 
 ## Purpose
 
-Install Cilium 1.19.6 on the offline Talos dev cluster with `kubeProxyReplacement:true`, L2 load balancing, `CiliumL2AnnouncementPolicy`, and `CiliumLoadBalancerIPPool`.
+Install Cilium on the offline Talos dev cluster with `kubeProxyReplacement:true`, L2 load balancing, `CiliumL2AnnouncementPolicy`, and `CiliumLoadBalancerIPPool`.
 
 ## Required offline artifacts
 
-- `output/qemu/talos-v1.img` from Story 1.2
-- `output/talos/talosconfig` from Story 1.2
-- Pre-cached Cilium 1.19.6 images at `output/cilium/images/cilium-agent-v1.19.6`
+- `output/talos/talosconfig` from cluster bootstrap
+- Local Cilium Helm chart at `platform/charts/cilium-<version>.tgz`
 
-## GitOps overlay
+## Helm values (L2 LoadBalancer)
 
-Cilium manifests are staged under:
+The Cilium installer sets these Helm values for L2 LoadBalancer support:
 
-```text
-gitops/cilium/overlays/dev/kustomization.yaml
+| Helm Value | Purpose |
+|------------|---------|
+| `l2NeighDiscovery.enabled=true` | Enables L2 neighbor discovery (ARP/NDP) for LoadBalancer IP announcements |
+| `ipam.mode=cluster-pool` | IPAM mode for pod and service IPs |
+| `defaultLBServiceIPAM=lbipam` | Uses Cilium LB-IPAM for LoadBalancer service IPs |
+
+> **Important:** The correct Helm key for L2 announcement is `l2NeighDiscovery.enabled`,
+> not `loadBalancer.l2Announcement.enabled`. The latter is not a valid Cilium Helm value.
+
+## L2 Resources (applied after Helm install)
+
+After Helm install, the installer applies these CRDs from `gitops/cilium/rendered/dev.yaml`:
+
+- `CiliumL2AnnouncementPolicy` — triggers L2 ARP/NDP announcements for LoadBalancer IPs
+- `CiliumLoadBalancerIPPool` — defines the CIDR range for LoadBalancer IP allocation
+
+## Docker cluster limitation
+
+On Docker-based dev clusters, Cilium L2 announcement does not work at the host level
+because Docker bridge networking does not support ARP/NDP announcements for external IPs.
+The L2 responder BPF programs run correctly inside the Cilium agent, but ARP replies
+cannot traverse the Docker bridge to reach the host.
+
+**Workaround:** Use `kubectl port-forward` to access services:
+```bash
+kubectl port-forward -n envoy-gateway-system svc/envoy-<gateway>-<hash> 8443:443
 ```
 
-The overlay applies:
+On QEMU VM or bare-metal clusters, L2 announcement works natively.
 
-- `gitops/cilium/base/cilium.yaml`
-- `gitops/cilium/base/cilium-l2-policy.yaml`
-- `gitops/cilium/base/cilium-loadbalancer-ippool.yaml`
-
-## Installer command
-
-```python
-python3 scripts/startup.dev.py --offline --dry-run --step 03-install-cilium-dev.py
-```
-
-## Real apply command
-
-```python
-python3 scripts/startup.dev.py --offline --apply --step 03-install-cilium-dev.py
-```
-
-## Expected output
-
-```text
-$ python3 scripts/startup.dev.py --offline --dry-run --step 03-install-cilium-dev.py
-Cilium dev cluster dry-run passed.
-Cilium version: 1.19.6
-Cilium offline image cache: output/cilium/images/cilium-agent-v1.19.6
-Talos config: output/talos/talosconfig
-GitOps overlay: gitops/cilium/overlays/dev/kustomization.yaml
-```
-
-## Expected Cilium state after apply
+## Expected Cilium state after install
 
 - Cilium agent and operator pods are `Ready`.
 - kube-proxy is disabled or absent.
-- `kubeProxyReplacement:true` is enabled.
-- Cilium L2 mode is enabled.
-- `CiliumL2AnnouncementPolicy` is applied.
-- `CiliumLoadBalancerIPPool` is applied.
-- A local LoadBalancer service can be reached through the L2 load balancer.
+- `kubeProxyReplacement=true` is enabled.
+- `enable-l2-neigh-discovery=true` in Cilium configmap.
+- `CiliumL2AnnouncementPolicy` and `CiliumLoadBalancerIPPool` CRDs are created.
+- L2 responder BPF job is running.
 
 ## Notes
 

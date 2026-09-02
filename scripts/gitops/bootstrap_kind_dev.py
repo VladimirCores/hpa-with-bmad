@@ -33,8 +33,6 @@ CILIUM_VERSION = _cv.get("HPDC_CILIUM_VERSION")
 _env = dict(os.environ)
 CLUSTER_NAME = _env.get("HPDC_CLUSTER_NAME", "hpdc-talos")
 GATEWAY_IP = _env.get("HPDC_GATEWAY_IP", "172.18.255.200")
-LB_POOL_START = _env.get("HPDC_LB_POOL_START", "172.18.255.200")
-LB_POOL_STOP = _env.get("HPDC_LB_POOL_STOP", "172.18.255.209")
 
 
 def ensure_dirs() -> None:
@@ -139,6 +137,7 @@ def provision_cluster(args: argparse.Namespace) -> None:
         "--set", "ipv4NativeRoutingCIDR=10.244.0.0/16",
         "--set", "autoDirectNodeRoutes=true",
         "--set", "bpf.masquerade=true",
+        "--set", "l2NeighDiscovery.enabled=true",
     ]
     run(cilium_cmd)
     
@@ -157,35 +156,23 @@ def provision_cluster(args: argparse.Namespace) -> None:
     # Storage is installed by step 05 (install_storage_dev.py) — not inline here.
     # This avoids duplicating the local-path-provisioner install code path.
     
-    # Configure Cilium L2 LoadBalancer
-    # IP is reserved for Envoy Gateway (first in pool)
-    print(f"Configuring Cilium L2 LoadBalancer (pool: {LB_POOL_START}-{LB_POOL_STOP})...")
-    lb_config = f"""apiVersion: cilium.io/v2alpha1
-kind: CiliumLoadBalancerIPPool
-metadata:
-  name: default-lb-pool
-  namespace: kube-system
-spec:
-  blocks:
-  - start: {LB_POOL_START}
-    stop: {LB_POOL_STOP}
----
-apiVersion: cilium.io/v2alpha1
-kind: CiliumL2AnnouncementPolicy
-metadata:
-  name: default-l2-policy
-  namespace: kube-system
-spec:
-  serviceSelector:
-    matchLabels: {{}}
-  nodeSelector:
-    matchLabels: {{}}
-"""
-    # Write config to temp file and apply
-    config_path = Path("/tmp/cilium-l2-config.yaml")
-    config_path.write_text(lb_config, encoding="utf-8")
-    run(["kubectl", "apply", "-f", str(config_path)])
-    config_path.unlink()
+    # Apply shared Cilium L2 LoadBalancer resources from rendered manifest
+    print("Applying Cilium L2 LoadBalancer resources...")
+    rendered = ROOT / "gitops" / "cilium" / "rendered" / "dev.yaml"
+    if not rendered.exists():
+        raise RuntimeError(f"Rendered manifest not found: {rendered}")
+    # Extract only L2 resources from the rendered manifest
+    content = rendered.read_text(encoding="utf-8")
+    l2_kinds = ("kind: CiliumL2AnnouncementPolicy", "kind: CiliumLoadBalancerIPPool")
+    docs = content.split("---")
+    l2_docs = [doc.strip() for doc in docs if any(k in doc for k in l2_kinds)]
+    for doc in l2_docs:
+        result = subprocess.run(
+            ["kubectl", "apply", "-f", "-"],
+            input=doc, capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"kubectl apply failed: {result.stderr.strip()}")
     
     # Verify cluster
     run(["kubectl", "get", "nodes", "-o", "wide"])
