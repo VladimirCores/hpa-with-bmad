@@ -39,8 +39,7 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "03-install-cilium-dev": ["CILIUM_ENABLED"],
     "03-install-cilium-online": ["CILIUM_ENABLED"],
     "04-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],  # mTLS + SPIRE (same step)
-    "04.5-gen-edge-cert": ["ENVOY_GATEWAY_ENABLED"],  # static wildcard cert for EG HTTPS listener (cert-manager removed in 1.5)
-    "04.6-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],  # EG moved to core layer (after cert, before storage)
+    "04-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],  # cert gen + EG install + gateway validation (unified step)
     "05-install-rook-ceph-staging": ["STORAGE_BACKEND"],  # staging-only; gated on HPDC_STAGING_ENABLED in _is_step_enabled
     "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
     "06-install-harbor-dev": ["HARBOR_ENABLED"],
@@ -68,6 +67,7 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "37-install-otel-collector-dev": ["OTEL_ENABLED"],
     "38-install-grafana-alertmanager-dev": ["GRAFANA_ENABLED", "ALERTMANAGER_ENABLED"],
     "39-install-grafana-hubble-routes-dev": ["GRAFANA_ENABLED"],
+    # 40-test-hubble-ui-e2e removed: E2E tests merged into step 04 (gateway install)
 }
 
 
