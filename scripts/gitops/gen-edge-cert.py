@@ -114,7 +114,7 @@ def validate_manifests() -> list[str]:
     # Use regex to tolerate YAML quoting (e.g. name: "hpdc-edge-tls").
     if not re.search(r'name:\s*["\']?hpdc-edge-tls["\']?', manifest):
         failures.append(f"envoy-gateway.yaml does not reference Secret/{SECRET_NAME}")
-    if not re.search(r'scheme:\s*["\']?HTTPS["\']?', manifest):
+    if not re.search(r'protocol:\s*["\']?HTTPS["\']?', manifest):
         failures.append("envoy-gateway.yaml does not configure an HTTPS listener")
     if "envoy-gateway-system" not in manifest:
         failures.append(
