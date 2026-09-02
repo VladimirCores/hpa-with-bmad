@@ -71,12 +71,51 @@ def load_all_dotenv() -> None:
 
     Existing environment variables always win (setdefault semantics).
     This is the recommended entry point for all bootstrap scripts.
+
+    After loading, derives ``HPDC_CILIUM_LB_POOL_RANGE`` and
+    ``HPDC_GATEWAY_IP`` from ``HPDC_SUBNET`` if not already set.
     """
     load_dotenv([
         ROOT / ".env",
         ROOT / ".env.components",
         ROOT / ".env.versions",
     ])
+    _derive_network_vars()
+
+
+def _derive_network_vars() -> None:
+    """Derive Cilium LB pool and gateway IP from HPDC_SUBNET.
+
+    Convention: LB pool is a /28 at the top of the subnet range.
+    Gateway IP is the first usable address in that pool.
+
+    Examples:
+        HPDC_SUBNET=10.6.0.0/24   → pool=10.6.0.240/28  gw=10.6.0.241
+        HPDC_SUBNET=172.18.0.0/24 → pool=172.18.0.240/28 gw=172.18.0.241
+    """
+    import ipaddress
+
+    subnet_str = os.environ.get("HPDC_SUBNET", "").strip()
+    if not subnet_str:
+        return
+
+    try:
+        subnet = ipaddress.ip_network(subnet_str, strict=False)
+    except ValueError:
+        return
+
+    # LB pool: /28 at the end of the subnet (16 addresses, last usable block)
+    pool_prefix = max(subnet.prefixlen, 28)
+    pool_size = 2 ** (32 - pool_prefix)
+    pool_start_int = int(subnet.network_address) + subnet.num_addresses - pool_size
+    pool_start = ipaddress.IPv4Address(pool_start_int)
+    pool = ipaddress.ip_network(f"{pool_start}/{pool_prefix}", strict=False)
+
+    # Gateway IP: first usable address in the pool (skip network address)
+    gw_ip = str(pool.network_address + 1)
+
+    os.environ.setdefault("HPDC_CILIUM_LB_POOL_RANGE", str(pool))
+    os.environ.setdefault("HPDC_GATEWAY_IP", gw_ip)
 
 
 # ── Toggle variables ──────────────────────────────────────────────────────────

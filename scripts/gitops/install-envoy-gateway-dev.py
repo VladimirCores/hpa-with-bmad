@@ -29,6 +29,76 @@ def ensure_files() -> None:
         raise RuntimeError(f"Gateway API CRDs missing or empty: {GATEWAY_CRDS}")
 
 
+_CERT_DIR = Path("/tmp/eg-certs")
+
+
+def _generate_eg_certs() -> list[str]:
+    """Generate self-signed CA + server certs for EG operator and envoy proxy.
+
+    Creates two secrets in envoy-gateway-system:
+      envoy-gateway  — webhook TLS (operator)
+      envoy          — xDS TLS (proxy → operator)
+    Both share the same CA so the proxy can verify the operator's cert.
+    """
+    failures: list[str] = []
+    _CERT_DIR.mkdir(parents=True, exist_ok=True)
+    ca_key = _CERT_DIR / "ca.key"
+    ca_cert = _CERT_DIR / "ca.crt"
+
+    # Generate CA if not present
+    if not ca_cert.exists():
+        r = _run(["openssl", "req", "-x509", "-newkey", "rsa:2048",
+                   "-keyout", str(ca_key), "-out", str(ca_cert),
+                   "-days", "3650", "-nodes", "-subj", "/CN=hpdc-ca"])
+        if r.returncode != 0:
+            failures.append(f"CA cert generation failed: {r.stderr.strip()}")
+            return failures
+
+    for name, cn in [("envoy-gateway", "envoy-gateway.envoy-gateway-system.svc"),
+                      ("envoy", "envoy.envoy-gateway-system.svc")]:
+        key = _CERT_DIR / f"{name}.key"
+        cert = _CERT_DIR / f"{name}.crt"
+        if not cert.exists():
+            # Generate server key + CSR
+            r = _run(["openssl", "req", "-newkey", "rsa:2048",
+                       "-keyout", str(key), "-out", str(_CERT_DIR / f"{name}.csr"),
+                       "-nodes", "-subj", f"/CN={cn}"])
+            if r.returncode != 0:
+                failures.append(f"{name} CSR failed: {r.stderr.strip()}")
+                continue
+            # Sign with CA
+            r = _run(["openssl", "x509", "-req",
+                       "-in", str(_CERT_DIR / f"{name}.csr"),
+                       "-CA", str(ca_cert), "-CAkey", str(ca_key),
+                       "-CAcreateserial", "-out", str(cert), "-days", "3650",
+                       "-extfile", _CERT_DIR / "san.cnf",
+                       "-extensions", "v3_req"])
+            # Fallback: sign without extension file
+            if r.returncode != 0:
+                r = _run(["openssl", "x509", "-req",
+                           "-in", str(_CERT_DIR / f"{name}.csr"),
+                           "-CA", str(ca_cert), "-CAkey", str(ca_key),
+                           "-CAcreateserial", "-out", str(cert), "-days", "3650"])
+                if r.returncode != 0:
+                    failures.append(f"{name} cert signing failed: {r.stderr.strip()}")
+                    continue
+
+        # Create/update the k8s secret
+        exists = _run(["kubectl", "get", "secret", name, "-n", "envoy-gateway-system"])
+        if exists.returncode == 0:
+            _run(["kubectl", "delete", "secret", name, "-n", "envoy-gateway-system"])
+        r = _run(["kubectl", "create", "secret", "generic", name,
+                   "--from-file=tls.crt=" + str(cert),
+                   "--from-file=tls.key=" + str(key),
+                   "--from-file=ca.crt=" + str(ca_cert),
+                   "-n", "envoy-gateway-system"])
+        if r.returncode != 0:
+            failures.append(f"Secret/{name} create failed: {r.stderr.strip()}")
+        else:
+            print(f"Created Secret/{name} in envoy-gateway-system")
+    return failures
+
+
 def _run(cmd: list[str], *, timeout: int = 600, input: str | None = None) -> subprocess.CompletedProcess:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, input=input, errors="replace")
@@ -62,7 +132,7 @@ def apply_crds() -> list[str]:
 
 def apply_envoy_gateway() -> list[str]:
     failures: list[str] = []
-    gateway_ip = os.getenv("HPDC_GATEWAY_IP", "172.18.0.2")
+    gateway_ip = os.getenv("HPDC_GATEWAY_IP")
     manifest = (ENVOY_BASE / "envoy-gateway.yaml").read_text(encoding="utf-8")
     manifest = manifest.replace("${HPDC_GATEWAY_IP}", gateway_ip)
     # Ensure entity-store namespace exists (referenced by HTTPRoutes in the manifest)
@@ -161,6 +231,11 @@ def main() -> int:
 
     if args.apply:
         failures = apply_crds()
+        if failures:
+            for failure in failures:
+                print(f"- {failure}")
+            return 1
+        failures = _generate_eg_certs()
         if failures:
             for failure in failures:
                 print(f"- {failure}")

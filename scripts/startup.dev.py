@@ -39,7 +39,9 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "03-install-cilium-dev": ["CILIUM_ENABLED"],
     "03-install-cilium-online": ["CILIUM_ENABLED"],
     "04-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],  # mTLS + SPIRE (same step)
-    "04-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],  # cert gen + EG install + gateway validation (unified step)
+    "04-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],  # cert + EG install
+    "04-validate-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],  # gateway validation (Accepted, Programmed, TLS)
+    "06-expose-hubble-ui-dev": ["ENVOY_GATEWAY_ENABLED"],  # Hubble HTTPRoute + E2E tests
     "05-install-rook-ceph-staging": ["STORAGE_BACKEND"],  # staging-only; gated on HPDC_STAGING_ENABLED in _is_step_enabled
     "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
     "06-install-harbor-dev": ["HARBOR_ENABLED"],
@@ -66,7 +68,7 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "36-install-vmlogs-dev": ["VICTORIA_METRICS_ENABLED"],
     "37-install-otel-collector-dev": ["OTEL_ENABLED"],
     "38-install-grafana-alertmanager-dev": ["GRAFANA_ENABLED", "ALERTMANAGER_ENABLED"],
-    "39-install-grafana-hubble-routes-dev": ["GRAFANA_ENABLED"],
+    "39-install-grafana-hubble-routes-dev": ["GRAFANA_ENABLED"],  # Grafana route; Hubble route now in 06-expose-hubble-ui-dev
     # 40-test-hubble-ui-e2e removed: E2E tests merged into step 04 (gateway install)
 }
 

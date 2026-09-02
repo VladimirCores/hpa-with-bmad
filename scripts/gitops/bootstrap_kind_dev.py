@@ -32,7 +32,7 @@ CILIUM_VERSION = _cv.get("HPDC_CILIUM_VERSION")
 # Load configuration from three-layer env
 _env = dict(os.environ)
 CLUSTER_NAME = _env.get("HPDC_CLUSTER_NAME", "hpdc-talos")
-GATEWAY_IP = _env.get("HPDC_GATEWAY_IP", "172.18.255.200")
+GATEWAY_IP = _env.get("HPDC_GATEWAY_IP")
 
 
 def ensure_dirs() -> None:
