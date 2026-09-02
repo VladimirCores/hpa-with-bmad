@@ -4,6 +4,8 @@ inputDocuments:
   - output/planning-artifacts/prds/prd-HPDC-2026-07-21/prd.md
   - output/planning-artifacts/architecture/architecture-HPDC-2026-07-30/ARCHITECTURE-SPINE.md
   - output/planning-artifacts/architecture/architecture-HPDC-2026-07-30/SOLUTION-DESIGN.md
+lastUpdated: 2026-09-01
+epicAdded: "Epic 1.5: Core Gateway Layer (4 stories)"
 ---
 
 # High Performance Distributed Cluster (HPDC) - Epic Breakdown
@@ -166,8 +168,8 @@ FR32: Epic 2 - Local Git mirror
 FR33: Epic 8 - Cross-cluster service discovery via ClusterMesh (v2)
 FR34: Epic 8 - Regional data sovereignty (v2)
 FR35: Epic 8 - Central hub cross-region visibility (v2)
-FR36: Epic 3 - Envoy Gateway edge routing
-FR37: Epic 3 - TLS termination
+FR36: Epic 1.5 (partial — Gateway/GatewayClass) + Epic 3 (domain routes, rate limiting) - Envoy Gateway edge routing
+FR37: Epic 1.5 (modified — static self-signed for dev) + Epic 3 (cert-manager for prod if re-added) - TLS termination
 FR38: Epic 3 - API-key authentication for messaging routes
 FR39: Epic 3 - OpenAPI specification governance
 FR40: Epic 3 - Authentication via Casdoor
@@ -314,6 +316,104 @@ So that air-gapped deployments can pull trusted images offline.
 **And** the script exits with a non-zero status on failure
 
 **Implementation notes:** Delivered as unplanned substrate work reused by Story 2.1 (which adds the pipeline/offline-cache dimension). Tracked as story 1-6 in sprint-status; record added here for plan/tracker parity.
+
+## Epic 1.5: Core Gateway Layer
+
+Platform Engineer can access all tool UIs (Hubble, Grafana, Backstage, ArgoCD, Kargo) via `*.hpdc.local` routes immediately after core layer install — without port-forward, without cert-manager — using a static self-signed wildcard certificate.
+
+**FRs covered:** FR-36 (partial — Gateway/GatewayClass), FR-37 (modified — static self-signed TLS)
+
+**Implementation notes:** Static self-signed wildcard cert for `*.hpdc.local` generated at bootstrap if absent, stored on local filesystem only (NOT in git), applied as `Secret/hpdc-edge-tls` in `envoy-gateway-system`. cert-manager removed entirely from core layer. EG moves from step 16 to right after Cilium (step 3). Downstream HTTPRoutes (Hubble, Grafana, etc.) become attachable immediately. Production requires cert-manager or external CA — documented in docs/README.
+
+### Story 1.5.1: Generate Static Self-Signed Wildcard Cert and Create TLS Secret
+
+As a Platform Engineer,
+I want a static self-signed wildcard certificate for `*.hpdc.local` generated at bootstrap and applied as a Kubernetes Secret,
+So that Envoy Gateway can terminate TLS without cert-manager.
+
+**Acceptance Criteria:**
+
+**Given** the offline Talos dev cluster from Story 1.2 is healthy
+**And** Cilium networking from Story 1.3 is installed with L2 load balancing
+**When** I run the cert generation script
+**Then** it checks if `~/.hpdc/certs/tls.crt` and `~/.hpdc/certs/tls.key` already exist
+**And** if they exist, it skips generation and reports "cert already present"
+**And** if they do not exist, it generates a self-signed X.509 certificate with:
+  - CommonName: `*.hpdc.local`
+  - SubjectAltName: `DNS:*.hpdc.local`
+  - Validity: 3650 days (10 years)
+  - RSA 2048-bit key
+**And** the cert and key are stored at `~/.hpdc/certs/tls.crt` and `~/.hpdc/certs/tls.key`
+**And** the files are NOT committed to git (verify `.gitignore` or directory is outside repo)
+**And** it creates namespace `envoy-gateway-system` if not present
+**And** it creates `Secret/hpdc-edge-tls` of type `kubernetes.io/tls` in namespace `envoy-gateway-system` from the generated cert and key
+**And** the script exits with a non-zero status on any failure
+
+### Story 1.5.2: Move Envoy Gateway Installation to Core Layer
+
+As a Platform Engineer,
+I want Envoy Gateway installed right after Cilium (and Hubble) in the core layer,
+So that the ingress boundary is available before any downstream components need routes.
+
+**Acceptance Criteria:**
+
+**Given** the TLS secret from Story 1.5.1 exists in `envoy-gateway-system`
+**And** Cilium networking from Story 1.3 is installed
+**And** Gateway API CRDs are available (`gitops/crds/gateway/crds.yaml`)
+**When** I apply the Envoy Gateway manifest from GitOps
+**Then** Envoy Gateway 1.8.3 is installed in `envoy-gateway-system` namespace
+**And** `GatewayClass/hpdc-envoy-gateway` is created
+**And** `Gateway/hpdc-edge` is created with:
+  - Address: `${HPDC_GATEWAY_IP}` from Cilium L2 LB pool
+  - HTTPS listener on port 443 with `certificateRefs: [hpdc-edge-tls]`
+  - TCP listener on port 1884 for MQTT
+**And** the Gateway's HTTPS listener transitions to `Programmed=True` (cert secret exists)
+**And** the install step is numbered after Cilium (e.g., step 4 or merged into step 3)
+**And** the old cert-manager step (17) is removed from the step sequence
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on any failure
+
+### Story 1.5.3: Update Docs and README for Static Cert and Production Requirements
+
+As a Platform Engineer,
+I want documentation updated to reflect the static cert approach for dev and cert-manager requirements for production,
+So that operators understand the difference and can set up production correctly.
+
+**Acceptance Criteria:**
+
+**Given** the static cert approach from Story 1.5.1 is in place
+**When** I review the documentation
+**Then** `docs/cert-manager-tls-termination.md` is either:
+  - Rewritten as `docs/static-tls-termination.md` documenting the new static cert generation, OR
+  - Updated in-place with clear sections for "Dev: Static Self-Signed" and "Production: cert-manager or External CA"
+**And** `README.md` is updated to:
+  - Remove cert-manager as a core layer dependency
+  - Document that dev uses static self-signed certs (generated, not in git)
+  - Document that production requires cert-manager or an external CA for `*.hpdc.local` wildcard with auto-renewal
+  - Add a production certificate section under a "Production Considerations" or similar heading
+**And** the architecture docs (if referenced) note that dev uses static self-signed and prod requires CA-signed
+**And** no references to cert-manager remain in core layer documentation
+**And** the script exits with a non-zero status on any failure
+
+### Story 1.5.4: Validate Core Gateway — Hubble UI and Downstream Route Readiness
+
+As a Platform Engineer,
+I want to validate that the core gateway is functional and downstream routes are attachable,
+So that I can confirm Hubble UI is accessible and the gateway is ready for Epic 3 routes.
+
+**Acceptance Criteria:**
+
+**Given** Envoy Gateway from Story 1.5.2 is installed
+**And** TLS secret from Story 1.5.1 exists
+**When** I run the validation script
+**Then** `GatewayClass/hpdc-envoy-gateway` exists and is `Accepted`
+**And** `Gateway/hpdc-edge` exists and has `Programmed=True` condition
+**And** the HTTPS listener on port 443 is accepting connections at `${HPDC_GATEWAY_IP}:443`
+**And** `hubble.hpdc.local` resolves to `${HPDC_GATEWAY_IP}` (via /etc/hosts or DNS)
+**And** `curl -k -I https://hubble.hpdc.local` returns HTTP 200 (or 302 if Hubble UI is behind a redirect)
+**And** the Hubble UI pods in `kube-system` are reachable through the gateway route
+**And** the validation confirms no port-forward is needed for Hubble UI access
+**And** the script exits with a non-zero status on any failure
 
 ## Epic 2: GitOps Delivery Pipeline
 
@@ -1545,9 +1645,9 @@ so that I can enable only the components I need for a given deployment (dev/prod
 
 Audit the codebase for duplicated logic, hardcoded values, and inconsistent patterns; refactor to DRY (Don't Repeat Yourself) with centralized configuration.
 
-**FRs covered:** N/A (cross-cutting concern)
+**FRs covered:** FR-30 (Harbor registry), N/A (cross-cutting concern)
 **NFRs covered:** N/A (code quality)
-**Additional requirements:** Environment-based configuration via `.env`, centralized constants, eliminate magic numbers/strings.
+**Additional requirements:** Environment-based configuration via `.env`, centralized constants, eliminate magic numbers/strings. Story 12.4 migrates Harbor from in-cluster to host-side Docker Compose, centralizing registry config.
 **UX Design Requirements:** No UX Design Requirements apply to this epic.
 
 ### Story 12.1: Environment Configuration Audit & Consolidation
@@ -1601,3 +1701,25 @@ So that new code doesn't reintroduce duplication.
 **Then** the code review checklist includes DRY validation
 **And** the README documents the DRY principle as mandatory
 **And** `.env.example` is kept in sync with all configurable values
+
+### Story 12.4: Migrate Harbor to Host-Side Docker Compose
+
+As a Platform Engineer,
+I want Harbor running on the host machine (10.6.0.1) via Docker Compose instead of inside the Talos cluster,
+So that control plane nodes are freed from Harbor's resource overhead (4-8GB RAM) and Harbor survives cluster rebuilds.
+
+**Acceptance Criteria:**
+
+**Given** the host machine at 10.6.0.1
+**When** Harbor is deployed via Docker Compose
+**Then** Harbor core, registry, jobservice, PostgreSQL, and Redis run as Docker containers on the host
+**And** Talos nodes can pull images via containerd mirror at 10.6.0.1:5000 against Harbor's registry endpoint
+**And** the Harbor web UI is accessible at https://10.6.0.1:8443
+**And** Trivy vulnerability scanning runs on image push
+**And** the existing `hpa-local-registry` (registry:2) is stopped and removed
+**And** in-cluster Harbor manifests, PVCs, and namespace resources are removed from the GitOps tree
+**And** the pipeline references host-side Harbor instead of in-cluster Harbor
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on any failure
+
+**Implementation notes:** Harbor moves from Kubernetes Deployment (namespace `harbor`) to Docker Compose on the host. Registry port 5000 is preserved for Talos node containerd mirrors. Web UI exposed on port 8443 with self-signed TLS. Storage uses host filesystem instead of Rook-Ceph PVCs. Supersedes Story 1.6 and Story 2.1 (in-cluster Harbor). Spegel reconfigured to use Harbor as upstream.

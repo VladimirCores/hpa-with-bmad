@@ -1,0 +1,17 @@
+{
+  "name": "hpdc-eg-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright (TypeScript) end-to-end tests for components publicly exposed via the Envoy Gateway.",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report",
+    "test:dev": "playwright test --headed",
+    "codegen": "playwright codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
