@@ -71,6 +71,10 @@ development_status:
   2-10-validate-offline-gitops-pipeline-and-image-cache: done
   epic-2-retrospective: done
 
+  epic-16: in-progress
+  16-1-remove-harbor-deploy-minimal-registry: ready-for-dev # Replace Harbor (~2GB RAM) with registry:2 (~50MB RAM), shift Trivy/Cosign to CI, maintain air-gapped delivery via Spegel
+  epic-16-retrospective: backlog
+
   epic-3: done
   3-1-install-envoy-gateway-edge-routing: done
   3-2-configure-tls-termination-with-cert-manager: done
