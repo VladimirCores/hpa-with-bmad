@@ -128,3 +128,23 @@ gated only on B-001 (live cluster). Evidence recorded in
 - Task 4 "Size kind node backing store" not implemented — kind ignores HPDC_WORKERS, HPDC_CPUS_*, HPDC_MEMORY_*. Pre-existing kind sizing.
 - DEFAULT_STORAGE="rook-ceph" disagrees with docker expectation — documented; kind/docker path gates on storage flag, not default.
 - HPDC_DISKS in .env.example shadows capacity knobs for qemu — documented precedence: HPDC_DISKS wins over capacity knobs.
+
+## Deferred from: code review of spec-1.5.1 (Generate Static Wildcard Cert) (2026-09-02)
+
+Subagents: `bmad-review-adversarial-general` (Blind Hunter), `bmad-review-edge-case-hunter` (Edge Case Hunter).
+
+- **A7 (MEDIUM) PyYAML `ModuleNotFoundError` on import** — `_provisioned.py:14` does `import yaml` at module top; if PyYAML is absent, the import fails before `main()` runs. Pre-existing dependency inherited from `_provisioned.py` (shared by all gitops scripts). Not introduced by this diff. No guard in `gen-edge-cert.py` because the failure point is in the shared import chain.
+- **A15 (LOW) TOCTOU on namespace creation** — `_namespace_exists()` then `ensure_namespace()` → `create namespace` races between check and action. Pre-existing check-then-act pattern common across k8s bootstrap scripts. Impact: nil (idempotent create would just return "already exists").
+- **A16 (LOW) TOCTOU on Secret creation** — `_secret_exists()` then `_create_secret()` races. Mitigated by kubectl's "already exists" error, but not handled as idempotent.
+- **A17 (LOW) Files deleted between validation and kubectl apply** — cert/key could be removed by a concurrent process between `_cert_state()` validation and `_create_secret()`. Inherent TOCTOU in generate-then-apply scripts.
+- **A18 (LOW) No file locking for concurrent generation** — two processes writing `tls.crt`/`tls.key` simultaneously could corrupt files. Not realistic for single-run bootstrap scripts.
+- **B2 (LOW) `--dry-run` doesn't check cluster connectivity** — by design: `--dry-run` reports intent without cluster access. Docstring on `dry_run()` already states "no cluster access." No fix needed.
+- **B4 (LOW) Partial state on cluster failure** — cert is generated (on disk) before the cluster connectivity check; if the cluster is unreachable, the cert exists locally but the Secret is not applied. Next run will detect the local cert as "valid" and skip regeneration, but still needs `--apply` for the cluster. Inherent to the "generate then apply" sequencing.
+- **C2 (LOW) `SECRET_TYPE` constant unused functionally** — defined at line 55 and referenced in print statements, but `kubectl create secret tls` always creates `kubernetes.io/tls` regardless. Kept as documentation of the intended Secret type. No functional impact.
+- **D2 (LOW) `--offline` flag is a no-op but always passed by wrapper** — the wrapper `04.5-gen-edge-cert.py` always appends `--offline` for parity with the gitops installer convention. The flag is accepted and documented as a no-op. Intentional design.
+- **D3 (LOW) `int(None)` edge case in wrapper** — `subprocess.run` return code is typed `int | None`; `int(...)` would raise `TypeError` on `None`. In practice, `subprocess.run` without `timeout` never returns `None` for `returncode`. Not a real risk.
+- **E1 (LOW) Secret created before Envoy Gateway is installed** — if `--apply` runs before EG, the Secret is dangling until EG reconciles. This is by design: the Secret must exist *before* EG's HTTPS listener references it (chicken-and-egg inversion). Documented in spec intent.
+- **E3 (LOW) Silent default mode in `step_mode_args`** — `startup.dev.py`'s `step_mode_args()` silently defaults to `("--check",)` if no mode flags are present. This is a project-wide pattern (affects all step wrappers), not specific to this change.
+- **E4 (LOW) `--step N` does not override component toggles** — `startup.dev.py`'s `--step` flag runs a specific step number but does not bypass the `STEP_TOGGLE_MAP` gate. A user running `--step 04.5` when `HPDC_ENVOY_GATEWAY_ENABLED=false` will get a skip. Pre-existing project-wide behavior.
+- **F1 (LOW) Misleading error for non-dict `provisioned.yaml`** — `_provisioned.py`'s `require()` assumes `provisioned.yaml` loads as a dict; a non-dict top-level (e.g., a list) would produce an `AttributeError` instead of a clear message. Pre-existing issue in the shared module.
+- **F2 (LOW) Env mutation at import time** — `component_versions.load_all_dotenv()` runs at module top-level, mutating `os.environ` as a side-effect before `main()` or even argparse. This is a project-wide convention (every gitops install script does the same). Changing it would require refactoring the shared `component_versions` module.
