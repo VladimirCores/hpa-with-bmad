@@ -160,7 +160,7 @@ development_status:
   epic-15: in-progress
   15-1-generate-static-self-signed-wildcard-cert-and-create-tls-secret: done # COMPLETED 2026-09-02: 376-line gen-edge-cert.py + 52-line wrapper; 2 cluster connectivity + 16 error-handling/robustness patches (review pass 2026-09-02); --check/--dry-run verified; cert CN=*.hpdc.local SAN=DNS:*.hpdc.local 3650d rsa:2048; followup review recommended (--apply path not exercised against live cluster)
   15-2-move-envoy-gateway-installation-to-core-layer: done
-  15-3-update-docs-and-readme-for-static-cert-and-production-requirements: backlog
+  15-3-update-docs-and-readme-for-static-cert-and-production-requirements: ready-for-dev
   15-4-validate-core-gateway-hubble-ui-and-downstream-route-readiness: backlog
 
   # Epic 12: Three dev-cluster providers (kind/docker/qemu) with .env selection
