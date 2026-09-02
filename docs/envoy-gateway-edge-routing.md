@@ -2,6 +2,11 @@
 
 This story installs the Envoy Gateway control plane and the HPDC edge routing contract.
 
+> **TLS bootstrapping**: Step `04.5-gen-edge-cert.py` generates a static self-signed wildcard
+> cert (`*.hpdc.local`) and applies it as `Secret/hpdc-edge-tls` in `envoy-gateway-system`
+> before the Envoy Gateway installer runs. See [Static TLS Termination](static-tls-termination.md)
+> for cert parameters, idempotency behavior, and production requirements.
+
 ## Route table
 
 | Prefix | Host | Backend | Auth |
