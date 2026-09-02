@@ -2,7 +2,7 @@
  * Resolves the kubectl context against the dev Talos cluster and clears the
  * local discovery cache so fresh-cluster resource-type lookups don't lie. */
 import { execSync } from 'child_process';
-import { FullConfig } from '@playwright/test';
+import type { FullConfig } from '@playwright/test';
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
   const root = process.env.HPDC_REPO_ROOT || process.cwd();
