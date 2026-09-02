@@ -502,7 +502,7 @@ spec:
             serviceAccountName: alert-response-trigger
             containers:
               - name: executor
-                image: registry.k8s.io/kubectl:v1.37.0
+                image: registry.k8s.io/kubectl:v1.35.2
                 command: ["/bin/sh", "-c"]
                 args:
                   - |
