@@ -178,11 +178,14 @@ FR42: Epic 3 - ReBAC - Relationship-Based Access Control (Zanzibar)
 FR43: Epic 3 - ABAC - Attribute-Based Access Control
 FR44: Epic 3 - Secrets management via Infisical
 FR45: Epic 3 - mTLS for inter-service communication
-FR46: Epic 5 - LLM integration for decision support (basic alert analysis in MVP; full engine in Epic 9)
-FR47: Epic 9 - MCP tool invocation (v2)
+
+...
+
 FR48: Epic 9 - Agent-to-Agent communication A2A (v2)
 
 UX-DR1: Epic 3 (Backstage/Argo/Kargo UIs) + Epic 7 (Grafana/Hubble UIs) - tool UI exposure via gateway routes with native auth
+
+FR23.1: Epic 15.5 - Cilium L2 LoadBalancer for external IP routability (new)
 
 ## Epic List
 
@@ -415,7 +418,27 @@ So that I can confirm Hubble UI is accessible and the gateway is ready for Epic 
 **And** the validation confirms no port-forward is needed for Hubble UI access
 **And** the script exits with a non-zero status on any failure
 
-## Epic 2: GitOps Delivery Pipeline
+### Story 15.5: Enable Cilium L2 LoadBalancer for External Gateway Access
+
+*New story - adds L2 LB configuration for routable external IPs*
+
+As a Platform Engineer,
+I want Cilium L2 LoadBalancer (CiliumLBIPPool + CiliumL2AnnouncementPolicy) configured during startup,
+So that LoadBalancer services (Envoy Gateway, etc.) are accessible via a routable external IP from the host machine.
+
+**Acceptance Criteria:**
+
+**Given** the Talos dev cluster from Story 1.2 is healthy
+**And** Cilium 1.19.6 is installed with kubeProxyReplacement:true
+**When** I run the startup script with `HPDC_GATEWAY_IP` set
+**Then** the startup process applies:
+  - `CiliumLoadBalancerIPPool` with IP range `172.18.0.0/16` (or `${HPDC_GATEWAY_IP_CIDR}`)
+  - `CiliumL2AnnouncementPolicy` referencing the IP pool
+**And** the LoadBalancer service for the Gateway has an external IP in that range
+**And** the external IP is reachable from the host machine
+**And** `curl -k https://${HPDC_GATEWAY_IP}/` returns HTTP 200 with the expected response
+**And** the process completes without internet access
+**And** the script exits with a non-zero status on any failure
 
 Platform Engineer and Developer can deliver workloads end-to-end through Git → Kargo → Argo CD with progressive delivery, and fully air-gapped delivery via local Harbor registry, Spegel P2P distribution, and local Git mirror.
 
