@@ -59,9 +59,12 @@ output/*.log
 output/registry-certs/
 output/tmp-chart/
 
-e2e/node_modules
-e2e/playwright-report/
-e2e/test-results/
-e2e/.next/
-e2e/.cache/
-e2e/.env.local
+node_modules/
+
+# Node.js modules in tests/e2e (e2e directory)
+tests/e2e/node_modules
+tests/e2e/playwright-report/
+tests/e2e/test-results/
+tests/e2e/.next/
+tests/e2e/.cache/
+tests/e2e/.env.local
