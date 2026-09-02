@@ -187,6 +187,7 @@ rules:
       - serviceaccounts
       - services
       - configmaps
+      - secrets
     verbs:
       - create
       - get
@@ -194,6 +195,7 @@ rules:
       - delete
       - deletecollection
       - patch
+      - update
       - watch
   - apiGroups:
       - apps
@@ -376,10 +378,21 @@ spec:
         app.kubernetes.io/part-of: hpdc-platform
     spec:
       serviceAccountName: envoy-gateway
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: envoy-gateway
           image: docker.io/envoyproxy/gateway:v1.9.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           args:
             - server
             - --config-path=/config/envoy-gateway.yaml
@@ -501,7 +514,7 @@ spec:
   gatewayClassName: hpdc-envoy-gateway
   addresses:
   - type: IPAddress
-    value: 10.6.0.1
+    value: ${HPDC_GATEWAY_IP}
   listeners:
   - name: http
     port: 80
@@ -510,13 +523,16 @@ spec:
   - name: https
     port: 443
     protocol: HTTPS
-    scheme: HTTPS
     tls:
       mode: Terminate
       certificateRefs:
       - name: hpdc-edge-tls
         kind: Secret
         group: ""
+    hostname: "*.hpdc.local"
+    allowedRoutes:
+      namespaces:
+        from: All
   # MQTT over TLS (telemetry ingestion).
   - name: mqtt
     port: 1884
@@ -527,28 +543,9 @@ spec:
       - name: hpdc-edge-tls
         kind: Secret
         group: ""
-    - type: IPAddress
-      value: ${HPDC_GATEWAY_IP}
-  listeners:
-    - name: https
-      hostname: "*.hpdc.local"
-      port: 443
-      protocol: HTTPS
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: hpdc-edge-tls
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: mqtt
-      port: 1884
-      protocol: TCP
-      allowedRoutes:
-        namespaces:
-          from: Same
+    allowedRoutes:
+      namespaces:
+        from: Same
 
 ---
 apiVersion: gateway.networking.k8s.io/v1

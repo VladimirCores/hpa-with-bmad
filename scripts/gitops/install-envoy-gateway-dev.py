@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -28,9 +29,9 @@ def ensure_files() -> None:
         raise RuntimeError(f"Gateway API CRDs missing or empty: {GATEWAY_CRDS}")
 
 
-def _run(cmd: list[str], *, timeout: int = 600) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], *, timeout: int = 600, input: str | None = None) -> subprocess.CompletedProcess:
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, input=input, errors="replace")
     except FileNotFoundError:
         raise RuntimeError(f"Command not found: {cmd[0]}")
     except subprocess.TimeoutExpired as exc:
@@ -44,7 +45,7 @@ def _run(cmd: list[str], *, timeout: int = 600) -> subprocess.CompletedProcess:
 
 def apply_crds() -> list[str]:
     failures: list[str] = []
-    result = _run(["kubectl", "apply", "-f", str(GATEWAY_CRDS)])
+    result = _run(["kubectl", "apply", "--server-side", "-f", str(GATEWAY_CRDS)])
     if result.returncode != 0:
         failures.append(f"Gateway API CRD apply failed: {result.stderr.strip()}")
     else:
@@ -61,7 +62,17 @@ def apply_crds() -> list[str]:
 
 def apply_envoy_gateway() -> list[str]:
     failures: list[str] = []
-    result = _run(["kubectl", "apply", "-f", str(ENVOY_BASE / "envoy-gateway.yaml")])
+    gateway_ip = os.getenv("HPDC_GATEWAY_IP", "172.18.0.2")
+    manifest = (ENVOY_BASE / "envoy-gateway.yaml").read_text(encoding="utf-8")
+    manifest = manifest.replace("${HPDC_GATEWAY_IP}", gateway_ip)
+    # Ensure entity-store namespace exists (referenced by HTTPRoutes in the manifest)
+    ns_result = _run(["kubectl", "apply", "--server-side", "-f", "-"],
+                     input="apiVersion: v1\nkind: Namespace\nmetadata:\n  name: entity-store\n")
+    if ns_result.returncode != 0 and "already exists" not in ns_result.stderr:
+        print(f"WARNING: entity-store namespace creation: {ns_result.stderr.strip()}")
+    # Use client-side apply for the Gateway manifest (14 KB < 256 KB annotation limit).
+    # --server-side incorrectly rejects EnvoyProxy spec:{} as null; client-side apply works.
+    result = _run(["kubectl", "apply", "-f", "-"], input=manifest)
     if result.returncode != 0:
         failures.append(f"Envoy Gateway manifest apply failed: {result.stderr.strip()}")
     else:

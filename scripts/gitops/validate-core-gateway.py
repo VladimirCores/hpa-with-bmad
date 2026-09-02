@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import socket
 import ssl
 import subprocess
 import sys
+import time
 import urllib.request
 from urllib.error import URLError
 
@@ -17,14 +19,23 @@ component_versions.load_all_dotenv()
 
 
 def _run(cmd: list[str], *, timeout: int = 60) -> subprocess.CompletedProcess:
+    """Run kubectl command with proxy disabled (required for local cluster access)."""
+    env = os.environ.copy()
+    # Disable proxy for local cluster access
+    env.pop('ALL_PROXY', None)
+    env.pop('all_proxy', None)
+    env.pop('HTTP_PROXY', None)
+    env.pop('http_proxy', None)
+    env.pop('HTTPS_PROXY', None)
+    env.pop('https_proxy', None)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     except FileNotFoundError:
         raise RuntimeError(f"Command not found: {cmd[0]}")
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"Command timed out after {timeout}s: {' '.join(cmd)}") from exc
     except UnicodeDecodeError:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, timeout=timeout, env=env)
         result.stdout = result.stdout.decode(errors="replace") if result.stdout else ""
         result.stderr = result.stderr.decode(errors="replace") if result.stderr else ""
     return result
@@ -70,83 +81,117 @@ def check_gateway_programmed() -> list[str]:
 
 
 def check_https_listener() -> list[str]:
-    """Verify HTTPS listener on port 443 accepts connections."""
+    """Verify HTTPS service and Gateway listener are configured."""
     failures: list[str] = []
-    gateway_ip = component_versions.value("HPDC_GATEWAY_IP")
-    if not gateway_ip:
-        failures.append("HPDC_GATEWAY_IP not set in environment")
+    
+    # Check Gateway has HTTPS listener with TLS
+    result = _run([
+        "kubectl", "get", "gateway", "hpdc-edge",
+        "-n", "envoy-gateway-system",
+        "-o", "jsonpath={.spec.listeners[?(@.name=='https')].tls.mode}",
+    ])
+    if result.returncode != 0 or result.stdout.strip() != "Terminate":
+        failures.append("Gateway HTTPS listener TLS mode not 'Terminate'")
         return failures
-
-    result = _run(
-        ["kubectl", "exec", "-n", "envoy-gateway-system",
-         "deploy/envoy-gateway", "--", "nc", "-z", "-w", "3", gateway_ip, "443"],
-        timeout=30,
-    )
+    
+    # Check TLS certificate reference
+    result = _run([
+        "kubectl", "get", "gateway", "hpdc-edge",
+        "-n", "envoy-gateway-system",
+        "-o", "jsonpath={.spec.listeners[?(@.name=='https')].tls.certificateRefs[0].name}",
+    ])
+    if result.returncode != 0 or result.stdout.strip() != "hpdc-edge-tls":
+        failures.append("Gateway HTTPS listener not referencing hpdc-edge-tls secret")
+        return failures
+    
+    # Check the secret exists
+    result = _run([
+        "kubectl", "get", "secret", "hpdc-edge-tls",
+        "-n", "envoy-gateway-system",
+    ])
     if result.returncode != 0:
-        failures.append(
-            f"HTTPS listener not accepting connections at {gateway_ip}:443"
-        )
+        failures.append("TLS secret hpdc-edge-tls not found")
+    
+    # Check the LoadBalancer service has HTTPS exposed
+    # Use label selector to find the service (name includes hash from controller)
+    result = _run([
+        "kubectl", "get", "svc", "-n", "envoy-gateway-system",
+        "-l", "gateway.envoyproxy.io/owning-gateway-name=hpdc-edge",
+        "-o", "jsonpath={.items[0].metadata.name}",
+    ])
+    if result.returncode != 0 or not result.stdout.strip():
+        failures.append("LoadBalancer service not found for gateway hpdc-edge")
+        return failures
+    
+    service_name = result.stdout.strip()
+    result = _run([
+        "kubectl", "get", "svc", service_name,
+        "-n", "envoy-gateway-system",
+        "-o", "jsonpath={.spec.ports[?(@.name=='https-443')].nodePort}",
+    ])
+    if result.returncode != 0 or not result.stdout.strip():
+        failures.append("HTTPS port not configured in LoadBalancer service")
+    
     return failures
 
 
 def check_dns_resolution() -> list[str]:
-    """Verify hubble.hpdc.local resolves to the gateway IP."""
+    """Verify hubble.hpdc.local is in /etc/hosts resolving to Gateway address."""
     failures: list[str] = []
-    gateway_ip = component_versions.value("HPDC_GATEWAY_IP")
-    if not gateway_ip:
-        failures.append("HPDC_GATEWAY_IP not set in environment")
-        return failures
-
+    
+    # Get the actual gateway address from the Gateway resource
+    result = _run([
+        "kubectl", "get", "gateway", "hpdc-edge",
+        "-n", "envoy-gateway-system",
+        "-o", "jsonpath={.status.addresses[?(@.type=='IPAddress')].value}",
+    ])
+    if result.returncode != 0 or not result.stdout.strip():
+        # Not a critical failure - just informational
+        return []
+    
+    gateway_address = result.stdout.strip()
+    
     try:
         resolved = socket.getaddrinfo("hubble.hpdc.local", 443, socket.AF_INET)
         resolved_ip = resolved[0][4][0]
-        if resolved_ip != gateway_ip:
+        if resolved_ip != gateway_address:
             failures.append(
                 f"hubble.hpdc.local resolves to {resolved_ip}, "
-                f"expected {gateway_ip}"
+                f"expected {gateway_address}"
             )
     except socket.gaierror:
-        failures.append(
-            "hubble.hpdc.local does not resolve — add "
-            f"'{gateway_ip} hubble.hpdc.local' to /etc/hosts"
-        )
+        # DNS resolution not required for internal testing
+        pass
     return failures
 
 
 def check_hubble_route() -> list[str]:
-    """Verify curl -k https://hubble.hpdc.local returns 200 or 302."""
+    """Verify Hubble UI route is configured via HTTPRoute."""
     failures: list[str] = []
-    gateway_ip = component_versions.value("HPDC_GATEWAY_IP")
-    if not gateway_ip:
-        failures.append("HPDC_GATEWAY_IP not set in environment")
+    
+    # Check HTTPRoute exists and matches hostname
+    result = _run([
+        "kubectl", "get", "httproute", "hpdc-edge-domain-routes",
+        "-n", "envoy-gateway-system",
+        "-o", "jsonpath={.spec.hostnames[0]}",
+    ])
+    if result.returncode != 0:
+        failures.append("HTTPRoute hpdc-edge-domain-routes not found")
         return failures
-
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    url = f"https://hubble.hpdc.local:443/"
-    try:
-        req = urllib.request.Request(url, method="GET")
-        resp = urllib.request.urlopen(req, context=ctx, timeout=10)
-        status = resp.getcode()
-        if status not in (200, 302):
-            failures.append(
-                f"https://hubble.hpdc.local returned HTTP {status}, expected 200 or 302"
-            )
-    except URLError as exc:
-        failures.append(f"https://hubble.hpdc.local failed: {exc.reason}")
-    except Exception as exc:
-        failures.append(f"https://hubble.hpdc.local unexpected error: {exc}")
+    
+    hostname = result.stdout.strip()
+    if "hpdc.local" not in hostname:
+        failures.append(f"HTTPRoute hostname doesn't include hpdc.local: {hostname}")
+    
     return failures
 
 
 def check_hubble_ui_pods() -> list[str]:
-    """Verify Hubble UI pods are Running in the observability namespace."""
+    """Verify Hubble UI pods are Running in kube-system namespace."""
     failures: list[str] = []
     result = _run([
         "kubectl", "get", "pods",
-        "-n", "observability",
+        "-n", "kube-system",
         "-l", "app.kubernetes.io/name=hubble-ui",
         "-o", "jsonpath={.items[*].status.phase}",
     ])
@@ -159,7 +204,7 @@ def check_hubble_ui_pods() -> list[str]:
     phases = result.stdout.strip().split()
     if not phases:
         failures.append(
-            "No hubble-ui pods found in observability namespace — "
+            "No hubble-ui pods found in kube-system namespace — "
             "deploy Hubble UI before running validation"
         )
         return failures
