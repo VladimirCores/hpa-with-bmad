@@ -12,6 +12,8 @@ Establish the core gateway layer in the dev environment so that operator tool UI
 - Story 15.2: Move Envoy Gateway Installation to Core Layer
 - Story 15.3: Update Docs and README for Static Cert and Production Requirements
 - Story 15.4: Validate Core Gateway — Hubble UI and Downstream Route Readiness
+- Story 15.5: Enable Cilium L2 LoadBalancer for External Gateway Access
+- Story 15.6: Post-Install E2E Accessibility Testing for All Components
 
 ## Requirements & Constraints
 

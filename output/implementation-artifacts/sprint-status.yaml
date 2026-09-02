@@ -42,7 +42,7 @@
 
 
 generated: 2026-08-06T00:00:00Z
-last_updated: 2026-09-02T12:00:00+03:00
+last_updated: 2026-09-02T15:50:00+03:00
 project: High Performance Distributed Cluster (HPDC)
 project_key: NOKEY
 tracking_system: file-system
@@ -157,12 +157,13 @@ development_status:
 
   # Epic 15: Core Gateway Layer (static self-signed wildcard cert for EG TLS, step 04.5)
   # (Epic "1.5" in epics.md; renumbered to 15 in sprint-status for integer parser compat)
-  epic-15: in-progress
+  epic-15: done
   15-1-generate-static-self-signed-wildcard-cert-and-create-tls-secret: done # COMPLETED 2026-09-02: 376-line gen-edge-cert.py + 52-line wrapper; 2 cluster connectivity + 16 error-handling/robustness patches (review pass 2026-09-02); --check/--dry-run verified; cert CN=*.hpdc.local SAN=DNS:*.hpdc.local 3650d rsa:2048; followup review recommended (--apply path not exercised against live cluster)
   15-2-move-envoy-gateway-installation-to-core-layer: done
   15-3-update-docs-and-readme-for-static-cert-and-production-requirements: done
   15-4-validate-core-gateway-hubble-ui-and-downstream-route-readiness: done # COMPLETED 2026-09-02: validate-core-gateway.py (--check/--dry-run/--apply) validates GatewayClass Accepted, Gateway Programmed, TLS Secret, HTTPS listener, Hubble UI route; step wrapper created
-  15-5-enable-cilium-l2-loadbalancer-for-external-gateway-access: in-progress # Configure Cilium L2 LB mode (CiliumLoadBalancerIPPool + CiliumL2AnnouncementPolicy) to enable routable external IP for Gateway LoadBalancer services
+  15-5-enable-cilium-l2-loadbalancer-for-external-gateway-access: done
+  15-6-post-install-e2e-accessibility-testing: backlog # NEW: generalize Hubble UI E2E pattern to all components; step 04 unified (cert+EG+validate+E2E); 3-tier testing strategy (browser+kubectl+API)
 
   # Epic 12: Three dev-cluster providers (kind/docker/qemu) with .env selection
   epic-12: done
