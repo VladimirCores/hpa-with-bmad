@@ -4,7 +4,7 @@ type: feature
 created: '2026-09-02'
 status: done
 baseline_revision: 267c072d
-final_revision: 7bbd898
+final_revision: e15df43
 review_loop_iteration: 0
 followup_review_recommended: false
 context: []
