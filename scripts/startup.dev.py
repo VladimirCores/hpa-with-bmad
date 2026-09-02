@@ -40,6 +40,7 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "03-install-cilium-online": ["CILIUM_ENABLED"],
     "04-install-cilium-mtls-dev": ["MTLS_ENABLED", "SPIRE_ENABLED"],  # mTLS + SPIRE (same step)
     "04.5-gen-edge-cert": ["ENVOY_GATEWAY_ENABLED"],  # static wildcard cert for EG HTTPS listener (cert-manager removed in 1.5)
+    "04.6-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],  # EG moved to core layer (after cert, before storage)
     "05-install-rook-ceph-staging": ["STORAGE_BACKEND"],  # staging-only; gated on HPDC_STAGING_ENABLED in _is_step_enabled
     "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
     "06-install-harbor-dev": ["HARBOR_ENABLED"],
@@ -51,8 +52,6 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "12-install-argocd-dev": ["ARGOCD_ENABLED"],
     "13-install-argorollouts-dev": ["ARGO_ROLLOUTS_ENABLED"],
     "14-install-argoevents-dev": ["ARGO_EVENTS_ENABLED"],
-    "16-install-envoy-gateway-dev": ["ENVOY_GATEWAY_ENABLED"],
-    "17-install-cert-manager-dev": ["CERT_MANAGER_ENABLED"],
     "18-install-api-key-auth-dev": ["API_KEY_AUTH_ENABLED"],
     "19-install-casdoor-dev": ["CASDOOR_ENABLED"],
     "20-install-casbin-dev": ["CASBIN_ENABLED", "CASBIN_RBAC_ENABLED", "CASBIN_REBAC_ENABLED", "CASBIN_ABAC_ENABLED"],

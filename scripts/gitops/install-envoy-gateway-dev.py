@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,12 +17,67 @@ ENVOY_GATEWAY_VERSION = component_versions.get("HPDC_ENVOY_GATEWAY_VERSION")
 ENVOY_BASE = ROOT / "gitops" / "envoy-gateway" / "base"
 ENVOY_OVERLAY = ROOT / "gitops" / "envoy-gateway" / "overlays" / "dev"
 ROUTE_TABLE = ROOT / "docs" / "envoy-gateway-edge-routing.md"
+GATEWAY_CRDS = ROOT / "gitops" / "crds" / "gateway" / "crds.yaml"
 
 
 def ensure_files() -> None:
     require("envoy-gateway")
     if not ROUTE_TABLE.exists():
         raise RuntimeError(f"Envoy Gateway route table documentation missing: {ROUTE_TABLE}")
+    if not GATEWAY_CRDS.exists() or GATEWAY_CRDS.stat().st_size == 0:
+        raise RuntimeError(f"Gateway API CRDs missing or empty: {GATEWAY_CRDS}")
+
+
+def _run(cmd: list[str], *, timeout: int = 600) -> subprocess.CompletedProcess:
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError:
+        raise RuntimeError(f"Command not found: {cmd[0]}")
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Command timed out after {timeout}s: {' '.join(cmd)}") from exc
+    except UnicodeDecodeError:
+        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        result.stdout = result.stdout.decode(errors="replace") if result.stdout else ""
+        result.stderr = result.stderr.decode(errors="replace") if result.stderr else ""
+    return result
+
+
+def apply_crds() -> list[str]:
+    failures: list[str] = []
+    result = _run(["kubectl", "apply", "-f", str(GATEWAY_CRDS)])
+    if result.returncode != 0:
+        failures.append(f"Gateway API CRD apply failed: {result.stderr.strip()}")
+    else:
+        if result.stderr.strip():
+            print(f"Gateway API CRD warnings: {result.stderr.strip()}")
+        print(f"Gateway API CRDs applied from {GATEWAY_CRDS.relative_to(ROOT)}")
+        wait = _run(["kubectl", "wait", "--for", "condition=Established",
+                      "-l", "apiVersion=gateway.networking.k8s.io",
+                      "--timeout=120s", "crd", "-A"])
+        if wait.returncode != 0:
+            print(f"WARNING: CRD establishment wait failed: {wait.stderr.strip()}")
+    return failures
+
+
+def apply_envoy_gateway() -> list[str]:
+    failures: list[str] = []
+    result = _run(["kubectl", "apply", "-f", str(ENVOY_BASE / "envoy-gateway.yaml")])
+    if result.returncode != 0:
+        failures.append(f"Envoy Gateway manifest apply failed: {result.stderr.strip()}")
+    else:
+        if result.stderr.strip():
+            print(f"Envoy Gateway warnings: {result.stderr.strip()}")
+        print(f"Envoy Gateway manifest applied from {ENVOY_BASE.relative_to(ROOT)}")
+    return failures
+
+
+def _gateway_programmed() -> bool:
+    result = _run([
+        "kubectl", "get", "gateway", "hpdc-edge",
+        "-n", "envoy-gateway-system",
+        "-o", "jsonpath={.status.conditions[?(@.type=='Programmed')].status}",
+    ])
+    return result.returncode == 0 and result.stdout.strip() == "True"
 
 
 def validate_manifests() -> list[str]:
@@ -91,15 +147,29 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}")
         return 1
+
     if args.apply:
-        print("Envoy Gateway apply requested.")
-        print(f"GitOps overlay: {ENVOY_OVERLAY.relative_to(ROOT)}")
+        failures = apply_crds()
+        if failures:
+            for failure in failures:
+                print(f"- {failure}")
+            return 1
+        failures = apply_envoy_gateway()
+        if failures:
+            for failure in failures:
+                print(f"- {failure}")
+            return 1
+        if not _gateway_programmed():
+            print("WARNING: Gateway/hpdc-edge is not yet Programmed=True (may need TLS secret)")
+        print("Envoy Gateway applied successfully.")
         return 0
+
     if args.dry_run:
         print("Envoy Gateway dry-run passed.")
         print("Envoy Gateway, GatewayClass, Gateway, and HTTPRoute route table are configured.")
         print(f"GitOps overlay: {ENVOY_OVERLAY.relative_to(ROOT)}")
         return 0
+
     print("Envoy Gateway requires --dry-run or --apply.", file=sys.stderr)
     return 2
 
