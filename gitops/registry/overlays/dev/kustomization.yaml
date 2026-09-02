@@ -1,0 +1,9 @@
+resources:
+- ../../base
+
+patches:
+- path: registry-patch.yaml
+  target:
+    kind: Deployment
+    name: registry
+    namespace: registry
