@@ -49,6 +49,7 @@ rules:
   - serviceaccounts
   - services
   - configmaps
+  - secrets
   verbs:
   - create
   - get
@@ -56,6 +57,7 @@ rules:
   - delete
   - deletecollection
   - patch
+  - update
   - watch
 - apiGroups:
   - apps
@@ -483,6 +485,11 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -500,6 +507,13 @@ spec:
           readOnly: true
         - mountPath: /var/lib/eg/wasm
           name: wasm-cache
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: envoy-gateway
       volumes:
       - configMap:
@@ -522,6 +536,32 @@ metadata:
 spec: {}
 ---
 apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: hpdc-telemetry-grpc-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-grpc-ingestion
+  namespace: telemetry-ingestion
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: hpdc-edge
+    namespace: envoy-gateway-system
+    sectionName: https
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: pulsar-telemetry-ingestion
+      port: 6669
+    matches:
+    - ls: /hpdc.telemetry.v1.TelemetryService
+      value: /hpdc.telemetry.v1.TelemetryService
+---
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   labels:
@@ -535,6 +575,9 @@ spec:
     value: 172.18.0.2
   gatewayClassName: hpdc-envoy-gateway
   listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
   - allowedRoutes:
       namespaces:
         from: All
@@ -553,7 +596,13 @@ spec:
         from: Same
     name: mqtt
     port: 1884
-    protocol: TCP
+    protocol: TLS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: hpdc-edge-tls
+      mode: Terminate
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -694,6 +743,29 @@ spec:
     - path:
         type: PathPrefix
         value: /telemetry
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  labels:
+    app.kubernetes.io/component: telemetry-ingestion
+    app.kubernetes.io/name: hpdc-telemetry-mqtt-ingestion
+    app.kubernetes.io/part-of: hpdc-platform
+  name: hpdc-telemetry-mqtt-ingestion
+  namespace: telemetry-ingestion
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: hpdc-edge
+    namespace: envoy-gateway-system
+    sectionName: mqtt
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: pulsar-telemetry-ingestion
+      port: 1884
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant

@@ -119,6 +119,187 @@ metadata:
   name: mcp-tool-definitions
   namespace: agent-engine
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: a2a-broker
+  namespace: agent-engine
+spec:
+  ports:
+  - name: grpc
+    port: 443
+    protocol: TCP
+    targetPort: grpc
+  selector:
+    app: a2a-broker
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-server
+  namespace: agent-engine
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: mcp-server
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: a2a-broker
+  namespace: agent-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: a2a-broker
+      app.kubernetes.io/component: ai-agent
+      app.kubernetes.io/name: hpdc-agent-engine
+      app.kubernetes.io/part-of: hpdc-platform
+  template:
+    metadata:
+      labels:
+        app: a2a-broker
+        app.kubernetes.io/component: ai-agent
+        app.kubernetes.io/name: hpdc-agent-engine
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - command:
+        - sleep
+        - infinity
+        env:
+        - name: A2A_AGENT_REGISTRY
+          value: agent-registry
+        - name: A2A_ROUTING_TOPIC
+          value: hpdc.agent.messages
+        - name: A2A_AUTH_CHANNEL
+          value: authenticated
+        - name: A2A_DISCOVERY
+          value: registered_agents_only
+        image: localhost:5000/rancher/local-path-provisioner:v0.0.37
+        imagePullPolicy: IfNotPresent
+        name: a2a-broker
+        ports:
+        - containerPort: 443
+          name: grpc
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      securityContext:
+        fsGroup: 2000
+        runAsGroup: 1000
+        runAsUser: 1000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: ai-agent
+    app.kubernetes.io/name: hpdc-agent-engine
+    app.kubernetes.io/part-of: hpdc-platform
+  name: mcp-server
+  namespace: agent-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+      app.kubernetes.io/component: ai-agent
+      app.kubernetes.io/name: hpdc-agent-engine
+      app.kubernetes.io/part-of: hpdc-platform
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+        app.kubernetes.io/component: ai-agent
+        app.kubernetes.io/name: hpdc-agent-engine
+        app.kubernetes.io/part-of: hpdc-platform
+    spec:
+      containers:
+      - command:
+        - sleep
+        - infinity
+        env:
+        - name: MCP_TOOL_REGISTRY
+          value: platform-capabilities-mcp-tools
+        - name: MCP_AUDIT_AGENT_ID
+          valueFrom:
+            configMapKeyRef:
+              key: agent_id
+              name: mcp-tool-definitions
+              optional: true
+        - name: MCP_AUDIT_TOOL_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: tool_name
+              name: mcp-tool-definitions
+              optional: true
+        - name: MCP_AUDIT_PARAMETERS
+          valueFrom:
+            configMapKeyRef:
+              key: parameters
+              name: mcp-tool-definitions
+              optional: true
+        - name: MCP_AUDIT_RESULT
+          valueFrom:
+            configMapKeyRef:
+              key: result
+              name: mcp-tool-definitions
+              optional: true
+        - name: MCP_AUDIT_STORAGE
+          valueFrom:
+            configMapKeyRef:
+              key: storage
+              name: mcp-audit-log-config
+        image: localhost:5000/rancher/local-path-provisioner:v0.0.37
+        imagePullPolicy: IfNotPresent
+        name: mcp-server
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      securityContext:
+        fsGroup: 2000
+        runAsGroup: 1000
+        runAsUser: 1000
+---
 apiVersion: hpdc.io/v1
 kind: AgentCommunication
 metadata:
