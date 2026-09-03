@@ -204,16 +204,15 @@ def test_is_enabled_disabled() -> None:
 def test_core_always_enabled() -> None:
     """Core components are always True regardless of env."""
     for key in ("HPDC_CILIUM_ENABLED", "HPDC_HUBBLE_ENABLED",
-                "HPDC_HARBOR_ENABLED", "HPDC_SPEGEL_ENABLED"):
+                "HPDC_SPEGEL_ENABLED"):
         os.environ[key] = "false"
     try:
         assert cv.is_enabled("CILIUM") is True
         assert cv.is_enabled("HUBBLE") is True
-        assert cv.is_enabled("HARBOR") is True
         assert cv.is_enabled("SPEGEL") is True
     finally:
         for key in ("HPDC_CILIUM_ENABLED", "HPDC_HUBBLE_ENABLED",
-                    "HPDC_HARBOR_ENABLED", "HPDC_SPEGEL_ENABLED"):
+                    "HPDC_SPEGEL_ENABLED"):
             del os.environ[key]
 
 

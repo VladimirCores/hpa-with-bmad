@@ -23,7 +23,6 @@ component_versions.load_all_dotenv()
 SPEGEL_VERSION = component_versions.get("HPDC_SPEGEL_VERSION")
 ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
 KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")
-HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
 
 PROVISIONED_COMPONENTS = ["git-mirror", "kargo", "argocd", "argo-rollouts", "argo-events"]
 
@@ -34,23 +33,14 @@ def run(command: list[str]) -> subprocess.CompletedProcess[str]:
 
 def validate() -> None:
     required = [
-        "gitops/harbor/base/harbor.yaml",
-        "gitops/harbor/base/harbor-values.yaml",
-        "gitops/harbor/base/harbor-pvcs.yaml",
-        "gitops/harbor/base/preload-images.yaml",
-        "gitops/harbor/base/preload-images-job.yaml",
-        "gitops/harbor/base/image-cache-refresh.yaml",
         "gitops/git/base/git-mirror.yaml",
         "gitops/spegel/base/spegel.yaml",
         "gitops/kargo/base/kargo.yaml",
         "gitops/argo-cd/base/argocd.yaml",
         "gitops/argo-rollouts/base/argorollouts.yaml",
         "gitops/argo-events/base/argoevents.yaml",
+        "gitops/registry/base/registry.yaml",
         "gitops/envoy-gateway/base/envoy-gateway.yaml",
-        "gitops/envoy-gateway/overlays/dev/kustomization.yaml",
-        "gitops/cert-manager/base/cert-manager.yaml",
-        "gitops/cert-manager/overlays/dev/kustomization.yaml",
-        "output/harbor/cache-images.txt",
         f"output/spegel/images/spegel-v{SPEGEL_VERSION}",
         f"output/argocd/images/argocd-v{ARGOCD_VERSION}",
         f"output/kargo/images/kargo-v{KARGO_VERSION}",
@@ -70,12 +60,9 @@ def validate() -> None:
     assert provisioned["kargo"].get("version") == KARGO_VERSION
     assert provisioned["argo-rollouts"].get("version") == "1.9.1"
     assert provisioned["argo-events"].get("version") == "1.9.11"
-    images = (record("harbor-image-cache") or {}).get("images") or []
-    assert any(image.get("name") == f"harbor/harbor-core:v{HARBOR_VERSION}" for image in images), "provisioned.yaml: harbor-image-cache missing core"
     assert "kind: Rollout" in (ROOT / "gitops/argo-rollouts/base/argorollouts.yaml").read_text(encoding="utf-8")
     assert "kind: Workflow" in (ROOT / "gitops/argo-events/base/argoevents.yaml").read_text(encoding="utf-8")
     assert "kind: HTTPRoute" in (ROOT / "gitops/envoy-gateway/base/envoy-gateway.yaml").read_text(encoding="utf-8")
-    assert "kind: Certificate" in (ROOT / "gitops/cert-manager/base/cert-manager.yaml").read_text(encoding="utf-8")
 
 
 def main() -> int:

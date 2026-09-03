@@ -124,7 +124,6 @@ def _derive_network_vars() -> None:
 CORE_TOGGLES: frozenset[str] = frozenset({
     "HPDC_CILIUM_ENABLED",
     "HPDC_HUBBLE_ENABLED",
-    "HPDC_HARBOR_ENABLED",
     "HPDC_SPEGEL_ENABLED",
 })
 
@@ -134,7 +133,6 @@ ENABLED_DEFAULTS: dict[str, bool] = {
     # Core (always on; toggle is informational)
     "HPDC_CILIUM_ENABLED": True,
     "HPDC_HUBBLE_ENABLED": True,
-    "HPDC_HARBOR_ENABLED": True,
     "HPDC_SPEGEL_ENABLED": True,
     # Optional components
     "HPDC_GIT_MIRROR_ENABLED": True,
@@ -143,7 +141,6 @@ ENABLED_DEFAULTS: dict[str, bool] = {
     "HPDC_ARGO_ROLLOUTS_ENABLED": False,
     "HPDC_ARGO_EVENTS_ENABLED": False,
     "HPDC_ENVOY_GATEWAY_ENABLED": True,
-    "HPDC_CERT_MANAGER_ENABLED": False,
     "HPDC_CASDOOR_ENABLED": True,
     "HPDC_CASBIN_ENABLED": True,
     "HPDC_PULSAR_ENABLED": True,
@@ -210,7 +207,7 @@ def is_enabled(component: str) -> bool:
     if name.endswith("_ENABLED"):
         name = name[: -len("_ENABLED")]
     var = f"HPDC_{name}_ENABLED"
-    # Core components (Cilium/Hubble/Harbor/Spegel) are always on — the override
+    # Core components (Cilium/Hubble/Spegel) are always on — the override
     # is ignored regardless of how the name was normalized above. Match on the
     # resolved var only so the guard holds for ALL input forms (CILIUM,
     # CILIUM_ENABLED, HPDC_CILIUM_ENABLED). Previously the joint clause also
@@ -262,10 +259,6 @@ DEFAULTS: dict[str, str] = {
     "HPDC_ROOK_CEPH_VERSION": "1.20.6",
     "HPDC_LOCAL_PATH_PROVISIONER_VERSION": "v0.0.37",
     # Registry / cache
-    "HPDC_HARBOR_VERSION": "2.15.2",
-    "HPDC_HARBOR_CHART_VERSION": "1.19.2",
-    "HPDC_HARBOR_REDIS_VERSION": "7.4-alpine",
-    "HPDC_HARBOR_POSTGRES_VERSION": "15.19-alpine",
     "HPDC_SPEGEL_VERSION": "0.7.4",
     # GitOps / CD
     "HPDC_ARGOCD_VERSION": "3.5.1",
@@ -273,7 +266,6 @@ DEFAULTS: dict[str, str] = {
     "HPDC_KARGO_VERSION": "1.11.2",
     "HPDC_KARGO_CHART_VERSION": "1.11.2",
     "HPDC_CERT_MANAGER_CHART_VERSION": "v1.21.1",
-    "HPDC_CERT_MANAGER_VERSION": "1.21.1",
     "HPDC_ARGO_ROLLOUTS_VERSION": "1.9.1",
     "HPDC_ROLLOUTS_NGINX_VERSION": "1.27-alpine",
     "HPDC_ARGO_EVENTS_VERSION": "1.9.11",
@@ -331,15 +323,6 @@ CATALOG: dict[str, list[tuple[str, str, str]]] = {
     "rook-ceph": [
         ("quay.io/rook/ceph", "v{rook_ceph_version}", "rook-ceph/images/rook-ceph-v{rook_ceph_version}"),
     ],
-    "harbor": [
-        ("docker.io/goharbor/harbor-core", "v{harbor_version}", "harbor/images/harbor-core-v{harbor_version}"),
-        ("docker.io/goharbor/registry-photon", "v{harbor_version}", "harbor/images/registry-photon-v{harbor_version}"),
-        ("docker.io/goharbor/harbor-jobservice", "v{harbor_version}", "harbor/images/harbor-jobservice-v{harbor_version}"),
-        ("docker.io/goharbor/harbor-registryctl", "v{harbor_version}", "harbor/images/harbor-registryctl-v{harbor_version}"),
-        ("docker.io/goharbor/trivy-adapter-photon", "v{harbor_version}", "harbor/images/trivy-adapter-photon-v{harbor_version}"),
-        ("redis", "{harbor_redis_version}", "harbor/images/redis-{harbor_redis_version}"),
-        ("postgres", "{harbor_postgres_version}", "harbor/images/postgres-{harbor_postgres_version}"),
-    ],
     "spegel": [
         ("ghcr.io/spegel-org/spegel", "v{spegel_version}", "spegel/images/spegel-v{spegel_version}"),
     ],
@@ -367,11 +350,6 @@ CATALOG: dict[str, list[tuple[str, str, str]]] = {
     "pulsar": [
         ("docker.io/apachepulsar/pulsar", "{pulsar_version}", "pulsar/images/pulsar-{pulsar_version}"),
         ("docker.io/streamnative/pulsar-resources-operator", "{pulsar_operator_version}", "pulsar/images/pulsar-resources-operator-{pulsar_operator_version}"),
-    ],
-    "cert-manager": [
-        ("quay.io/jetstack/cert-manager-controller", "v{cert_manager_version}", "cert-manager/images/cert-manager-controller-v{cert_manager_version}"),
-        ("quay.io/jetstack/cert-manager-webhook", "v{cert_manager_version}", "cert-manager/images/cert-manager-webhook-v{cert_manager_version}"),
-        ("quay.io/jetstack/cert-manager-cainjector", "v{cert_manager_version}", "cert-manager/images/cert-manager-cainjector-v{cert_manager_version}"),
     ],
     "casdoor": [
         ("docker.io/casbin/casdoor", "{casdoor_version}", "casdoor/images/casdoor-{casdoor_version}"),

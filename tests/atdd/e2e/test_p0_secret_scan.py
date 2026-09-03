@@ -36,15 +36,6 @@ DEV_ONLY_CREDENTIALS = {
     "CasdoorAdmin12345",          # gitops/casdoor/base/casdoor.yaml - dev bootstrap admin password
     "backstage-client-secret",    # gitops/backstage/base/backstage.yaml - placeholder client secret
     "backstage-backend-secret",   # gitops/backstage/base/backstage.yaml - placeholder signing secret
-    "HarborAdmin12345",           # gitops/harbor/base/harbor.yaml - dev bootstrap admin password
-    "HarborPostgres12345",        # gitops/harbor/base/harbor.yaml - dev postgres password
-    "HarborRegistryHttpSecret12345",  # gitops/harbor/base/harbor.yaml - dev registry HTTP secret
-    "harbor-secretkey-for-offline-dev",  # gitops/harbor/base/harbor.yaml - dev secret key
-    "harbor-core-secret",         # gitops/harbor/base/harbor.yaml - dev core secret
-    "harbor-jobservice-secret",   # gitops/harbor/base/harbor.yaml - dev jobservice secret
-    "harbor-registry-secret",     # gitops/harbor/base/harbor.yaml - dev registry secret
-    "harbor-trivy-adapter-secret",  # gitops/harbor/base/harbor.yaml - dev trivy secret
-    "harbor-cosign-verification-secret",  # gitops/harbor/base/harbor.yaml - dev cosign secret
 }
 
 DEV_CRED_VALUES = ("hpdc-events-dev-key", "hpdc-telemetry-dev-key", "InfisicalAdmin12345", "CasdoorAdmin12345")

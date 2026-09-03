@@ -29,6 +29,7 @@ output/.*.diff
 .gemini
 .github
 .opencode
+.poolside
 !README.md
 _bmad/render/
 

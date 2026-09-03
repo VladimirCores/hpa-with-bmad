@@ -18,21 +18,14 @@ ARGOCD_VERSION = component_versions.get("HPDC_ARGOCD_VERSION")
 KARGO_VERSION = component_versions.get("HPDC_KARGO_VERSION")
 ARGO_ROLLOUTS_VERSION = component_versions.get("HPDC_ARGO_ROLLOUTS_VERSION")
 ARGO_EVENTS_VERSION = component_versions.get("HPDC_ARGO_EVENTS_VERSION")
-HARBOR_VERSION = component_versions.get("HPDC_HARBOR_VERSION")
 REQUIRED = [
-    ROOT / "gitops/harbor/base/harbor.yaml",
-    ROOT / "gitops/harbor/base/harbor-values.yaml",
-    ROOT / "gitops/harbor/base/harbor-pvcs.yaml",
-    ROOT / "gitops/harbor/base/preload-images.yaml",
-    ROOT / "gitops/harbor/base/preload-images-job.yaml",
-    ROOT / "gitops/harbor/base/image-cache-refresh.yaml",
     ROOT / "gitops/git/base/git-mirror.yaml",
     ROOT / "gitops/spegel/base/spegel.yaml",
     ROOT / "gitops/kargo/base/kargo.yaml",
     ROOT / "gitops/argo-cd/base/argocd.yaml",
     ROOT / "gitops/argo-rollouts/base/argorollouts.yaml",
     ROOT / "gitops/argo-events/base/argoevents.yaml",
-    ROOT / "output/harbor/cache-images.txt",
+    ROOT / "gitops/registry/base/registry.yaml",
     ROOT / "output" / "spegel" / "images" / f"spegel-v{SPEGEL_VERSION}",
     ROOT / "output" / "argocd" / "images" / f"argocd-v{ARGOCD_VERSION}",
     ROOT / "output" / "kargo" / "images" / f"kargo-v{KARGO_VERSION}",
@@ -59,9 +52,6 @@ def validate() -> list[str]:
     }.items():
         if (record(component) or {}).get("version") != version:
             failures.append(f"provisioned: {component} version")
-    images = (record("harbor-image-cache") or {}).get("images") or []
-    if not any(image.get("name") == f"harbor/harbor-core:v{HARBOR_VERSION}" for image in images):
-        failures.append("provisioned: harbor-image-cache core image")
     return failures
 
 
@@ -84,7 +74,7 @@ def main() -> int:
         return 0
     if args.dry_run or args.check:
         print("Offline GitOps pipeline validation passed.")
-        print("Harbor registry, preload cache, digest refresh, Git mirror, Spegel, Kargo, Argo CD, Rollouts, and Argo Events are configured.")
+        print("Registry, preload cache, Git mirror, Spegel, Kargo, Argo CD, Rollouts, and Argo Events are configured.")
         return 0
     print("Offline GitOps validation requires --dry-run or --apply.", file=sys.stderr)
     return 2

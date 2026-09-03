@@ -1,6 +1,0 @@
-goharbor/harbor-core:v2.15.2
-goharbor/registry-photon:v2.15.2
-goharbor/harbor-jobservice:v2.15.2
-goharbor/trivy-adapter-photon:v2.15.2
-redis:7.4-alpine
-postgres:15.19-alpine

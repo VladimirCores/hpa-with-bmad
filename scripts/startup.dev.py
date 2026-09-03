@@ -44,9 +44,6 @@ STEP_TOGGLE_MAP: dict[str, list[str]] = {
     "06-expose-hubble-ui-dev": ["ENVOY_GATEWAY_ENABLED"],  # Hubble HTTPRoute + E2E tests
     "05-install-rook-ceph-staging": ["STORAGE_BACKEND"],  # staging-only; gated on HPDC_STAGING_ENABLED in _is_step_enabled
     "05-install-storage-dev": ["STORAGE_BACKEND"],  # special: resolves to rook-ceph or local-path
-    "06-install-harbor-dev": ["HARBOR_ENABLED"],
-    "07-preload-harbor-cache": ["HARBOR_ENABLED"],
-    "08-refresh-harbor-cache": ["HARBOR_ENABLED"],
     "09-provision-local-git-mirror": ["GIT_MIRROR_ENABLED"],
     "10-install-spegel-dev": ["SPEGEL_ENABLED"],
     "11-install-kargo-dev": ["KARGO_ENABLED"],

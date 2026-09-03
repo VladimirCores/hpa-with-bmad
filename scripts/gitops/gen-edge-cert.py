@@ -17,8 +17,7 @@ Modes (mutually exclusive, one required):
   --apply   generate the cert (if absent) and apply the Secret to the cluster
   --force   (with --apply) regenerate the cert even if existing files are invalid
 
-Forward-dependency: ``docs/static-tls-termination.md`` (the replacement for
-``docs/cert-manager-tls-termination.md``) is produced in Story 1.5.3. This
+Forward-dependency: ``docs/static-tls-termination.md`` is produced in Story 1.5.3. This
 script does not require that file.
 
 Note: the ``--offline`` flag is accepted for parity with the gitops installer

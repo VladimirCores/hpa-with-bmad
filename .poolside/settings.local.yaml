@@ -1,0 +1,10 @@
+tools:
+    shell:
+        allow:
+            - cd *
+            - ls *
+            - echo *
+            - git log *
+            - wc *
+            - git ls-tree f9dbd0c *
+            - head *

@@ -44,7 +44,7 @@ The `/couchdb` admin route on `admin.hpdc.local` is the **only** path that skips
 |------|-------|--------|
 | 1 | Kubernetes substrate: Talos 1.13.7, Cilium eBPF with kube-proxy replacement + L2 LB, Cilium mTLS (SPIFFE/SPIRE), local-path storage | done |
 | 2 | Offline GitOps delivery: Harbor registry (scan + sign), Spegel P2P image distribution, local Git mirror, Kargo Freight promotion, Argo CD ApplicationSet + sync waves, Argo Rollouts canary, Argo Events | done |
-| 3 | Secure gateway & access: Envoy Gateway edge routing, cert-manager TLS, API-key auth, Casdoor JWT, Casbin RBAC/ReBAC/ABAC, Infisical secrets, mTLS mesh, OpenAPI governance, Backstage + tool UI routes | done |
+| 3 | Secure gateway & access: Envoy Gateway edge routing (static TLS for dev), API-key auth, Casdoor JWT, Casbin RBAC/ReBAC/ABAC, Infisical secrets, mTLS mesh, OpenAPI governance, Backstage + tool UI routes | done |
 | 4 | Real-time telemetry: IoT device simulator, MQTT/HTTP/gRPC ingestion, Protobuf `CommonEnvelope` normalization, partitioned Pulsar topics, back-pressure, ClickHouse metrics + retention, KeyDB hot cache, Spin WASM events, E2E validation | done |
 | 5 | Alert detection & response: Kafka-directed alert streams, alert state machine persistence, automated responses, human alert handling with audit trail, basic LLM decision support | done |
 | 6 | Entity & device management: CouchDB/ArcadeDB/YugabyteDB triple-store, entity CRUD + bulk with RBAC + mutation audit, change feed with dedupe, Hasura GraphQL federation | done |
@@ -374,7 +374,7 @@ for the dev approach and its limitations.
 │   ├── cilium/        # Networking, L2 LB, mTLS mesh
 │   ├── envoy-gateway/ # Edge routing (Gateway, GatewayClass, HTTPRoutes)
 │   ├── harbor/ kargo/ argo-cd/ argo-rollouts/ argo-events/ spegel/   # Offline GitOps delivery
-│   ├── casdoor/ casbin/ infisical/ cert-manager/                     # Security & access
+│   ├── casdoor/ casbin/ infisical/                     # Security & access
 │   ├── telemetry-* / entity-store / alerts / agent-engine             # Workloads
 │   ├── victoria-metrics/ monitoring/ observability/                   # Observability
 │   └── clustermesh/ regional-sovereignty/ regional-hub/               # Multi-region

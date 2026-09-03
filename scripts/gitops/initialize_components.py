@@ -15,7 +15,6 @@ from pathlib import Path
 import component_versions
 
 component_versions.load_all_dotenv()
-CERT_MANAGER_VERSION = component_versions.get("HPDC_CERT_MANAGER_VERSION")
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,61 +42,6 @@ def wait_for_nodes_ready(timeout: int = 120) -> None:
         print(f"Waiting for nodes... ({len(statuses)} found)")
         time.sleep(5)
     raise RuntimeError(f"Timeout waiting for nodes to be Ready after {timeout}s")
-
-
-def install_cert_manager() -> None:
-    """Install cert-manager for TLS certificate management."""
-    print("\n--- Installing cert-manager ---")
-
-    # Add Jetstack Helm repo
-    print("Adding Jetstack Helm repository...")
-    run(["helm", "repo", "add", "jetstack", "https://charts.jetstack.io"])
-
-    # Apply cert-manager CRDs
-    print("Applying cert-manager CRDs...")
-    run(["kubectl", "apply", "-f", f"https://github.com/cert-manager/cert-manager/releases/download/v{CERT_MANAGER_VERSION}/cert-manager.crds.yaml"])
-
-    # Create namespace
-    print("Creating cert-manager namespace...")
-    run(["kubectl", "create", "namespace", "cert-manager"], check=False)
-
-    # Install cert-manager with Helm
-    print("Installing cert-manager...")
-    run([
-        "helm", "upgrade", "--install", "cert-manager", "jetstack/cert-manager",
-        "--namespace", "cert-manager",
-        "--version", "v1.16.3",
-        "--set", "global.leaderElection.namespace=cert-manager",
-        "--set", "webhook.timeoutSeconds=30",
-    ])
-
-    print("cert-manager installed successfully.")
-
-
-def install_harbor() -> None:
-    """Install Harbor registry."""
-    print("\n--- Installing Harbor registry ---")
-
-    # Create namespace
-    print("Creating harbor namespace...")
-    run(["kubectl", "create", "namespace", "harbor"], check=False)
-
-    # Install Harbor with Helm
-    print("Installing Harbor...")
-    run([
-        "helm", "upgrade", "--install", "harbor", "harbor/harbor",
-        "--namespace", "harbor",
-        "--set", "expose.type=clusterIP",
-        "--set", "expose.tls.auto.commonName=harbor.hpdc.local",
-        "--set", "persistence.enabled=false",
-        "--set", "externalURL=http://harbor-core.harbor.svc.cluster.local",
-        "--set", "internalTLS.enabled=false",
-        "--set", "core.tls.enabled=false",
-        "--set", "jobservice.tls.enabled=false",
-        "--set", "registry.tls.enabled=false",
-    ])
-
-    print("Harbor installed successfully.")
 
 
 def install_kargo() -> None:
@@ -195,8 +139,6 @@ def main() -> int:
 
     # Install core components
     components = [
-        ("cert-manager", install_cert_manager),
-        ("harbor", install_harbor),
         ("kargo", install_kargo),
         ("argocd", install_argocd),
         ("victoria-metrics", install_victoria_metrics),
